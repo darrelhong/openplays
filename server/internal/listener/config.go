@@ -7,17 +7,21 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+
+	"openplays/server/internal/listener/parser"
 )
 
-// Config holds Telegram API credentials
+// Config holds Telegram API credentials and LLM settings.
 type Config struct {
 	APIID                       int
 	APIHash                     string
 	Phone                       string
 	TargetTelegramGroupUsername string
+	TargetTelegramGroupTimezone string
+	LLM                         parser.LLMConfig
 }
 
-// Load reads environment variables
+// LoadConfig reads environment variables.
 func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
@@ -43,10 +47,29 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("TELEGRAM_GROUP_USERNAME is required")
 	}
 
+	targetTelegramGroupTimezone := os.Getenv("TELEGRAM_GROUP_TIMEZONE")
+	if targetTelegramGroupTimezone == "" {
+		targetTelegramGroupTimezone = "Asia/Singapore"
+	}
+
+	// LLM config with defaults
+	llmCfg := parser.DefaultLLMConfig()
+	if baseURL := os.Getenv("LLM_BASE_URL"); baseURL != "" {
+		llmCfg.BaseURL = baseURL
+	}
+	if model := os.Getenv("LLM_MODEL"); model != "" {
+		llmCfg.Model = model
+	}
+	if apiKey := os.Getenv("LLM_API_KEY"); apiKey != "" {
+		llmCfg.APIKey = apiKey
+	}
+
 	return &Config{
 		APIID:                       apiID,
 		APIHash:                     apiHash,
 		Phone:                       phone,
 		TargetTelegramGroupUsername: targetTelegramGroupUsername,
+		TargetTelegramGroupTimezone: targetTelegramGroupTimezone,
+		LLM:                         llmCfg,
 	}, nil
 }
