@@ -8,3 +8,32 @@ sql:
         package: "db"
         out: "internal/db"
         emit_pointers_for_null_types: true
+        overrides:
+          # Enum columns -> model types
+          - column: "plays.listing_type"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "ListingType"
+          - column: "plays.sport"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "Sport"
+          - column: "plays.game_type"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "GameType"
+              pointer: true
+          - column: "plays.gender_pref"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "GenderPref"
+              pointer: true
+          # JSON columns -> custom types with Scanner/Valuer
+          - column: "plays.contacts"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "Contacts"
+          - column: "plays.meta"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "Meta"

@@ -6,7 +6,40 @@ package db
 
 import (
 	"time"
+
+	"openplays/server/internal/model"
 )
+
+type Play struct {
+	ID                   int64
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	ListingType          model.ListingType
+	Sport                model.Sport
+	GameType             *model.GameType
+	HostName             string
+	StartsAt             time.Time
+	EndsAt               time.Time
+	Timezone             string
+	Venue                string
+	VenueNorm            string
+	LevelMin             *string
+	LevelMax             *string
+	LevelMinOrd          *int64
+	LevelMaxOrd          *int64
+	Fee                  *int64
+	Currency             string
+	MaxPlayers           *int64
+	SlotsLeft            *int64
+	Courts               *int64
+	Contacts             model.Contacts
+	GenderPref           *model.GenderPref
+	Meta                 model.Meta
+	Source               *string
+	SourceSenderUsername *string
+	SourceRawMessage     *string
+	SourceMessageTime    *time.Time
+}
 
 type RawMessage struct {
 	ID             int64
