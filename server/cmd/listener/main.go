@@ -2,15 +2,16 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"log"
 	"strings"
-	"sync"
 	"time"
 
+	"openplays/server/internal/db"
 	"openplays/server/internal/listener"
 	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/worker"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
@@ -28,10 +29,19 @@ func main() {
 		log.Fatal(err)
 	}
 
+	sqlDb, err := sql.Open("sqlite", cfg.DBURL)
+	if err != nil {
+		log.Fatalf("failed to open database: %v", err)
+	}
+	defer sqlDb.Close()
+
+	queries := db.New(sqlDb)
 	pipeline := parser.NewPipeline(cfg.LLM)
 
-	// Serialize LLM calls — local models can only handle one request at a time.
-	var llmMu sync.Mutex
+	worker := worker.New(queries, pipeline, cfg.TargetTelegramGroupTimezone)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go worker.Run(ctx)
 
 	client, err := gotgproto.NewClient(
 		cfg.APIID,
@@ -60,62 +70,24 @@ func main() {
 			return nil
 		}
 
-		// Extract sender info
 		var fromID int64
 		if peer, ok := msg.FromID.(*tg.PeerUser); ok {
 			fromID = peer.UserID
 		}
 
 		senderName := resolveSenderName(update, fromID)
+		msgTime := time.Unix(int64(msg.Date), 0).UTC()
 
-		msgTime := time.Unix(int64(msg.Date), 0).Local()
-		ts := msgTime.Format("2006-01-02 15:04:05")
-
-		// Print raw message
-		fmt.Printf("\n╔══════════════════════════════════════════\n")
-		fmt.Printf("║ [%s] Msg #%d | From: %s (%d)\n", ts, msg.ID, senderName, fromID)
-		fmt.Printf("╠══════════════════════════════════════════\n")
-		fmt.Printf("║ %s\n", msg.Message.Message)
-		fmt.Printf("╠══════════════════════════════════════════\n")
-
-		// Parse via LLM pipeline — serialized to avoid overwhelming the local model
-		input := parser.MessageInput{
-			Text:       msg.Message.Message,
-			SenderName: senderName,
-			Timestamp:  msgTime,
-			Timezone:   cfg.TargetTelegramGroupTimezone,
-		}
-
-		llmMu.Lock()
-		parseCtx, cancel := context.WithTimeout(context.Background(), cfg.LLM.Timeout)
-		candidates, err := pipeline.Parse(parseCtx, input)
-		cancel()
-		llmMu.Unlock()
-
+		result, err := listener.HandleMessage(ctx, queries, "telegram", senderName, msg.Message.Message, msgTime)
 		if err != nil {
-			fmt.Printf("║ ❌ Parse error: %v\n", err)
-			fmt.Printf("╚══════════════════════════════════════════\n")
+			log.Printf("failed to handle message: %v", err)
+			return nil
+		}
+		if result == listener.HandleSkipped {
 			return nil
 		}
 
-		if len(candidates) == 0 {
-			fmt.Printf("║ ⚪ No plays extracted\n")
-			fmt.Printf("╚══════════════════════════════════════════\n")
-			return nil
-		}
-
-		fmt.Printf("║ ✅ %d play(s) extracted:\n", len(candidates))
-
-		for i, c := range candidates {
-			play := parser.ToPlay(&c, input)
-
-			playJSON, _ := json.MarshalIndent(play, "║   ", "  ")
-			fmt.Printf("║\n")
-			fmt.Printf("║ 🏸 Play %d/%d:\n", i+1, len(candidates))
-			fmt.Printf("║   %s\n", string(playJSON))
-		}
-
-		fmt.Printf("╚══════════════════════════════════════════\n")
+		worker.Notify()
 
 		return nil
 	}
@@ -123,7 +95,9 @@ func main() {
 	client.Dispatcher.AddHandler(handlers.NewMessage(filters.Message.Text,
 		handleMessage))
 
-	fmt.Println("Listening for messages... (LLM:", cfg.LLM.BaseURL, "model:", cfg.LLM.Model, ")")
+	fmt.Println("Listening for messages...")
+	fmt.Printf("LLM: %s (model: %s)\n", cfg.LLM.BaseURL, cfg.LLM.Model)
+	fmt.Printf("Group: %s (%s)\n", cfg.TargetTelegramGroupUsername, cfg.TargetTelegramGroupTimezone)
 	client.Idle()
 }
 

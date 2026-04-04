@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"openplays/server/internal/db"
 	"openplays/server/internal/model"
 )
 
@@ -13,6 +14,7 @@ type MessageInput struct {
 	SenderName string    // username or display name of sender
 	Timestamp  time.Time // when the message was sent
 	Timezone   string    // IANA timezone of the source, e.g. "Asia/Singapore"
+	Source     string    // source of the message, e.g. "telegram"
 }
 
 // Pipeline orchestrates message splitting and LLM-based extraction.
@@ -40,10 +42,10 @@ func (p *Pipeline) Parse(ctx context.Context, input MessageInput) ([]model.Parse
 	return candidates, nil
 }
 
-// ToPlay converts a ParsedPlayCandidate into a canonical Play record.
+// ToPlay converts a ParsedPlayCandidate into a db.Play record.
 // Times are converted from the candidate's local date/time strings to UTC
 // using the timezone from MessageInput.
-func ToPlay(c *model.ParsedPlayCandidate, input MessageInput) model.Play {
+func ToPlay(c *model.ParsedPlayCandidate, input MessageInput) db.Play {
 	currency := "SGD"
 	if c.Currency != nil {
 		currency = *c.Currency
@@ -64,32 +66,90 @@ func ToPlay(c *model.ParsedPlayCandidate, input MessageInput) model.Play {
 		tz = "Asia/Singapore"
 	}
 
-	play := model.Play{
+	source := input.Source
+
+	play := db.Play{
 		ListingType:          listingType,
 		Sport:                model.SportBadminton,
 		GameType:             toGameType(c.GameType),
 		HostName:             hostName,
-		StartsAt:             model.ToUTC(c.Date, c.StartTime, tz),
-		EndsAt:               model.ToUTC(c.Date, c.EndTime, tz),
+		StartsAt:             derefTimeOrZero(model.ToUTC(c.Date, c.StartTime, tz)),
+		EndsAt:               derefTimeOrZero(model.ToUTC(c.Date, c.EndTime, tz)),
 		Timezone:             tz,
-		Venue:                c.Venue,
+		Venue:                derefStringOrEmpty(c.Venue),
 		LevelMin:             c.LevelMin,
 		LevelMax:             c.LevelMax,
-		Fee:                  c.FeeCents,
+		LevelMinOrd:          intToInt64(levelToOrd(c.LevelMin)),
+		LevelMaxOrd:          intToInt64(levelToOrd(c.LevelMax)),
+		Fee:                  intToInt64(c.FeeCents),
 		Currency:             currency,
-		MaxPlayers:           c.MaxPlayers,
-		SlotsLeft:            c.SlotsLeft,
-		Courts:               c.Courts,
-		Contacts:             c.Contacts,
+		MaxPlayers:           intToInt64(c.MaxPlayers),
+		SlotsLeft:            intToInt64(c.SlotsLeft),
+		Courts:               intToInt64(c.Courts),
+		Contacts:             model.Contacts(c.Contacts),
 		GenderPref:           toGenderPref(c.GenderPref),
 		Meta:                 buildMeta(c),
-		Source:               "telegram",
-		SourceSenderUsername: input.SenderName,
-		SourceRawMessage:     input.Text,
-		SourceMessageTime:    input.Timestamp,
+		Source:               &source,
+		SourceSenderUsername: &input.SenderName,
+		SourceRawMessage:     &input.Text,
+		SourceMessageTime:    &input.Timestamp,
 	}
 
 	return play
+}
+
+// ToInsertPlayParams converts a ParsedPlayCandidate directly into db.InsertPlayParams
+// for database insertion. This avoids going through db.Play which has different
+// nullability for some fields.
+func ToInsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.InsertPlayParams {
+	currency := "SGD"
+	if c.Currency != nil {
+		currency = *c.Currency
+	}
+
+	hostName := input.SenderName
+	if c.HostName != nil && *c.HostName != "" {
+		hostName = *c.HostName
+	}
+
+	listingType := model.ListingPlay
+	if c.ListingType != nil && *c.ListingType == string(model.ListingSellBooking) {
+		listingType = model.ListingSellBooking
+	}
+
+	tz := input.Timezone
+	if tz == "" {
+		tz = "Asia/Singapore"
+	}
+
+	source := input.Source
+
+	return db.InsertPlayParams{
+		ListingType:          listingType,
+		Sport:                model.SportBadminton,
+		GameType:             toGameType(c.GameType),
+		HostName:             hostName,
+		StartsAt:             derefTimeOrZero(model.ToUTC(c.Date, c.StartTime, tz)),
+		EndsAt:               derefTimeOrZero(model.ToUTC(c.Date, c.EndTime, tz)),
+		Timezone:             tz,
+		Venue:                derefStringOrEmpty(c.Venue),
+		LevelMin:             c.LevelMin,
+		LevelMax:             c.LevelMax,
+		LevelMinOrd:          intToInt64(levelToOrd(c.LevelMin)),
+		LevelMaxOrd:          intToInt64(levelToOrd(c.LevelMax)),
+		Fee:                  intToInt64(c.FeeCents),
+		Currency:             currency,
+		MaxPlayers:           intToInt64(c.MaxPlayers),
+		SlotsLeft:            intToInt64(c.SlotsLeft),
+		Courts:               intToInt64(c.Courts),
+		Contacts:             model.Contacts(c.Contacts),
+		GenderPref:           toGenderPref(c.GenderPref),
+		Meta:                 buildMeta(c),
+		Source:               &source,
+		SourceSenderUsername: &input.SenderName,
+		SourceRawMessage:     &input.Text,
+		SourceMessageTime:    &input.Timestamp,
+	}
 }
 
 func toGenderPref(s *string) *model.GenderPref {
@@ -116,8 +176,16 @@ func toGameType(s *string) *model.GameType {
 	return nil
 }
 
-func buildMeta(c *model.ParsedPlayCandidate) map[string]any {
-	meta := make(map[string]any)
+// levelToOrd converts a level code string to its numeric ordinal.
+func levelToOrd(code *string) *int {
+	if code == nil {
+		return nil
+	}
+	return model.LevelOrd(model.SportBadminton, *code)
+}
+
+func buildMeta(c *model.ParsedPlayCandidate) model.Meta {
+	meta := make(model.Meta)
 	if c.Shuttle != nil {
 		meta["shuttle"] = *c.Shuttle
 	}
@@ -149,4 +217,28 @@ func buildMeta(c *model.ParsedPlayCandidate) map[string]any {
 		return nil
 	}
 	return meta
+}
+
+// --- type conversion helpers ---
+
+func intToInt64(v *int) *int64 {
+	if v == nil {
+		return nil
+	}
+	i := int64(*v)
+	return &i
+}
+
+func derefTimeOrZero(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
+}
+
+func derefStringOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
