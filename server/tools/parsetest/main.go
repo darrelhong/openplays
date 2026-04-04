@@ -9,21 +9,29 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"openplays/server/internal/listener/parser"
 )
 
 // Quick test tool: pipe a message in, see parsed plays out.
 //
 // Usage:
-//   echo "Looking for HB players..." | go run ./cmd/parsetest/
-//   go run ./cmd/parsetest/ <<< "Date: 3 Apr..."
+//   echo "Looking for HB players..." | go run ./tools/parsetest/
+//   SENDER_NAME="Daniel" go run ./tools/parsetest/ < example_messages.txt
 //
 // Env vars:
 //   LLM_BASE_URL  (default: http://localhost:1234/v1)
 //   LLM_MODEL     (default: empty — uses whatever LM Studio has loaded)
 //   LLM_API_KEY   (default: empty — for cloud providers)
+//   SENDER_NAME   (default: test_user)
+//   TIMEZONE      (default: Asia/Singapore)
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
+
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		log.Fatalf("failed to read stdin: %v", err)
@@ -31,7 +39,7 @@ func main() {
 
 	text := string(input)
 	if text == "" {
-		fmt.Println("Usage: echo 'message text' | go run ./cmd/parsetest/")
+		fmt.Println("Usage: echo 'message text' | go run ./tools/parsetest/")
 		os.Exit(1)
 	}
 
@@ -46,42 +54,9 @@ func main() {
 		Timeout: 500 * time.Second,
 	}
 
-	// Step 1: Split
-	fmt.Println("=== SPLIT ===")
-	splits := parser.SplitMessage(text)
-	fmt.Printf("%d block(s) found\n\n", len(splits))
-
-	refDate := time.Now().Format("2006-01-02")
 	senderName := envOr("SENDER_NAME", "test_user")
+	tz := envOr("TIMEZONE", "Asia/Singapore")
 
-	for i, s := range splits {
-		fmt.Printf("--- Block %d/%d ---\n%s\n", i+1, len(splits), s.Block)
-		if s.Shared != nil {
-			fmt.Printf("  [shared context:")
-			if s.Shared.Shuttle != nil {
-				fmt.Printf(" shuttle=%q", *s.Shared.Shuttle)
-			}
-			if s.Shared.Fee != nil {
-				fmt.Printf(" fee=%q", *s.Shared.Fee)
-			}
-			if s.Shared.LevelRaw != nil {
-				fmt.Printf(" level=%q", *s.Shared.LevelRaw)
-			}
-			if s.Shared.MaxPax != nil {
-				fmt.Printf(" max=%q", *s.Shared.MaxPax)
-			}
-			fmt.Println("]")
-		}
-		fmt.Println()
-	}
-
-	// Step 2: Print user prompts (copy-pasteable into LM Studio)
-	for i, s := range splits {
-		fmt.Printf("=== USER PROMPT (block %d/%d) ===\n", i+1, len(splits))
-		fmt.Printf("Sender name: %s\nReference date (today): %s\n\nText block:\n%s\n\n", senderName, refDate, s.Block)
-	}
-
-	// Step 3: LLM extraction
 	fmt.Println("=== LLM EXTRACT ===")
 	fmt.Printf("endpoint: %s\n", cfg.BaseURL)
 	if cfg.Model != "" {
@@ -89,10 +64,10 @@ func main() {
 	} else {
 		fmt.Println("model:    (default/loaded)")
 	}
+	fmt.Printf("sender:   %s\n", senderName)
 	fmt.Println()
 
 	pipeline := parser.NewPipeline(cfg)
-	tz := envOr("TIMEZONE", "Asia/Singapore")
 	msgInput := parser.MessageInput{
 		Text:       text,
 		SenderName: senderName,
@@ -121,9 +96,8 @@ func main() {
 	fmt.Printf("%d play(s) extracted:\n\n", len(candidates))
 
 	for i, c := range candidates {
-		play := parser.ToPlay(&c, msgInput)
-		playJSON, _ := json.MarshalIndent(play, "", "  ")
-		fmt.Printf("Play %d/%d:\n%s\n\n", i+1, len(candidates), string(playJSON))
+		cJSON, _ := json.MarshalIndent(c, "", "  ")
+		fmt.Printf("Candidate %d/%d:\n%s\n\n", i+1, len(candidates), string(cJSON))
 	}
 }
 
