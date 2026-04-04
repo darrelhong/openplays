@@ -1,4 +1,4 @@
-package worker
+package listener
 
 import (
 	"context"
@@ -28,8 +28,8 @@ type Worker struct {
 	timezone string
 }
 
-// New creates a new worker.
-func New(queries *db.Queries, pipeline *parser.Pipeline, timezone string) *Worker {
+// NewWorker creates a new worker.
+func NewWorker(queries *db.Queries, pipeline *parser.Pipeline, timezone string) *Worker {
 	return &Worker{
 		queries:  queries,
 		pipeline: pipeline,

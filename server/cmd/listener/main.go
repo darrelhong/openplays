@@ -11,7 +11,6 @@ import (
 	"openplays/server/internal/db"
 	"openplays/server/internal/listener"
 	"openplays/server/internal/listener/parser"
-	"openplays/server/internal/worker"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
@@ -38,7 +37,7 @@ func main() {
 	queries := db.New(sqlDb)
 	pipeline := parser.NewPipeline(cfg.LLM)
 
-	worker := worker.New(queries, pipeline, cfg.TargetTelegramGroupTimezone)
+	worker := listener.NewWorker(queries, pipeline, cfg.TargetTelegramGroupTimezone)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go worker.Run(ctx)
