@@ -7,8 +7,14 @@ RETURNING *;
 SELECT *
 FROM raw_messages
 WHERE status = 'pending'
-   OR (status = 'failed' AND next_retry_at <= CURRENT_TIMESTAMP)
 ORDER BY created_at ASC
+LIMIT 1;
+
+-- name: GetRetryJob :one
+SELECT *
+FROM raw_messages
+WHERE status = 'failed' AND next_retry_at <= CURRENT_TIMESTAMP
+ORDER BY next_retry_at ASC
 LIMIT 1;
 
 -- name: MarkProcessing :exec

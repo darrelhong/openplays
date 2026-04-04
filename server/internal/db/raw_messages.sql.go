@@ -14,7 +14,6 @@ const getPendingJob = `-- name: GetPendingJob :one
 SELECT id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response
 FROM raw_messages
 WHERE status = 'pending'
-   OR (status = 'failed' AND next_retry_at <= CURRENT_TIMESTAMP)
 ORDER BY created_at ASC
 LIMIT 1
 `
@@ -73,6 +72,35 @@ func (q *Queries) GetRecentMessageTexts(ctx context.Context, createdAt time.Time
 		return nil, err
 	}
 	return items, nil
+}
+
+const getRetryJob = `-- name: GetRetryJob :one
+SELECT id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response
+FROM raw_messages
+WHERE status = 'failed' AND next_retry_at <= CURRENT_TIMESTAMP
+ORDER BY next_retry_at ASC
+LIMIT 1
+`
+
+func (q *Queries) GetRetryJob(ctx context.Context) (RawMessage, error) {
+	row := q.db.QueryRowContext(ctx, getRetryJob)
+	var i RawMessage
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Source,
+		&i.SenderUsername,
+		&i.MessageText,
+		&i.MessageTime,
+		&i.ContentHash,
+		&i.Status,
+		&i.RetryCount,
+		&i.NextRetryAt,
+		&i.LastError,
+		&i.LlmResponse,
+	)
+	return i, err
 }
 
 const insertRawMessage = `-- name: InsertRawMessage :one
