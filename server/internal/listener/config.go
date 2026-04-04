@@ -69,6 +69,11 @@ func LoadConfig() (*Config, error) {
 	if apiKey := os.Getenv("LLM_API_KEY"); apiKey != "" {
 		llmCfg.APIKey = apiKey
 	}
+	if rl := os.Getenv("LLM_MAX_REQ_PER_MIN"); rl != "" {
+		if v, err := strconv.Atoi(rl); err == nil && v > 0 {
+			llmCfg.RateLimit = v
+		}
+	}
 
 	return &Config{
 		APIID:                       apiID,

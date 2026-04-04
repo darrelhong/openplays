@@ -11,38 +11,51 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"openplays/server/internal/model"
 )
 
 // LLMConfig holds configuration for the LLM endpoint.
 // Works with LM Studio, OpenAI, Together, or any OpenAI-compatible API.
 type LLMConfig struct {
-	BaseURL string        // e.g. "http://localhost:1234/v1" or "https://api.openai.com/v1"
-	Model   string        // model name, e.g. "qwen3-8b", "gpt-4o-mini"
-	APIKey  string        // optional — required for cloud providers, empty for local
-	Timeout time.Duration // per-request timeout
+	BaseURL   string        // e.g. "http://localhost:1234/v1" or "https://api.openai.com/v1"
+	Model     string        // model name, e.g. "qwen3-8b", "gpt-4o-mini"
+	APIKey    string        // optional — required for cloud providers, empty for local
+	Timeout   time.Duration // per-request timeout
+	RateLimit int           // max requests per minute (0 = unlimited)
 }
 
 // DefaultLLMConfig returns config for a local LM Studio instance.
 func DefaultLLMConfig() LLMConfig {
 	return LLMConfig{
-		BaseURL: "http://localhost:1234/v1",
-		Model:   "",
-		Timeout: 500 * time.Second,
+		BaseURL:   "http://localhost:1234/v1",
+		Model:     "",
+		Timeout:   500 * time.Second,
+		RateLimit: 0,
 	}
 }
 
 // LLMExtractor extracts structured play data from text blocks using a local LLM.
 type LLMExtractor struct {
-	config LLMConfig
-	client *http.Client
+	config  LLMConfig
+	client  *http.Client
+	limiter *rate.Limiter
 }
 
 // NewLLMExtractor creates a new extractor with the given config.
 func NewLLMExtractor(cfg LLMConfig) *LLMExtractor {
+	var limiter *rate.Limiter
+	if cfg.RateLimit > 0 {
+		interval := time.Minute / time.Duration(cfg.RateLimit)
+		limiter = rate.NewLimiter(rate.Every(interval), 1)
+		log.Printf("LLM rate limiter: %d req/min (1 every %s)", cfg.RateLimit, interval)
+	}
+
 	return &LLMExtractor{
-		config: cfg,
-		client: &http.Client{Timeout: 500 * time.Second},
+		config:  cfg,
+		client:  &http.Client{Timeout: cfg.Timeout},
+		limiter: limiter,
 	}
 }
 
@@ -142,6 +155,12 @@ type chatResponse struct {
 // ParsedPlayCandidates. A single block may contain multiple plays (e.g.
 // different time slots, different levels at the same time/venue, etc.).
 func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate string, senderName string) ([]model.ParsedPlayCandidate, error) {
+	if e.limiter != nil {
+		if err := e.limiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiter: %w", err)
+		}
+	}
+
 	userPrompt := fmt.Sprintf("Sender name: %s\nReference date (today): %s\n\nText block:\n%s", senderName, referenceDate, block)
 
 	log.Printf("LLM user prompt:\n%s\n", userPrompt)
