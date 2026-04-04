@@ -11,13 +11,14 @@ import (
 	"openplays/server/internal/listener/parser"
 )
 
-// Config holds Telegram API credentials and LLM settings.
+// Config holds Telegram API credentials, DB, and LLM settings.
 type Config struct {
 	APIID                       int
 	APIHash                     string
 	Phone                       string
 	TargetTelegramGroupUsername string
 	TargetTelegramGroupTimezone string
+	DBURL                       string
 	LLM                         parser.LLMConfig
 }
 
@@ -52,6 +53,11 @@ func LoadConfig() (*Config, error) {
 		targetTelegramGroupTimezone = "Asia/Singapore"
 	}
 
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		dbURL = "openplays.db"
+	}
+
 	// LLM config with defaults
 	llmCfg := parser.DefaultLLMConfig()
 	if baseURL := os.Getenv("LLM_BASE_URL"); baseURL != "" {
@@ -70,6 +76,7 @@ func LoadConfig() (*Config, error) {
 		Phone:                       phone,
 		TargetTelegramGroupUsername: targetTelegramGroupUsername,
 		TargetTelegramGroupTimezone: targetTelegramGroupTimezone,
+		DBURL:                       dbURL,
 		LLM:                         llmCfg,
 	}, nil
 }
