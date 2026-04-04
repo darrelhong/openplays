@@ -69,8 +69,8 @@ Field rules:
 - game_type: "doubles", "singles", or "mixed_doubles". Infer from text: "doubles game", "mixed doubles", "singles". Default "doubles" for badminton if not specified. Null if truly unclear.
 - date: "YYYY-MM-DD". If year missing, assume 2026. Resolve "today"/"tomorrow" relative to the reference date.
 - start_time, end_time: "HH:MM" 24-hour. "4pm"->"16:00", "8-10pm"->start="20:00" end="22:00", "0730pm"->"19:30", "730"(in pm context)->"19:30".
-- venue: exact text as written.
-- level_min, level_max: standard badminton codes: LB, MB, HB, LI, HI, LA, A. "High Beginner"->"HB", "Low Intermediate & above"->level_min="LI" level_max=null, "Mid-high beginners"->level_min="MB" level_max="HB", "High Beginners-LI"->level_min="HB" level_max="LI". If single level, set both min and max equal. "X & above" means level_max=null. Null for sell_booking listings. If different levels per gender (e.g. "🚺MB-HB 🚹HB-LI"), use the broadest range for level_min/level_max and put the gendered breakdown in level_male_min/level_male_max/level_female_min/level_female_max.
+- venue: the venue NAME only, without parenthetical details. "Hougang Sec (Rubber floor)" -> "Hougang Sec". "SBH Expo (Air Con)" -> "SBH Expo". "Farrer Park (Rubber flooring)" -> "Farrer Park". Strip descriptions like floor type, nearby MRT, area info from the venue name.
+- level_min, level_max: standard badminton codes: LB, MB, HB, LI, MI, HI, A. "High Beginner"->"HB", "Low Intermediate & above"->level_min="LI" level_max=null, "Mid-high beginners"->level_min="MB" level_max="HB", "High Beginners-LI"->level_min="HB" level_max="LI". If single level, set both min and max equal. "X & above" means level_max=null. Null for sell_booking listings. If different levels per gender (e.g. "🚺MB-HB 🚹HB-LI"), use the broadest range for level_min/level_max and put the gendered breakdown in level_male_min/level_male_max/level_female_min/level_female_max.
 - level_raw: original level text as written.
 - fee_cents: dollar to cents. "$10"->1000, "$9.50"->950. CJK "九"->900. For sell_booking, this is the total facility cost, not per person.
 - fee_male_cents, fee_female_cents: for gendered pricing "👨 $12, 👩 $11".
@@ -82,7 +82,7 @@ Field rules:
 - shuttle: brand/model e.g. "RSL Supreme". Strip "New" prefix.
 - air_con: true if mentioned, null otherwise.
 - contacts: [{type, value}]. Types: "whatsapp", "phone", "telegram_pm". Username or digits only for phone numbers.
-- details: any other notable details as a short string. E.g. "Rubber flooring", "Parquet flooring", "Free parking", "Shower facilities". Null if nothing notable.
+- details: venue details and other notable info as a short string. Include floor type, air-con, parking, facilities etc. that were stripped from the venue name. E.g. "Rubber floor", "Air Con", "Parquet flooring, Free parking", "Shower facilities". Null if nothing notable.
 
 Output ONLY a JSON array of objects. No explanation, no markdown fences. Even for a single listing, wrap it in an array.
 
