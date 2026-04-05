@@ -22,6 +22,12 @@ Fill in `.env`:
 
 Connects to Telegram and parses incoming messages in real-time.
 
+### Deduplication
+
+Before a message is queued for LLM parsing, it is checked against the last 24 hours of messages using trigram Jaccard similarity. Messages with >= 85% similarity to an existing message are skipped and never inserted into `raw_messages`. This catches reposts with minor edits (e.g. slot count changes, emoji tweaks) without blocking genuinely distinct listings.
+
+Text is normalized before comparison: lowercased, emoji stripped, formatting characters removed, whitespace collapsed. A SHA-256 hash of the normalized text is also stored for potential exact-match lookups. If the dedup query fails, the message is still inserted (fail-open — better a duplicate than a lost message).
+
 ```bash
 go run ./cmd/listener/
 ```
@@ -33,6 +39,17 @@ go run ./cmd/listener/ 2>&1 | tee -a listener_output.log
 ```
 
 On first run, Telegram will prompt for a verification code.
+
+### Worker
+
+The listener runs a background worker that processes messages asynchronously:
+
+1. **New messages** are inserted into `raw_messages` with status `pending` and processed immediately via `Notify()`.
+2. **Failed jobs** (e.g. LLM rate limits, timeouts) are retried with exponential backoff (30s, 1m, 2m, 5m, 15m cap). A ticker checks for due retries every 5 minutes.
+3. **Pending and retry queues are separate** — new messages are never blocked by retries, and retries happen on schedule even if no new messages arrive.
+4. On startup, both queues are drained before entering the main loop.
+
+Rate limiting is configured via `LLM_MAX_REQ_PER_MIN` in `.env`. The limiter lives in the LLM extractor, so all callers (worker, parsetest) are throttled.
 
 ## Test parsing
 
