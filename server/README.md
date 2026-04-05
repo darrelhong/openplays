@@ -51,6 +51,8 @@ The listener runs a background worker that processes messages asynchronously:
 
 Rate limiting is configured via `LLM_MAX_REQ_PER_MIN` in `.env`. The limiter lives in the LLM extractor, so all callers (worker, parsetest) are throttled.
 
+Parsed plays are upserted on `(host_name, starts_at, venue)` — if the same host reposts a session with updated info (e.g. fewer slots, price change), the existing play is updated rather than duplicated.
+
 ## Test parsing
 
 Pipe a message through the LLM pipeline without needing Telegram. Useful for testing different LLM providers or prompt changes.

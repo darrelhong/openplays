@@ -98,10 +98,10 @@ func ToPlay(c *model.ParsedPlayCandidate, input MessageInput) db.Play {
 	return play
 }
 
-// ToInsertPlayParams converts a ParsedPlayCandidate directly into db.InsertPlayParams
+// ToUpsertPlayParams converts a ParsedPlayCandidate directly into db.UpsertPlayParams
 // for database insertion. This avoids going through db.Play which has different
 // nullability for some fields.
-func ToInsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.InsertPlayParams {
+func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.UpsertPlayParams {
 	currency := "SGD"
 	if c.Currency != nil {
 		currency = *c.Currency
@@ -124,7 +124,7 @@ func ToInsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.Ins
 
 	source := input.Source
 
-	return db.InsertPlayParams{
+	return db.UpsertPlayParams{
 		ListingType:          listingType,
 		Sport:                model.SportBadminton,
 		GameType:             toGameType(c.GameType),

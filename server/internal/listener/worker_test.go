@@ -28,13 +28,13 @@ type SpyWorkerStore struct {
 	ProcessingIDs []int64
 	DoneParams    []db.MarkDoneParams
 	FailedParams  []db.MarkFailedParams
-	InsertedPlays []db.InsertPlayParams
+	UpsertedPlays []db.UpsertPlayParams
 
 	// Error injection
 	MarkProcessingErr error
 	MarkDoneErr       error
 	MarkFailedErr     error
-	InsertPlayErr     error
+	UpsertPlayErr     error
 }
 
 func (s *SpyWorkerStore) GetPendingJob(ctx context.Context) (db.RawMessage, error) {
@@ -75,10 +75,10 @@ func (s *SpyWorkerStore) MarkFailed(ctx context.Context, arg db.MarkFailedParams
 	return s.MarkFailedErr
 }
 
-func (s *SpyWorkerStore) InsertPlay(ctx context.Context, arg db.InsertPlayParams) (db.Play, error) {
-	s.Calls = append(s.Calls, "InsertPlay")
-	s.InsertedPlays = append(s.InsertedPlays, arg)
-	return db.Play{}, s.InsertPlayErr
+func (s *SpyWorkerStore) UpsertPlay(ctx context.Context, arg db.UpsertPlayParams) (db.Play, error) {
+	s.Calls = append(s.Calls, "UpsertPlay")
+	s.UpsertedPlays = append(s.UpsertedPlays, arg)
+	return db.Play{}, s.UpsertPlayErr
 }
 
 // SpyParser records calls and returns pre-configured results/errors.
@@ -136,7 +136,7 @@ func TestProcessPending_HappyPath(t *testing.T) {
 		"GetPendingJob",
 		"MarkProcessing",
 		"MarkDone",
-		"InsertPlay",
+		"UpsertPlay",
 		"GetPendingJob", // second call returns ErrNoRows, loop exits
 	})
 	assertWorkerCalls(t, p.Calls, []string{"Parse"})
@@ -178,7 +178,7 @@ func TestProcessRetries_PicksUpFailedJobs(t *testing.T) {
 		"GetRetryJob",
 		"MarkProcessing",
 		"MarkDone",
-		"InsertPlay",
+		"UpsertPlay",
 		"GetRetryJob", // second call returns ErrNoRows, loop exits
 	})
 	assertWorkerCalls(t, p.Calls, []string{"Parse"})
@@ -283,11 +283,11 @@ func TestProcessJob_MultipleCandidates_InsertsAll(t *testing.T) {
 	assertWorkerCalls(t, store.Calls, []string{
 		"MarkProcessing",
 		"MarkDone",
-		"InsertPlay",
-		"InsertPlay",
+		"UpsertPlay",
+		"UpsertPlay",
 	})
-	if len(store.InsertedPlays) != 2 {
-		t.Errorf("expected 2 InsertPlay calls, got %d", len(store.InsertedPlays))
+	if len(store.UpsertedPlays) != 2 {
+		t.Errorf("expected 2 UpsertPlay calls, got %d", len(store.UpsertedPlays))
 	}
 }
 
@@ -300,8 +300,8 @@ func TestProcessJob_ZeroCandidates_StillMarksDone(t *testing.T) {
 	w.processJob(context.Background(), job)
 
 	assertWorkerCalls(t, store.Calls, []string{"MarkProcessing", "MarkDone"})
-	if len(store.InsertedPlays) != 0 {
-		t.Errorf("expected 0 InsertPlay calls, got %d", len(store.InsertedPlays))
+	if len(store.UpsertedPlays) != 0 {
+		t.Errorf("expected 0 UpsertPlay calls, got %d", len(store.UpsertedPlays))
 	}
 }
 

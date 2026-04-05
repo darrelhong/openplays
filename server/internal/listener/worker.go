@@ -32,7 +32,7 @@ type WorkerStore interface {
 	MarkProcessing(ctx context.Context, id int64) error
 	MarkDone(ctx context.Context, arg db.MarkDoneParams) error
 	MarkFailed(ctx context.Context, arg db.MarkFailedParams) error
-	InsertPlay(ctx context.Context, arg db.InsertPlayParams) (db.Play, error)
+	UpsertPlay(ctx context.Context, arg db.UpsertPlayParams) (db.Play, error)
 }
 
 // Parser is the subset of parser.Pipeline that the Worker needs.
@@ -171,8 +171,8 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 
 	// Convert candidates to plays and insert
 	for i, c := range candidates {
-		params := parser.ToInsertPlayParams(&c, input)
-		_, err := w.store.InsertPlay(ctx, params)
+		params := parser.ToUpsertPlayParams(&c, input)
+		_, err := w.store.UpsertPlay(ctx, params)
 		if err != nil {
 			log.Printf("worker: error inserting play %d/%d for message #%d: %v",
 				i+1, len(candidates), job.ID, err)
