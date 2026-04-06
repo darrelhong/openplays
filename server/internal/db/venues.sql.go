@@ -31,22 +31,6 @@ func (q *Queries) GetVenueByAlias(ctx context.Context, alias string) (Venue, err
 	return i, err
 }
 
-const insertAlias = `-- name: InsertAlias :exec
-INSERT INTO venue_aliases (alias, venue_postal_code)
-VALUES (?, ?)
-ON CONFLICT(alias) DO NOTHING
-`
-
-type InsertAliasParams struct {
-	Alias           string
-	VenuePostalCode string
-}
-
-func (q *Queries) InsertAlias(ctx context.Context, arg InsertAliasParams) error {
-	_, err := q.db.ExecContext(ctx, insertAlias, arg.Alias, arg.VenuePostalCode)
-	return err
-}
-
 const listAliases = `-- name: ListAliases :many
 SELECT va.alias, va.venue_postal_code, v.name AS venue_name
 FROM venue_aliases va
@@ -162,4 +146,21 @@ func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue
 		&i.SearchTerm,
 	)
 	return i, err
+}
+
+const upsertVenueAlias = `-- name: UpsertVenueAlias :exec
+INSERT INTO venue_aliases (alias, venue_postal_code)
+VALUES (?, ?)
+ON CONFLICT(alias) DO UPDATE SET
+    venue_postal_code = excluded.venue_postal_code
+`
+
+type UpsertVenueAliasParams struct {
+	Alias           string
+	VenuePostalCode string
+}
+
+func (q *Queries) UpsertVenueAlias(ctx context.Context, arg UpsertVenueAliasParams) error {
+	_, err := q.db.ExecContext(ctx, upsertVenueAlias, arg.Alias, arg.VenuePostalCode)
+	return err
 }

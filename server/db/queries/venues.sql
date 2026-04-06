@@ -15,10 +15,11 @@ FROM venues v
 JOIN venue_aliases va ON va.venue_postal_code = v.postal_code
 WHERE va.alias = ?;
 
--- name: InsertAlias :exec
+-- name: UpsertVenueAlias :exec
 INSERT INTO venue_aliases (alias, venue_postal_code)
 VALUES (?, ?)
-ON CONFLICT(alias) DO NOTHING;
+ON CONFLICT(alias) DO UPDATE SET
+    venue_postal_code = excluded.venue_postal_code;
 
 -- name: ListVenues :many
 SELECT * FROM venues

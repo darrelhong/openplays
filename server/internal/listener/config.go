@@ -8,11 +8,12 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"openplays/server/internal/google"
 	"openplays/server/internal/listener/parser"
 	"openplays/server/internal/onemap"
 )
 
-// Config holds Telegram API credentials, DB, LLM, and OneMap settings.
+// Config holds Telegram API credentials, DB, LLM, and geocoding settings.
 type Config struct {
 	APIID                       int
 	APIHash                     string
@@ -22,6 +23,7 @@ type Config struct {
 	DBURL                       string
 	LLM                         parser.LLMConfig
 	OneMap                      onemap.Config
+	Google                      google.Config
 }
 
 // LoadConfig reads environment variables.
@@ -83,6 +85,9 @@ func LoadConfig() (*Config, error) {
 		Email:    oneMapEmail,
 		Password: oneMapPassword,
 	}
+	googleCfg := google.Config{
+		APIKey: os.Getenv("GOOGLE_PLACES_API_KEY"),
+	}
 
 	return &Config{
 		APIID:                       apiID,
@@ -93,5 +98,6 @@ func LoadConfig() (*Config, error) {
 		DBURL:                       dbURL,
 		LLM:                         llmCfg,
 		OneMap:                      oneMapCfg,
+		Google:                      googleCfg,
 	}, nil
 }

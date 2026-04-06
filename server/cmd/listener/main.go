@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"openplays/server/internal/db"
+	"openplays/server/internal/geo"
+	"openplays/server/internal/google"
 	"openplays/server/internal/listener"
 	"openplays/server/internal/listener/parser"
-	"openplays/server/internal/onemap"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
@@ -38,13 +39,24 @@ func main() {
 	queries := db.New(sqlDb)
 	pipeline := parser.NewPipeline(cfg.LLM)
 
-	// OneMap geocoder is optional — nil if no credentials configured.
-	var geocoder *onemap.Client
-	if cfg.OneMap.Email != "" && cfg.OneMap.Password != "" {
-		geocoder = onemap.NewClient(cfg.OneMap)
-		log.Println("OneMap venue resolution enabled")
-	} else {
-		log.Println("OneMap credentials not set, venue resolution disabled")
+	// --- Geocoder: uncomment ONE provider or leave both commented to disable ---
+
+	var geocoder geo.Coder
+
+	// Option A: Google Places (5,000 free requests/month, requires API key)
+	if cfg.Google.APIKey != "" {
+		geocoder = google.NewClient(cfg.Google)
+		log.Println("Geocoder: Google Places enabled")
+	}
+
+	// Option B: OneMap (Singapore government API, free, requires email/password)
+	// if cfg.OneMap.Email != "" && cfg.OneMap.Password != "" {
+	// 	geocoder = onemap.NewClient(cfg.OneMap)
+	// 	log.Println("Geocoder: OneMap enabled")
+	// }
+
+	if geocoder == nil {
+		log.Println("Geocoder: disabled (no credentials configured)")
 	}
 
 	worker := listener.NewWorker(queries, pipeline, geocoder, cfg.TargetTelegramGroupTimezone)

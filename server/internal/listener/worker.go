@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"openplays/server/internal/db"
+	"openplays/server/internal/geo"
 	"openplays/server/internal/listener/parser"
 	"openplays/server/internal/model"
-	"openplays/server/internal/onemap"
 )
 
 // backoff schedule for retries (capped at 15 minutes)
@@ -37,7 +37,7 @@ type WorkerStore interface {
 	UpsertPlay(ctx context.Context, arg db.UpsertPlayParams) (db.Play, error)
 	GetVenueByAlias(ctx context.Context, alias string) (db.Venue, error)
 	UpsertVenue(ctx context.Context, arg db.UpsertVenueParams) (db.Venue, error)
-	InsertAlias(ctx context.Context, arg db.InsertAliasParams) error
+	UpsertVenueAlias(ctx context.Context, arg db.UpsertVenueAliasParams) error
 }
 
 // Parser is the subset of parser.Pipeline that the Worker needs.
@@ -50,13 +50,13 @@ type Parser interface {
 type Worker struct {
 	store    WorkerStore
 	parser   Parser
-	geocoder *onemap.Client // nil if no OneMap credentials configured
+	geocoder geo.Coder // nil if no geocoding credentials configured
 	notify   chan struct{}
 	timezone string
 }
 
 // NewWorker creates a new worker.
-func NewWorker(store WorkerStore, parser Parser, geocoder *onemap.Client, timezone string) *Worker {
+func NewWorker(store WorkerStore, parser Parser, geocoder geo.Coder, timezone string) *Worker {
 	return &Worker{
 		store:    store,
 		parser:   parser,
@@ -211,39 +211,39 @@ func (w *Worker) resolveVenue(ctx context.Context, rawVenue *string) *parser.Res
 		log.Printf("worker: venue alias lookup error: %v", err)
 	}
 
-	// 2. Fall back to OneMap (skip if no credentials configured)
+	// 2. Fall back to geocoder (skip if not configured)
 	if w.geocoder == nil {
 		return nil
 	}
 
-	geo, err := w.geocoder.Search(ctx, *rawVenue)
+	result, err := w.geocoder.Geocode(ctx, *rawVenue)
 	if err != nil {
-		log.Printf("worker: onemap search error for %q: %v", *rawVenue, err)
+		log.Printf("worker: geocode error for %q: %v", *rawVenue, err)
 		return nil
 	}
-	if geo == nil {
-		log.Printf("worker: onemap no results for %q", *rawVenue)
+	if result == nil {
+		log.Printf("worker: geocode no results for %q", *rawVenue)
 		return nil
 	}
 
 	// 3. Upsert venue into DB
 	searchTerm := *rawVenue
 	venue, err = w.store.UpsertVenue(ctx, db.UpsertVenueParams{
-		PostalCode: geo.Postal,
-		Name:       geo.Building,
-		Address:    geo.Address,
-		Latitude:   geo.Latitude,
-		Longitude:  geo.Longitude,
-		Source:     "onemap",
+		PostalCode: result.Postal,
+		Name:       result.Name,
+		Address:    result.Address,
+		Latitude:   result.Latitude,
+		Longitude:  result.Longitude,
+		Source:     result.Source,
 		SearchTerm: &searchTerm,
 	})
 	if err != nil {
-		log.Printf("worker: error upserting venue %q: %v", geo.Postal, err)
+		log.Printf("worker: error upserting venue %q: %v", result.Postal, err)
 		return nil
 	}
 
 	// 4. Insert alias so future lookups skip OneMap
-	if err := w.store.InsertAlias(ctx, db.InsertAliasParams{
+	if err := w.store.UpsertVenueAlias(ctx, db.UpsertVenueAliasParams{
 		Alias:           alias,
 		VenuePostalCode: venue.PostalCode,
 	}); err != nil {

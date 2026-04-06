@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"openplays/server/internal/geo"
 )
 
 // SearchResult is a single result from the OneMap elastic search endpoint.
@@ -94,6 +96,22 @@ func (c *Client) Search(ctx context.Context, query string) (*GeoResult, error) {
 		Address:   titleCase(r.Address),
 		Postal:    r.Postal,
 		Building:  titleCase(r.Building),
+	}, nil
+}
+
+// Geocode implements geo.Coder.
+func (c *Client) Geocode(ctx context.Context, query string) (*geo.Result, error) {
+	gr, err := c.Search(ctx, query)
+	if err != nil || gr == nil {
+		return nil, err
+	}
+	return &geo.Result{
+		Name:      gr.Building,
+		Address:   gr.Address,
+		Postal:    gr.Postal,
+		Latitude:  gr.Latitude,
+		Longitude: gr.Longitude,
+		Source:    "onemap",
 	}, nil
 }
 

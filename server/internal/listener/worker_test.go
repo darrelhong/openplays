@@ -91,8 +91,8 @@ func (s *SpyWorkerStore) UpsertVenue(ctx context.Context, arg db.UpsertVenuePara
 	return db.Venue{PostalCode: arg.PostalCode, Name: arg.Name}, nil
 }
 
-func (s *SpyWorkerStore) InsertAlias(ctx context.Context, arg db.InsertAliasParams) error {
-	s.Calls = append(s.Calls, "InsertAlias")
+func (s *SpyWorkerStore) UpsertVenueAlias(ctx context.Context, arg db.UpsertVenueAliasParams) error {
+	s.Calls = append(s.Calls, "UpsertVenueAlias")
 	return nil
 }
 
