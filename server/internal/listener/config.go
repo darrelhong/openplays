@@ -9,9 +9,10 @@ import (
 	"github.com/joho/godotenv"
 
 	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/onemap"
 )
 
-// Config holds Telegram API credentials, DB, and LLM settings.
+// Config holds Telegram API credentials, DB, LLM, and OneMap settings.
 type Config struct {
 	APIID                       int
 	APIHash                     string
@@ -20,6 +21,7 @@ type Config struct {
 	TargetTelegramGroupTimezone string
 	DBURL                       string
 	LLM                         parser.LLMConfig
+	OneMap                      onemap.Config
 }
 
 // LoadConfig reads environment variables.
@@ -75,6 +77,13 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	oneMapEmail := os.Getenv("ONEMAP_EMAIL")
+	oneMapPassword := os.Getenv("ONEMAP_PASSWORD")
+	oneMapCfg := onemap.Config{
+		Email:    oneMapEmail,
+		Password: oneMapPassword,
+	}
+
 	return &Config{
 		APIID:                       apiID,
 		APIHash:                     apiHash,
@@ -83,5 +92,6 @@ func LoadConfig() (*Config, error) {
 		TargetTelegramGroupTimezone: targetTelegramGroupTimezone,
 		DBURL:                       dbURL,
 		LLM:                         llmCfg,
+		OneMap:                      oneMapCfg,
 	}, nil
 }
