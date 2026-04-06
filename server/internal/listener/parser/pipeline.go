@@ -42,10 +42,17 @@ func (p *Pipeline) Parse(ctx context.Context, input MessageInput) ([]model.Parse
 	return candidates, nil
 }
 
+// ResolvedVenue holds the normalized venue data from the venues table.
+// Nil means the venue could not be resolved.
+type ResolvedVenue struct {
+	PostalCode string
+	Name       string // OneMap BUILDING name, used as venue_norm
+}
+
 // ToPlay converts a ParsedPlayCandidate into a db.Play record.
 // Times are converted from the candidate's local date/time strings to UTC
 // using the timezone from MessageInput.
-func ToPlay(c *model.ParsedPlayCandidate, input MessageInput) db.Play {
+func ToPlay(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue) db.Play {
 	currency := "SGD"
 	if c.Currency != nil {
 		currency = *c.Currency
@@ -95,13 +102,18 @@ func ToPlay(c *model.ParsedPlayCandidate, input MessageInput) db.Play {
 		SourceMessageTime:    &input.Timestamp,
 	}
 
+	if rv != nil {
+		play.VenueNorm = rv.Name
+		play.VenuePostalCode = &rv.PostalCode
+	}
+
 	return play
 }
 
 // ToUpsertPlayParams converts a ParsedPlayCandidate directly into db.UpsertPlayParams
 // for database insertion. This avoids going through db.Play which has different
 // nullability for some fields.
-func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.UpsertPlayParams {
+func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue) db.UpsertPlayParams {
 	currency := "SGD"
 	if c.Currency != nil {
 		currency = *c.Currency
@@ -124,7 +136,7 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.Ups
 
 	source := input.Source
 
-	return db.UpsertPlayParams{
+	params := db.UpsertPlayParams{
 		ListingType:          listingType,
 		Sport:                model.SportBadminton,
 		GameType:             toGameType(c.GameType),
@@ -150,6 +162,13 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.Ups
 		SourceRawMessage:     &input.Text,
 		SourceMessageTime:    &input.Timestamp,
 	}
+
+	if rv != nil {
+		params.VenueNorm = rv.Name
+		params.VenuePostalCode = &rv.PostalCode
+	}
+
+	return params
 }
 
 func toGenderPref(s *string) *model.GenderPref {

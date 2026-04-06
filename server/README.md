@@ -51,7 +51,23 @@ The listener runs a background worker that processes messages asynchronously:
 
 Rate limiting is configured via `LLM_MAX_REQ_PER_MIN` in `.env`. The limiter lives in the LLM extractor, so all callers (worker, parsetest) are throttled.
 
-Parsed plays are upserted on `(host_name, starts_at, venue)` — if the same host reposts a session with updated info (e.g. fewer slots, price change), the existing play is updated rather than duplicated.
+Parsed plays are upserted on `(host_name, starts_at, ends_at, sport, venue_postal_code)` — if the same host reposts a session with updated info (e.g. fewer slots, price change), the existing play is updated rather than duplicated.
+
+### Venue Normalization
+
+After LLM extraction, the worker resolves each venue to a canonical entry in the `venues` table using Singapore postal codes. This enables location-based filtering and prevents duplicates caused by venue name variations (e.g. "Hougang CC" vs "Hougang Community Club").
+
+Resolution flow:
+
+1. Lowercase the raw venue string from the LLM.
+2. Look up `venue_aliases` for an exact match — if found, use the cached postal code.
+3. If no alias exists, query the [OneMap API](https://www.onemap.gov.sg/apidocs/) with the raw venue name.
+4. If OneMap returns a result, upsert into `venues` and store the raw string as a new alias.
+5. If OneMap returns nothing, the play is inserted with `venue_postal_code = NULL` for manual resolution later.
+
+The `venues` table stores the canonical building name (from OneMap's `BUILDING` field), address, and lat/lng. The `venue_aliases` table maps raw strings to postal codes, growing organically from real messages. Abbreviations and colloquial names that OneMap can't resolve (e.g. "SBH" for Singapore Badminton Hall) can be seeded manually.
+
+Venue resolution is optional — if `ONEMAP_EMAIL` and `ONEMAP_PASSWORD` are not set in `.env`, it is skipped entirely.
 
 ## Test parsing
 
@@ -67,6 +83,15 @@ LLM_BASE_URL=https://api.openai.com/v1 \
 LLM_MODEL=gpt-4o-mini \
 LLM_API_KEY=sk-... \
 go run ./tools/parsetest/ < example_messages.txt
+```
+
+## Test OneMap search
+
+Query the OneMap API directly to verify venue resolution. Requires `ONEMAP_EMAIL` and `ONEMAP_PASSWORD` in `.env`.
+
+```bash
+go run ./tools/onemaptest/ "Hougang CC"
+go run ./tools/onemaptest/ "Singapore Badminton Hall"
 ```
 
 ## Models & Database

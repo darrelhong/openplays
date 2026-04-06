@@ -2,7 +2,9 @@ package onemap
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strconv"
 )
@@ -33,6 +35,7 @@ type GeoResult struct {
 	Longitude float64
 	Address   string
 	Postal    string
+	Building  string
 }
 
 var searchParams = url.Values{
@@ -64,11 +67,16 @@ func (c *Client) Search(ctx context.Context, query string) (*GeoResult, error) {
 		return nil, err
 	}
 
+	log.Printf("onemap search %q: %d result(s)", query, sr.Found)
+	if raw, err := json.MarshalIndent(sr, "", "  "); err == nil {
+		log.Printf("onemap response:\n%s", raw)
+	}
 	if sr.Found == 0 || len(sr.Results) == 0 {
 		return nil, nil
 	}
 
 	r := sr.Results[0]
+	log.Printf("onemap search %q → %s (%s) %s", query, r.Building, r.Postal, r.Address)
 	lat, err := strconv.ParseFloat(r.Latitude, 64)
 	if err != nil {
 		return nil, fmt.Errorf("onemap: bad latitude %q: %w", r.Latitude, err)
@@ -83,5 +91,6 @@ func (c *Client) Search(ctx context.Context, query string) (*GeoResult, error) {
 		Longitude: lng,
 		Address:   r.Address,
 		Postal:    r.Postal,
+		Building:  r.Building,
 	}, nil
 }

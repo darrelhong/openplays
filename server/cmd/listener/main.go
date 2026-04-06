@@ -11,6 +11,7 @@ import (
 	"openplays/server/internal/db"
 	"openplays/server/internal/listener"
 	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/onemap"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
@@ -37,7 +38,16 @@ func main() {
 	queries := db.New(sqlDb)
 	pipeline := parser.NewPipeline(cfg.LLM)
 
-	worker := listener.NewWorker(queries, pipeline, cfg.TargetTelegramGroupTimezone)
+	// OneMap geocoder is optional — nil if no credentials configured.
+	var geocoder *onemap.Client
+	if cfg.OneMap.Email != "" && cfg.OneMap.Password != "" {
+		geocoder = onemap.NewClient(cfg.OneMap)
+		log.Println("OneMap venue resolution enabled")
+	} else {
+		log.Println("OneMap credentials not set, venue resolution disabled")
+	}
+
+	worker := listener.NewWorker(queries, pipeline, geocoder, cfg.TargetTelegramGroupTimezone)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go worker.Run(ctx)

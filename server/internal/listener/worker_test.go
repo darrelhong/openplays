@@ -81,6 +81,21 @@ func (s *SpyWorkerStore) UpsertPlay(ctx context.Context, arg db.UpsertPlayParams
 	return db.Play{}, s.UpsertPlayErr
 }
 
+func (s *SpyWorkerStore) GetVenueByAlias(ctx context.Context, alias string) (db.Venue, error) {
+	s.Calls = append(s.Calls, "GetVenueByAlias")
+	return db.Venue{}, sql.ErrNoRows
+}
+
+func (s *SpyWorkerStore) UpsertVenue(ctx context.Context, arg db.UpsertVenueParams) (db.Venue, error) {
+	s.Calls = append(s.Calls, "UpsertVenue")
+	return db.Venue{PostalCode: arg.PostalCode, Name: arg.Name}, nil
+}
+
+func (s *SpyWorkerStore) InsertAlias(ctx context.Context, arg db.InsertAliasParams) error {
+	s.Calls = append(s.Calls, "InsertAlias")
+	return nil
+}
+
 // SpyParser records calls and returns pre-configured results/errors.
 type SpyParser struct {
 	Calls      []string
@@ -128,7 +143,7 @@ func TestProcessPending_HappyPath(t *testing.T) {
 	p := &SpyParser{
 		Candidates: []model.ParsedPlayCandidate{{}},
 	}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processPending(context.Background())
 
@@ -152,7 +167,7 @@ func TestProcessPending_HappyPath(t *testing.T) {
 func TestProcessPending_NoPendingJobs(t *testing.T) {
 	store := &SpyWorkerStore{}
 	p := &SpyParser{}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processPending(context.Background())
 
@@ -170,7 +185,7 @@ func TestProcessRetries_PicksUpFailedJobs(t *testing.T) {
 	p := &SpyParser{
 		Candidates: []model.ParsedPlayCandidate{{}},
 	}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processRetries(context.Background())
 
@@ -191,7 +206,7 @@ func TestProcessRetries_PicksUpFailedJobs(t *testing.T) {
 func TestProcessRetries_NoRetryJobs(t *testing.T) {
 	store := &SpyWorkerStore{}
 	p := &SpyParser{}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processRetries(context.Background())
 
@@ -203,7 +218,7 @@ func TestProcessJob_ParseFailure_MarksFailedWithBackoff(t *testing.T) {
 	job := makeJob(10, "bad message", 0)
 	store := &SpyWorkerStore{}
 	p := &SpyParser{Err: fmt.Errorf("LLM returned status 429: rate limited")}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
@@ -232,7 +247,7 @@ func TestProcessJob_BackoffCapsAtMaxDuration(t *testing.T) {
 	job := makeJob(10, "bad message", 99) // retry_count well past backoff slice length
 	store := &SpyWorkerStore{}
 	p := &SpyParser{Err: fmt.Errorf("LLM error")}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	before := time.Now().UTC()
 	w.processJob(context.Background(), job)
@@ -251,7 +266,7 @@ func TestProcessJob_NextRetryAt_IsUTC(t *testing.T) {
 	job := makeJob(10, "bad message", 0)
 	store := &SpyWorkerStore{}
 	p := &SpyParser{Err: fmt.Errorf("LLM error")}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
@@ -276,7 +291,7 @@ func TestProcessJob_MultipleCandidates_InsertsAll(t *testing.T) {
 	p := &SpyParser{
 		Candidates: []model.ParsedPlayCandidate{{}, {}},
 	}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
@@ -295,7 +310,7 @@ func TestProcessJob_ZeroCandidates_StillMarksDone(t *testing.T) {
 	job := makeJob(7, "no plays here", 0)
 	store := &SpyWorkerStore{}
 	p := &SpyParser{Candidates: nil}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
@@ -315,7 +330,7 @@ func TestPendingAndRetry_AreIndependent(t *testing.T) {
 		RetryJobs:   []db.RawMessage{retryJob},
 	}
 	p := &SpyParser{Candidates: []model.ParsedPlayCandidate{{}}}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	// Process pending — should only touch pending queue
 	w.processPending(context.Background())
@@ -348,7 +363,7 @@ func TestRunStartup_ProcessesBothQueues(t *testing.T) {
 		RetryJobs:   []db.RawMessage{retryJob},
 	}
 	p := &SpyParser{Candidates: []model.ParsedPlayCandidate{{}}}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -389,7 +404,7 @@ func TestRunStartup_ProcessesBothQueues(t *testing.T) {
 func TestNotify_TriggersPendingProcessing(t *testing.T) {
 	store := &SpyWorkerStore{}
 	p := &SpyParser{Candidates: []model.ParsedPlayCandidate{{}}}
-	w := NewWorker(store, p, "Asia/Singapore")
+	w := NewWorker(store, p, nil, "Asia/Singapore")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

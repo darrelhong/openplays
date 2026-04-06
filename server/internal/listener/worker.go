@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 
 	"openplays/server/internal/db"
 	"openplays/server/internal/listener/parser"
 	"openplays/server/internal/model"
+	"openplays/server/internal/onemap"
 )
 
 // backoff schedule for retries (capped at 15 minutes)
@@ -33,6 +35,9 @@ type WorkerStore interface {
 	MarkDone(ctx context.Context, arg db.MarkDoneParams) error
 	MarkFailed(ctx context.Context, arg db.MarkFailedParams) error
 	UpsertPlay(ctx context.Context, arg db.UpsertPlayParams) (db.Play, error)
+	GetVenueByAlias(ctx context.Context, alias string) (db.Venue, error)
+	UpsertVenue(ctx context.Context, arg db.UpsertVenueParams) (db.Venue, error)
+	InsertAlias(ctx context.Context, arg db.InsertAliasParams) error
 }
 
 // Parser is the subset of parser.Pipeline that the Worker needs.
@@ -45,15 +50,17 @@ type Parser interface {
 type Worker struct {
 	store    WorkerStore
 	parser   Parser
+	geocoder *onemap.Client // nil if no OneMap credentials configured
 	notify   chan struct{}
 	timezone string
 }
 
 // NewWorker creates a new worker.
-func NewWorker(store WorkerStore, parser Parser, timezone string) *Worker {
+func NewWorker(store WorkerStore, parser Parser, geocoder *onemap.Client, timezone string) *Worker {
 	return &Worker{
 		store:    store,
 		parser:   parser,
+		geocoder: geocoder,
 		notify:   make(chan struct{}, 1),
 		timezone: timezone,
 	}
@@ -171,7 +178,8 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 
 	// Convert candidates to plays and insert
 	for i, c := range candidates {
-		params := parser.ToUpsertPlayParams(&c, input)
+		rv := w.resolveVenue(ctx, c.Venue)
+		params := parser.ToUpsertPlayParams(&c, input, rv)
 		_, err := w.store.UpsertPlay(ctx, params)
 		if err != nil {
 			log.Printf("worker: error inserting play %d/%d for message #%d: %v",
@@ -180,6 +188,72 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 	}
 
 	log.Printf("worker: message #%d done — %d play(s) extracted", job.ID, len(candidates))
+}
+
+// resolveVenue looks up a venue by alias in the DB, falling back to OneMap.
+// Returns nil if the venue cannot be resolved.
+func (w *Worker) resolveVenue(ctx context.Context, rawVenue *string) *parser.ResolvedVenue {
+	if rawVenue == nil || *rawVenue == "" {
+		return nil
+	}
+
+	alias := strings.ToLower(strings.TrimSpace(*rawVenue))
+
+	// 1. Check alias cache in DB
+	venue, err := w.store.GetVenueByAlias(ctx, alias)
+	if err == nil {
+		return &parser.ResolvedVenue{
+			PostalCode: venue.PostalCode,
+			Name:       venue.Name,
+		}
+	}
+	if err != sql.ErrNoRows {
+		log.Printf("worker: venue alias lookup error: %v", err)
+	}
+
+	// 2. Fall back to OneMap (skip if no credentials configured)
+	if w.geocoder == nil {
+		return nil
+	}
+
+	geo, err := w.geocoder.Search(ctx, *rawVenue)
+	if err != nil {
+		log.Printf("worker: onemap search error for %q: %v", *rawVenue, err)
+		return nil
+	}
+	if geo == nil {
+		log.Printf("worker: onemap no results for %q", *rawVenue)
+		return nil
+	}
+
+	// 3. Upsert venue into DB
+	venue, err = w.store.UpsertVenue(ctx, db.UpsertVenueParams{
+		PostalCode: geo.Postal,
+		Name:       geo.Building,
+		Address:    geo.Address,
+		Latitude:   geo.Latitude,
+		Longitude:  geo.Longitude,
+		Source:     "onemap",
+	})
+	if err != nil {
+		log.Printf("worker: error upserting venue %q: %v", geo.Postal, err)
+		return nil
+	}
+
+	// 4. Insert alias so future lookups skip OneMap
+	if err := w.store.InsertAlias(ctx, db.InsertAliasParams{
+		Alias:           alias,
+		VenuePostalCode: venue.PostalCode,
+	}); err != nil {
+		log.Printf("worker: error inserting alias %q: %v", alias, err)
+	}
+
+	log.Printf("worker: resolved venue %q → %s (%s)", *rawVenue, venue.Name, venue.PostalCode)
+
+	return &parser.ResolvedVenue{
+		PostalCode: venue.PostalCode,
+		Name:       venue.Name,
+	}
 }
 
 func (w *Worker) handleFailure(ctx context.Context, job db.RawMessage, err error) {
