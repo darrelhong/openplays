@@ -74,7 +74,7 @@ func main() {
 
 func printUsage() {
 	fmt.Println(`Usage:
-  go run ./tools/venuefill/ search [--onemap] <search_term> [aliases...]
+  go run ./tools/venuefill/ search [--onemap] [--dry-run] <search_term> [aliases...]
   go run ./tools/venuefill/ alias <venue_id> <alias> [aliases...]
   go run ./tools/venuefill/ list
 
@@ -82,6 +82,7 @@ Examples:
   search "Hougang Community Club"                          Search only, auto-alias the search term
   search "Hougang Community Club" "hougang cc" "hg cc"     Search + add extra aliases
   search --onemap "Hougang Community Club" "hougang cc"    Search via OneMap instead
+  search --dry-run "Simei"                                 Preview geocoder response without writing to DB
   alias 1 "hougang cc" "hg cc"                             Add aliases to existing venue by ID`)
 }
 
@@ -101,18 +102,27 @@ func newGeocoder(useOneMap bool) geo.Coder {
 
 func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 	if len(args) < 1 {
-		fmt.Println("Usage: go run ./tools/venuefill/ search [--onemap] <query> [alias1] [alias2] ...")
+		fmt.Println("Usage: go run ./tools/venuefill/ search [--onemap] [--dry-run] <query> [alias1] [alias2] ...")
 		os.Exit(1)
 	}
 
 	useOneMap := false
-	if args[0] == "--onemap" {
-		useOneMap = true
+	dryRun := false
+	// Parse flags
+	for len(args) > 0 && strings.HasPrefix(args[0], "--") {
+		switch args[0] {
+		case "--onemap":
+			useOneMap = true
+		case "--dry-run":
+			dryRun = true
+		default:
+			log.Fatalf("unknown flag: %s", args[0])
+		}
 		args = args[1:]
 	}
 
 	if len(args) < 1 {
-		fmt.Println("Usage: go run ./tools/venuefill/ search [--onemap] <query> [alias1] [alias2] ...")
+		fmt.Println("Usage: go run ./tools/venuefill/ search [--onemap] [--dry-run] <query> [alias1] [alias2] ...")
 		os.Exit(1)
 	}
 
@@ -126,6 +136,9 @@ func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 	}
 	fmt.Printf("Provider:    %s\n", provider)
 	fmt.Printf("Search term: %q\n", searchTerm)
+	if dryRun {
+		fmt.Println("Mode:        dry-run (no DB writes)")
+	}
 	if len(extraAliases) > 0 {
 		fmt.Printf("Aliases:     %v\n", extraAliases)
 	}
@@ -145,6 +158,10 @@ func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 	fmt.Printf("Postal:   %s\n", result.Postal)
 	fmt.Printf("Location: %f, %f\n", result.Latitude, result.Longitude)
 	fmt.Printf("Source:   %s\n", result.Source)
+
+	if dryRun {
+		return
+	}
 
 	var postalCode *string
 	if result.Postal != "" {
