@@ -81,21 +81,6 @@ func (s *SpyWorkerStore) UpsertPlay(ctx context.Context, arg db.UpsertPlayParams
 	return db.Play{}, s.UpsertPlayErr
 }
 
-func (s *SpyWorkerStore) GetVenueByAlias(ctx context.Context, alias string) (db.Venue, error) {
-	s.Calls = append(s.Calls, "GetVenueByAlias")
-	return db.Venue{}, sql.ErrNoRows
-}
-
-func (s *SpyWorkerStore) UpsertVenue(ctx context.Context, arg db.UpsertVenueParams) (db.Venue, error) {
-	s.Calls = append(s.Calls, "UpsertVenue")
-	return db.Venue{PostalCode: arg.PostalCode, Name: arg.Name}, nil
-}
-
-func (s *SpyWorkerStore) UpsertVenueAlias(ctx context.Context, arg db.UpsertVenueAliasParams) error {
-	s.Calls = append(s.Calls, "UpsertVenueAlias")
-	return nil
-}
-
 // SpyParser records calls and returns pre-configured results/errors.
 type SpyParser struct {
 	Calls      []string

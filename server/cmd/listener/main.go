@@ -13,6 +13,7 @@ import (
 	"openplays/server/internal/google"
 	"openplays/server/internal/listener"
 	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/venue"
 
 	"github.com/celestix/gotgproto"
 	"github.com/celestix/gotgproto/dispatcher/handlers"
@@ -59,7 +60,11 @@ func main() {
 		log.Println("Geocoder: disabled (no credentials configured)")
 	}
 
-	worker := listener.NewWorker(queries, pipeline, geocoder, cfg.TargetTelegramGroupTimezone)
+	// Suppress unused import when OneMap is commented out.
+	_ = google.Config{}
+
+	resolver := venue.NewResolver(queries, geocoder)
+	worker := listener.NewWorker(queries, pipeline, resolver, cfg.TargetTelegramGroupTimezone)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go worker.Run(ctx)

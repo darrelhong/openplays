@@ -59,15 +59,17 @@ After LLM extraction, the worker resolves each venue to a canonical entry in the
 
 Resolution flow:
 
-1. Lowercase the raw venue string from the LLM.
-2. Look up `venue_aliases` for an exact match — if found, use the cached postal code.
-3. If no alias exists, query the [OneMap API](https://www.onemap.gov.sg/apidocs/) with the raw venue name.
-4. If OneMap returns a result, upsert into `venues` and store the raw string as a new alias.
-5. If OneMap returns nothing, the play is inserted with `venue_postal_code = NULL` for manual resolution later.
+1. **Exact alias match** — lowercase the raw venue string and look up `venue_aliases`. If found, use the cached postal code.
+2. **Abbreviation expansion** — expand common abbreviations (`sec` → `secondary`, `cc` → `community club`, `sh` → `sport hall`, etc.) and try alias lookup again. `"sports hall"` is normalised to `"sport hall"` everywhere.
+3. **Fuzzy matching** — compare the expanded input against all venue names in the database using word overlap scoring. If ≥60% of the input words appear in a candidate venue name, it's a match. Catches cases like `"Canberra Sport Hall"` matching `"Bukit Canberra Sports Hall"`.
+4. **Geocoder fallback** — query Google Places (or OneMap) with the raw venue name. If a result is returned, upsert into `venues` and store the raw string as a new alias.
+5. **Unresolved** — if all steps fail, the play is inserted with `venue_postal_code = NULL` for manual resolution later.
 
-The `venues` table stores the canonical building name (from OneMap's `BUILDING` field), address, and lat/lng. The `venue_aliases` table maps raw strings to postal codes, growing organically from real messages. Abbreviations and colloquial names that OneMap can't resolve (e.g. "SBH" for Singapore Badminton Hall) can be seeded manually.
+Every successful resolution (via any step) automatically saves the raw input as an alias, so the same string resolves instantly next time. The alias table grows organically from real messages.
 
-Venue resolution is optional — if `ONEMAP_EMAIL` and `ONEMAP_PASSWORD` are not set in `.env`, it is skipped entirely.
+Initialisms and nicknames (SBH, TPCC, BV CC) can't be resolved by expansion or fuzzy matching — these need manual aliases via `venuefill`.
+
+Venue resolution is optional — if no geocoder credentials are set in `.env`, it still resolves via aliases and fuzzy matching against existing venues.
 
 ## Test parsing
 

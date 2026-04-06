@@ -67,6 +67,38 @@ func (q *Queries) ListAliases(ctx context.Context) ([]ListAliasesRow, error) {
 	return items, nil
 }
 
+const listVenueNames = `-- name: ListVenueNames :many
+SELECT postal_code, name FROM venues
+`
+
+type ListVenueNamesRow struct {
+	PostalCode string
+	Name       string
+}
+
+func (q *Queries) ListVenueNames(ctx context.Context) ([]ListVenueNamesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listVenueNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVenueNamesRow
+	for rows.Next() {
+		var i ListVenueNamesRow
+		if err := rows.Scan(&i.PostalCode, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVenues = `-- name: ListVenues :many
 SELECT postal_code, name, address, latitude, longitude, source, search_term FROM venues
 ORDER BY name

@@ -25,6 +25,9 @@ ON CONFLICT(alias) DO UPDATE SET
 SELECT * FROM venues
 ORDER BY name;
 
+-- name: ListVenueNames :many
+SELECT postal_code, name FROM venues;
+
 -- name: ListAliases :many
 SELECT va.alias, va.venue_postal_code, v.name AS venue_name
 FROM venue_aliases va
