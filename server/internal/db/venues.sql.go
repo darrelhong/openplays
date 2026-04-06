@@ -10,7 +10,7 @@ import (
 )
 
 const getVenueByAlias = `-- name: GetVenueByAlias :one
-SELECT v.postal_code, v.name, v.address, v.latitude, v.longitude, v.source
+SELECT v.postal_code, v.name, v.address, v.latitude, v.longitude, v.source, v.search_term
 FROM venues v
 JOIN venue_aliases va ON va.venue_postal_code = v.postal_code
 WHERE va.alias = ?
@@ -26,6 +26,7 @@ func (q *Queries) GetVenueByAlias(ctx context.Context, alias string) (Venue, err
 		&i.Latitude,
 		&i.Longitude,
 		&i.Source,
+		&i.SearchTerm,
 	)
 	return i, err
 }
@@ -46,8 +47,44 @@ func (q *Queries) InsertAlias(ctx context.Context, arg InsertAliasParams) error 
 	return err
 }
 
+const listAliases = `-- name: ListAliases :many
+SELECT va.alias, va.venue_postal_code, v.name AS venue_name
+FROM venue_aliases va
+JOIN venues v ON v.postal_code = va.venue_postal_code
+ORDER BY va.alias
+`
+
+type ListAliasesRow struct {
+	Alias           string
+	VenuePostalCode string
+	VenueName       string
+}
+
+func (q *Queries) ListAliases(ctx context.Context) ([]ListAliasesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAliases)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAliasesRow
+	for rows.Next() {
+		var i ListAliasesRow
+		if err := rows.Scan(&i.Alias, &i.VenuePostalCode, &i.VenueName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVenues = `-- name: ListVenues :many
-SELECT postal_code, name, address, latitude, longitude, source FROM venues
+SELECT postal_code, name, address, latitude, longitude, source, search_term FROM venues
 ORDER BY name
 `
 
@@ -67,6 +104,7 @@ func (q *Queries) ListVenues(ctx context.Context) ([]Venue, error) {
 			&i.Latitude,
 			&i.Longitude,
 			&i.Source,
+			&i.SearchTerm,
 		); err != nil {
 			return nil, err
 		}
@@ -82,15 +120,15 @@ func (q *Queries) ListVenues(ctx context.Context) ([]Venue, error) {
 }
 
 const upsertVenue = `-- name: UpsertVenue :one
-INSERT INTO venues (postal_code, name, address, latitude, longitude, source)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO venues (postal_code, name, address, latitude, longitude, source, search_term)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(postal_code) DO UPDATE SET
-    name      = excluded.name,
-    address   = excluded.address,
-    latitude  = excluded.latitude,
-    longitude = excluded.longitude,
-    source    = excluded.source
-RETURNING postal_code, name, address, latitude, longitude, source
+    name        = excluded.name,
+    address     = excluded.address,
+    latitude    = excluded.latitude,
+    longitude   = excluded.longitude,
+    source      = excluded.source
+RETURNING postal_code, name, address, latitude, longitude, source, search_term
 `
 
 type UpsertVenueParams struct {
@@ -100,6 +138,7 @@ type UpsertVenueParams struct {
 	Latitude   float64
 	Longitude  float64
 	Source     string
+	SearchTerm *string
 }
 
 func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue, error) {
@@ -110,6 +149,7 @@ func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue
 		arg.Latitude,
 		arg.Longitude,
 		arg.Source,
+		arg.SearchTerm,
 	)
 	var i Venue
 	err := row.Scan(
@@ -119,6 +159,7 @@ func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue
 		&i.Latitude,
 		&i.Longitude,
 		&i.Source,
+		&i.SearchTerm,
 	)
 	return i, err
 }

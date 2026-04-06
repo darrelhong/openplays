@@ -5,7 +5,8 @@ CREATE TABLE venues (
     address TEXT NOT NULL,
     latitude REAL NOT NULL,
     longitude REAL NOT NULL,
-    source TEXT NOT NULL -- e.g 'onemap' | 'manual'
+    source TEXT NOT NULL, -- e.g 'onemap' | 'manual'
+    search_term TEXT -- the raw query used to find this venue (for auditing)
 );
 
 CREATE TABLE venue_aliases (

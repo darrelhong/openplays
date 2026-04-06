@@ -227,6 +227,7 @@ func (w *Worker) resolveVenue(ctx context.Context, rawVenue *string) *parser.Res
 	}
 
 	// 3. Upsert venue into DB
+	searchTerm := *rawVenue
 	venue, err = w.store.UpsertVenue(ctx, db.UpsertVenueParams{
 		PostalCode: geo.Postal,
 		Name:       geo.Building,
@@ -234,6 +235,7 @@ func (w *Worker) resolveVenue(ctx context.Context, rawVenue *string) *parser.Res
 		Latitude:   geo.Latitude,
 		Longitude:  geo.Longitude,
 		Source:     "onemap",
+		SearchTerm: &searchTerm,
 	})
 	if err != nil {
 		log.Printf("worker: error upserting venue %q: %v", geo.Postal, err)

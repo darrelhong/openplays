@@ -65,6 +65,7 @@ type Venue struct {
 	Latitude   float64
 	Longitude  float64
 	Source     string
+	SearchTerm *string
 }
 
 type VenueAlias struct {

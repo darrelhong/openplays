@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/url"
 	"strconv"
+	"strings"
+	"unicode"
 )
 
 // SearchResult is a single result from the OneMap elastic search endpoint.
@@ -89,8 +91,21 @@ func (c *Client) Search(ctx context.Context, query string) (*GeoResult, error) {
 	return &GeoResult{
 		Latitude:  lat,
 		Longitude: lng,
-		Address:   r.Address,
+		Address:   titleCase(r.Address),
 		Postal:    r.Postal,
-		Building:  r.Building,
+		Building:  titleCase(r.Building),
 	}, nil
+}
+
+// titleCase converts "HOUGANG COMMUNITY CLUB" to "Hougang Community Club".
+func titleCase(s string) string {
+	prev := ' '
+	return strings.Map(func(r rune) rune {
+		if unicode.IsSpace(prev) || prev == '(' || prev == '-' {
+			prev = r
+			return unicode.ToUpper(r)
+		}
+		prev = r
+		return unicode.ToLower(r)
+	}, s)
 }
