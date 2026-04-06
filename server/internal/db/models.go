@@ -39,6 +39,7 @@ type Play struct {
 	SourceSenderUsername *string
 	SourceRawMessage     *string
 	SourceMessageTime    *time.Time
+	VenuePostalCode      *string
 }
 
 type RawMessage struct {
@@ -55,4 +56,18 @@ type RawMessage struct {
 	NextRetryAt    *time.Time
 	LastError      *string
 	LlmResponse    *string
+}
+
+type Venue struct {
+	PostalCode string
+	Name       string
+	Address    string
+	Latitude   float64
+	Longitude  float64
+	Source     string
+}
+
+type VenueAlias struct {
+	Alias           string
+	VenuePostalCode string
 }
