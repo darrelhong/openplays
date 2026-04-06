@@ -12,8 +12,8 @@ import (
 
 // Resolved holds the venue data needed by the caller.
 type Resolved struct {
-	PostalCode string
-	Name       string
+	ID   int64
+	Name string
 }
 
 // Store is the subset of db.Queries that the Resolver needs.
@@ -50,7 +50,7 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 
 	// 1. Exact alias lookup
 	if v, err := r.store.GetVenueByAlias(ctx, alias); err == nil {
-		return &Resolved{PostalCode: v.PostalCode, Name: v.Name}
+		return &Resolved{ID: v.ID, Name: v.Name}
 	} else if err != sql.ErrNoRows {
 		log.Printf("venue: alias lookup error: %v", err)
 	}
@@ -59,18 +59,18 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 	expanded := ExpandAndNormalise(*rawVenue)
 	if expanded != alias {
 		if v, err := r.store.GetVenueByAlias(ctx, expanded); err == nil {
-			r.upsertAlias(ctx, alias, v.PostalCode)
-			return &Resolved{PostalCode: v.PostalCode, Name: v.Name}
+			r.upsertAlias(ctx, alias, v.ID)
+			return &Resolved{ID: v.ID, Name: v.Name}
 		}
 	}
 
 	// 3. Fuzzy match against all venue names
 	if candidates := r.loadCandidates(ctx); len(candidates) > 0 {
 		if m := FuzzyMatch(*rawVenue, candidates); m != nil {
-			log.Printf("venue: fuzzy matched %q → %s (%s) [score=%.0f%%]",
-				*rawVenue, m.Name, m.PostalCode, m.Score*100)
-			r.upsertAlias(ctx, alias, m.PostalCode)
-			return &Resolved{PostalCode: m.PostalCode, Name: m.Name}
+			log.Printf("venue: fuzzy matched %q → %s (id=%d) [score=%.0f%%]",
+				*rawVenue, m.Name, m.ID, m.Score*100)
+			r.upsertAlias(ctx, alias, m.ID)
+			return &Resolved{ID: m.ID, Name: m.Name}
 		}
 	}
 
@@ -90,8 +90,13 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 	}
 
 	searchTerm := *rawVenue
+	var postalCode *string
+	if result.Postal != "" {
+		postalCode = &result.Postal
+	}
+
 	v, err := r.store.UpsertVenue(ctx, db.UpsertVenueParams{
-		PostalCode: result.Postal,
+		PostalCode: postalCode,
 		Name:       result.Name,
 		Address:    result.Address,
 		Latitude:   result.Latitude,
@@ -100,14 +105,14 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 		SearchTerm: &searchTerm,
 	})
 	if err != nil {
-		log.Printf("venue: error upserting venue %q: %v", result.Postal, err)
+		log.Printf("venue: error upserting venue: %v", err)
 		return nil
 	}
 
-	r.upsertAlias(ctx, alias, v.PostalCode)
-	log.Printf("venue: geocoded %q → %s (%s)", *rawVenue, v.Name, v.PostalCode)
+	r.upsertAlias(ctx, alias, v.ID)
+	log.Printf("venue: geocoded %q → %s (id=%d)", *rawVenue, v.Name, v.ID)
 
-	return &Resolved{PostalCode: v.PostalCode, Name: v.Name}
+	return &Resolved{ID: v.ID, Name: v.Name}
 }
 
 func (r *Resolver) loadCandidates(ctx context.Context) []Candidate {
@@ -118,15 +123,15 @@ func (r *Resolver) loadCandidates(ctx context.Context) []Candidate {
 	}
 	candidates := make([]Candidate, len(rows))
 	for i, row := range rows {
-		candidates[i] = Candidate{PostalCode: row.PostalCode, Name: row.Name}
+		candidates[i] = Candidate{ID: row.ID, Name: row.Name}
 	}
 	return candidates
 }
 
-func (r *Resolver) upsertAlias(ctx context.Context, alias, postalCode string) {
+func (r *Resolver) upsertAlias(ctx context.Context, alias string, venueID int64) {
 	if err := r.store.UpsertVenueAlias(ctx, db.UpsertVenueAliasParams{
-		Alias:           alias,
-		VenuePostalCode: postalCode,
+		Alias:   alias,
+		VenueID: venueID,
 	}); err != nil {
 		log.Printf("venue: error upserting alias %q: %v", alias, err)
 	}

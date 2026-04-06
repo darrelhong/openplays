@@ -45,8 +45,8 @@ func (p *Pipeline) Parse(ctx context.Context, input MessageInput) ([]model.Parse
 // ResolvedVenue holds the normalized venue data from the venues table.
 // Nil means the venue could not be resolved.
 type ResolvedVenue struct {
-	PostalCode string
-	Name       string // OneMap BUILDING name, used as venue_norm
+	ID   int64
+	Name string // canonical venue name, used as venue_norm
 }
 
 // ToPlay converts a ParsedPlayCandidate into a db.Play record.
@@ -104,7 +104,7 @@ func ToPlay(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue)
 
 	if rv != nil {
 		play.VenueNorm = rv.Name
-		play.VenuePostalCode = &rv.PostalCode
+		play.VenueID = &rv.ID
 	}
 
 	return play
@@ -165,7 +165,7 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *Re
 
 	if rv != nil {
 		params.VenueNorm = rv.Name
-		params.VenuePostalCode = &rv.PostalCode
+		params.VenueID = &rv.ID
 	}
 
 	return params

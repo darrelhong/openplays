@@ -107,22 +107,22 @@ go run ./tools/venuefill/ search "Hougang Community Club" "hougang cc" "hg cc"
 # Search OneMap instead
 go run ./tools/venuefill/ search --onemap "Hougang Community Club" "hougang cc"
 
-# Add aliases to an existing venue by postal code (no API call)
-go run ./tools/venuefill/ alias 538840 "hougang community club" "hougang cc"
+# Add aliases to an existing venue by ID (no API call)
+go run ./tools/venuefill/ alias 1 "hougang community club" "hougang cc"
 
 # List all venues and aliases
 go run ./tools/venuefill/ list
 ```
 
-The `search` subcommand queries the geocoding provider, upserts the venue, and adds the lowercased search term plus any extra arguments as aliases. The `alias` subcommand maps aliases to a venue that already exists in the database — useful for abbreviations and colloquial names that neither API can resolve (e.g. "sbh" for Singapore Badminton Hall).
+The `search` subcommand queries the geocoding provider, upserts the venue, and adds the lowercased search term plus any extra arguments as aliases. The `alias` subcommand maps aliases to a venue that already exists in the database by its ID — useful for abbreviations and colloquial names that neither API can resolve (e.g. "sbh" for Singapore Badminton Hall). Run `list` to see venue IDs.
 
-Aliases are upserted — re-running `alias` with the same alias pointing to a different postal code will override the existing mapping. This makes it easy to fix wrong venue resolutions:
+Aliases are upserted — re-running `alias` with the same alias pointing to a different venue ID will override the existing mapping. This makes it easy to fix wrong venue resolutions:
 
 ```bash
 # Google resolved "zhenghua cc" to the wrong place — fix it via OneMap:
 go run ./tools/venuefill/ search --onemap "Zhenghua CC"
-# Note the postal code from the output, then re-point the alias:
-go run ./tools/venuefill/ alias <postal_code> "zhenghua cc"
+# Note the venue ID from the output, then re-point the alias:
+go run ./tools/venuefill/ alias <venue_id> "zhenghua cc"
 ```
 
 ## Models & Database

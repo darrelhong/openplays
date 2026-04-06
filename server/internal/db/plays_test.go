@@ -15,7 +15,7 @@ func TestUpsertPlay_Insert(t *testing.T) {
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	params := makePlayParams("Daniel", "Peirce Sec", "768928", futureTime())
+	params := makePlayParams("Daniel", "Peirce Sec", 1, futureTime())
 	slotsLeft := int64(6)
 	params.SlotsLeft = &slotsLeft
 
@@ -37,10 +37,10 @@ func TestUpsertPlay_UpdateOnConflict(t *testing.T) {
 	ctx := context.Background()
 
 	startsAt := futureTime()
-	postal := "768928"
+	venueID := int64(1)
 
 	// First insert
-	params1 := makePlayParams("Daniel", "Peirce Sec", postal, startsAt)
+	params1 := makePlayParams("Daniel", "Peirce Sec", venueID, startsAt)
 	slotsLeft1 := int64(6)
 	fee1 := int64(1200)
 	params1.SlotsLeft = &slotsLeft1
@@ -52,7 +52,7 @@ func TestUpsertPlay_UpdateOnConflict(t *testing.T) {
 	}
 
 	// Second upsert with same dedup key but different slots/fee
-	params2 := makePlayParams("Daniel", "Peirce Secondary School", postal, startsAt)
+	params2 := makePlayParams("Daniel", "Peirce Secondary School", venueID, startsAt)
 	slotsLeft2 := int64(3)
 	fee2 := int64(1500)
 	params2.SlotsLeft = &slotsLeft2
@@ -91,15 +91,15 @@ func TestUpsertPlay_UpdateOnConflict(t *testing.T) {
 	}
 }
 
-func TestUpsertPlay_DifferentVenuePostal_InsertsBoth(t *testing.T) {
+func TestUpsertPlay_DifferentVenueID_InsertsBoth(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
 	startsAt := futureTime()
 
-	params1 := makePlayParams("Daniel", "Peirce Sec", "768928", startsAt)
-	params2 := makePlayParams("Daniel", "Hougang CC", "538840", startsAt)
+	params1 := makePlayParams("Daniel", "Peirce Sec", 1, startsAt)
+	params2 := makePlayParams("Daniel", "Hougang CC", 2, startsAt)
 
 	if _, err := queries.UpsertPlay(ctx, params1); err != nil {
 		t.Fatalf("first UpsertPlay: %v", err)
@@ -113,24 +113,24 @@ func TestUpsertPlay_DifferentVenuePostal_InsertsBoth(t *testing.T) {
 		t.Fatalf("GetUpcomingPlays: %v", err)
 	}
 	if len(plays) != 2 {
-		t.Errorf("expected 2 plays (different venue postals), got %d", len(plays))
+		t.Errorf("expected 2 plays (different venue IDs), got %d", len(plays))
 	}
 }
 
-func makePlayParams(host, venue, postalCode string, startsAt time.Time) db.UpsertPlayParams {
+func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.UpsertPlayParams {
 	source := "telegram"
 	return db.UpsertPlayParams{
-		ListingType:     model.ListingPlay,
-		Sport:           model.SportBadminton,
-		HostName:        host,
-		StartsAt:        startsAt,
-		EndsAt:          startsAt.Add(2 * time.Hour),
-		Timezone:        "Asia/Singapore",
-		Venue:           venue,
-		VenueNorm:       venue,
-		VenuePostalCode: &postalCode,
-		Currency:        "SGD",
-		Source:          &source,
+		ListingType: model.ListingPlay,
+		Sport:       model.SportBadminton,
+		HostName:    host,
+		StartsAt:    startsAt,
+		EndsAt:      startsAt.Add(2 * time.Hour),
+		Timezone:    "Asia/Singapore",
+		Venue:       venue,
+		VenueNorm:   venue,
+		VenueID:     &venueID,
+		Currency:    "SGD",
+		Source:      &source,
 	}
 }
 

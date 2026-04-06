@@ -27,59 +27,59 @@ func TestExpandAndNormalise(t *testing.T) {
 }
 
 var testVenues = []Candidate{
-	{PostalCode: "538840", Name: "Hougang Community Club"},
-	{PostalCode: "768928", Name: "Ahmad Ibrahim Secondary School"},
-	{PostalCode: "388352", Name: "Singapore Badminton Hall"},
-	{PostalCode: "397631", Name: "OCBC Arena"},
-	{PostalCode: "757716", Name: "Bukit Canberra Sports Hall"},
-	{PostalCode: "270036", Name: "Buona Vista Community Club"},
-	{PostalCode: "169640", Name: "Kim Seng Community Centre"},
-	{PostalCode: "768370", Name: "Yishun Sport Hall"},
-	{PostalCode: "530540", Name: "Hougang Secondary School"},
+	{ID: 1, Name: "Hougang Community Club"},
+	{ID: 2, Name: "Ahmad Ibrahim Secondary School"},
+	{ID: 3, Name: "Singapore Badminton Hall"},
+	{ID: 4, Name: "OCBC Arena"},
+	{ID: 5, Name: "Bukit Canberra Sports Hall"},
+	{ID: 6, Name: "Buona Vista Community Club"},
+	{ID: 7, Name: "Kim Seng Community Centre"},
+	{ID: 8, Name: "Yishun Sport Hall"},
+	{ID: 9, Name: "Hougang Secondary School"},
 }
 
 func TestFuzzyMatch(t *testing.T) {
 	tests := []struct {
-		input      string
-		wantPostal string // empty means no match expected
+		input  string
+		wantID int64 // 0 means no match expected
 	}{
 		// Exact-ish matches
-		{"Hougang Community Club", "538840"},
-		{"hougang community club", "538840"},
+		{"Hougang Community Club", 1},
+		{"hougang community club", 1},
 
 		// Abbreviation expansion
-		{"Hougang Sec", "530540"},
-		{"Hougang Sec Sch", "530540"},
-		{"Hougang CC", "538840"},
-		{"Kim Seng CC", "169640"},
+		{"Hougang Sec", 9},
+		{"Hougang Sec Sch", 9},
+		{"Hougang CC", 1},
+		{"Kim Seng CC", 7},
 
 		// Missing first word
-		{"Canberra Sports Hall", "757716"},
-		{"Canberra Sport Hall", "757716"},
+		{"Canberra Sports Hall", 5},
+		{"Canberra Sport Hall", 5},
 
 		// "sports hall" normalised to "sport hall"
-		{"Yishun Sports Hall", "768370"},
+		{"Yishun Sports Hall", 8},
 
 		// Too vague -- should not match
-		{"SBH", ""},
-		{"", ""},
+		{"SBH", 0},
+		{"", 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			match := FuzzyMatch(tt.input, testVenues)
-			if tt.wantPostal == "" {
+			if tt.wantID == 0 {
 				if match != nil {
 					t.Errorf("FuzzyMatch(%q) = %+v, want nil", tt.input, match)
 				}
 				return
 			}
 			if match == nil {
-				t.Fatalf("FuzzyMatch(%q) = nil, want postal %s", tt.input, tt.wantPostal)
+				t.Fatalf("FuzzyMatch(%q) = nil, want id %d", tt.input, tt.wantID)
 			}
-			if match.PostalCode != tt.wantPostal {
-				t.Errorf("FuzzyMatch(%q) postal = %s, want %s (matched %q with score %.2f)",
-					tt.input, match.PostalCode, tt.wantPostal, match.Name, match.Score)
+			if match.ID != tt.wantID {
+				t.Errorf("FuzzyMatch(%q) id = %d, want %d (matched %q with score %.2f)",
+					tt.input, match.ID, tt.wantID, match.Name, match.Score)
 			}
 		})
 	}

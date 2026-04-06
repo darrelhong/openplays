@@ -77,15 +77,15 @@ var expansions = map[string]string{
 
 // Candidate is a venue to match against.
 type Candidate struct {
-	PostalCode string
-	Name       string
+	ID   int64
+	Name string
 }
 
 // Match holds the result of a fuzzy match.
 type Match struct {
-	PostalCode string
-	Name       string
-	Score      float64
+	ID    int64
+	Name  string
+	Score float64
 }
 
 // normalise lowercases and replaces "sports hall" with "sport hall".
@@ -160,9 +160,9 @@ func FuzzyMatch(raw string, candidates []Candidate) *Match {
 
 		if score >= minMatchRatio && (best == nil || score > best.Score) {
 			best = &Match{
-				PostalCode: c.PostalCode,
-				Name:       c.Name,
-				Score:      score,
+				ID:    c.ID,
+				Name:  c.Name,
+				Score: score,
 			}
 		}
 	}

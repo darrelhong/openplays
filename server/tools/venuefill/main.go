@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,8 +28,8 @@ import (
 //   # Search using OneMap
 //   go run ./tools/venuefill/ search --onemap "Hougang Community Club" "hougang cc"
 //
-//   # Add aliases to an existing venue by postal code
-//   go run ./tools/venuefill/ alias 538840 "hougang cc" "hougang community club"
+//   # Add aliases to an existing venue by ID
+//   go run ./tools/venuefill/ alias 1 "hougang cc" "hougang community club"
 //
 //   # List all venues and aliases
 //   go run ./tools/venuefill/ list
@@ -74,14 +75,14 @@ func main() {
 func printUsage() {
 	fmt.Println(`Usage:
   go run ./tools/venuefill/ search [--onemap] <search_term> [aliases...]
-  go run ./tools/venuefill/ alias <postal_code> <alias> [aliases...]
+  go run ./tools/venuefill/ alias <venue_id> <alias> [aliases...]
   go run ./tools/venuefill/ list
 
 Examples:
   search "Hougang Community Club"                          Search only, auto-alias the search term
   search "Hougang Community Club" "hougang cc" "hg cc"     Search + add extra aliases
   search --onemap "Hougang Community Club" "hougang cc"    Search via OneMap instead
-  alias 538840 "hougang cc" "hg cc"                        Add aliases to existing venue`)
+  alias 1 "hougang cc" "hg cc"                             Add aliases to existing venue by ID`)
 }
 
 func newGeocoder(useOneMap bool) geo.Coder {
@@ -145,12 +146,13 @@ func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 	fmt.Printf("Location: %f, %f\n", result.Latitude, result.Longitude)
 	fmt.Printf("Source:   %s\n", result.Source)
 
-	if result.Postal == "" {
-		log.Fatal("no postal code returned — cannot upsert venue without a postal code")
+	var postalCode *string
+	if result.Postal != "" {
+		postalCode = &result.Postal
 	}
 
 	venue, err := queries.UpsertVenue(ctx, db.UpsertVenueParams{
-		PostalCode: result.Postal,
+		PostalCode: postalCode,
 		Name:       result.Name,
 		Address:    result.Address,
 		Latitude:   result.Latitude,
@@ -162,7 +164,11 @@ func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 		log.Fatalf("failed to upsert venue: %v", err)
 	}
 
-	fmt.Printf("\nVenue upserted: %s (%s)\n", venue.Name, venue.PostalCode)
+	postal := "<none>"
+	if venue.PostalCode != nil {
+		postal = *venue.PostalCode
+	}
+	fmt.Printf("\nVenue upserted: %s (id=%d, postal=%s)\n", venue.Name, venue.ID, postal)
 
 	// Collect aliases: lowercased search term + any extra args
 	aliases := []string{strings.ToLower(strings.TrimSpace(searchTerm))}
@@ -174,16 +180,20 @@ func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 	}
 
 	fmt.Printf("\nAdding %d alias(es):\n", len(aliases))
-	insertAliases(ctx, queries, venue.PostalCode, aliases)
+	upsertAliases(ctx, queries, venue.ID, aliases)
 }
 
 func cmdAlias(ctx context.Context, queries *db.Queries, args []string) {
 	if len(args) < 2 {
-		fmt.Println("Usage: go run ./tools/venuefill/ alias <postal_code> <alias1> [alias2] ...")
+		fmt.Println("Usage: go run ./tools/venuefill/ alias <venue_id> <alias1> [alias2] ...")
 		os.Exit(1)
 	}
 
-	postalCode := args[0]
+	venueID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		log.Fatalf("invalid venue ID %q: %v", args[0], err)
+	}
+
 	var aliases []string
 	for _, a := range args[1:] {
 		a = strings.ToLower(strings.TrimSpace(a))
@@ -192,7 +202,7 @@ func cmdAlias(ctx context.Context, queries *db.Queries, args []string) {
 		}
 	}
 
-	insertAliases(ctx, queries, postalCode, aliases)
+	upsertAliases(ctx, queries, venueID, aliases)
 }
 
 func cmdList(ctx context.Context, queries *db.Queries) {
@@ -203,11 +213,15 @@ func cmdList(ctx context.Context, queries *db.Queries) {
 
 	fmt.Printf("Venues (%d):\n", len(venues))
 	for _, v := range venues {
+		postal := "<none>"
+		if v.PostalCode != nil {
+			postal = *v.PostalCode
+		}
 		searchTerm := ""
 		if v.SearchTerm != nil {
 			searchTerm = *v.SearchTerm
 		}
-		fmt.Printf("  %-8s %-40s %-8s %s\n", v.PostalCode, v.Name, v.Source, searchTerm)
+		fmt.Printf("  %-4d %-8s %-40s %-8s %s\n", v.ID, postal, v.Name, v.Source, searchTerm)
 	}
 
 	aliases, err := queries.ListAliases(ctx)
@@ -217,20 +231,20 @@ func cmdList(ctx context.Context, queries *db.Queries) {
 
 	fmt.Printf("\nAliases (%d):\n", len(aliases))
 	for _, a := range aliases {
-		fmt.Printf("  %-40s → %s (%s)\n", a.Alias, a.VenuePostalCode, a.VenueName)
+		fmt.Printf("  %-40s → id=%d (%s)\n", a.Alias, a.VenueID, a.VenueName)
 	}
 }
 
-func insertAliases(ctx context.Context, queries *db.Queries, postalCode string, aliases []string) {
+func upsertAliases(ctx context.Context, queries *db.Queries, venueID int64, aliases []string) {
 	for _, alias := range aliases {
 		err := queries.UpsertVenueAlias(ctx, db.UpsertVenueAliasParams{
-			Alias:           alias,
-			VenuePostalCode: postalCode,
+			Alias:   alias,
+			VenueID: venueID,
 		})
 		if err != nil {
 			log.Printf("  failed %q: %v", alias, err)
 		} else {
-			fmt.Printf("  %q → %s\n", alias, postalCode)
+			fmt.Printf("  %q → id=%d\n", alias, venueID)
 		}
 	}
 }

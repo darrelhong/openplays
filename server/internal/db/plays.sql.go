@@ -13,7 +13,7 @@ import (
 )
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
-SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_postal_code FROM plays
+SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id FROM plays
 WHERE starts_at > CURRENT_TIMESTAMP
   AND listing_type = 'play'
 ORDER BY starts_at ASC
@@ -57,7 +57,7 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.SourceSenderUsername,
 			&i.SourceRawMessage,
 			&i.SourceMessageTime,
-			&i.VenuePostalCode,
+			&i.VenueID,
 		); err != nil {
 			return nil, err
 		}
@@ -76,7 +76,7 @@ const upsertPlay = `-- name: UpsertPlay :one
 INSERT INTO plays (
     listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
-    venue, venue_norm, venue_postal_code,
+    venue, venue_norm, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
@@ -90,7 +90,7 @@ INSERT INTO plays (
     ?, ?, ?,
     ?, ?, ?, ?
 )
-ON CONFLICT(host_name, starts_at, ends_at, sport, venue_postal_code) DO UPDATE SET
+ON CONFLICT(host_name, starts_at, ends_at, sport, venue_id) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
     venue                 = excluded.venue,
@@ -111,7 +111,7 @@ ON CONFLICT(host_name, starts_at, ends_at, sport, venue_postal_code) DO UPDATE S
     source_raw_message    = excluded.source_raw_message,
     source_message_time   = excluded.source_message_time,
     updated_at            = CURRENT_TIMESTAMP
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_postal_code
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id
 `
 
 type UpsertPlayParams struct {
@@ -124,7 +124,7 @@ type UpsertPlayParams struct {
 	Timezone             string
 	Venue                string
 	VenueNorm            string
-	VenuePostalCode      *string
+	VenueID              *int64
 	LevelMin             *string
 	LevelMax             *string
 	LevelMinOrd          *int64
@@ -154,7 +154,7 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		arg.Timezone,
 		arg.Venue,
 		arg.VenueNorm,
-		arg.VenuePostalCode,
+		arg.VenueID,
 		arg.LevelMin,
 		arg.LevelMax,
 		arg.LevelMinOrd,
@@ -202,7 +202,7 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		&i.SourceSenderUsername,
 		&i.SourceRawMessage,
 		&i.SourceMessageTime,
-		&i.VenuePostalCode,
+		&i.VenueID,
 	)
 	return i, err
 }

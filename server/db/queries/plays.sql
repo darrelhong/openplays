@@ -2,7 +2,7 @@
 INSERT INTO plays (
     listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
-    venue, venue_norm, venue_postal_code,
+    venue, venue_norm, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
@@ -16,7 +16,7 @@ INSERT INTO plays (
     ?, ?, ?,
     ?, ?, ?, ?
 )
-ON CONFLICT(host_name, starts_at, ends_at, sport, venue_postal_code) DO UPDATE SET
+ON CONFLICT(host_name, starts_at, ends_at, sport, venue_id) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
     venue                 = excluded.venue,

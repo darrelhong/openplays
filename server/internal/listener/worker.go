@@ -176,8 +176,8 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 		if w.venue != nil {
 			if resolved := w.venue.Resolve(ctx, c.Venue); resolved != nil {
 				rv = &parser.ResolvedVenue{
-					PostalCode: resolved.PostalCode,
-					Name:       resolved.Name,
+					ID:   resolved.ID,
+					Name: resolved.Name,
 				}
 			}
 		}

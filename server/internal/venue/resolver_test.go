@@ -23,7 +23,7 @@ func (s *stubStore) GetVenueByAlias(_ context.Context, alias string) (db.Venue, 
 }
 
 func (s *stubStore) UpsertVenue(_ context.Context, arg db.UpsertVenueParams) (db.Venue, error) {
-	return db.Venue{PostalCode: arg.PostalCode, Name: arg.Name}, nil
+	return db.Venue{ID: 99, PostalCode: arg.PostalCode, Name: arg.Name}, nil
 }
 
 func (s *stubStore) UpsertVenueAlias(_ context.Context, arg db.UpsertVenueAliasParams) error {
@@ -38,70 +38,62 @@ func (s *stubStore) ListVenueNames(_ context.Context) ([]db.ListVenueNamesRow, e
 func TestResolve_ExactAlias(t *testing.T) {
 	store := &stubStore{
 		aliases: map[string]db.Venue{
-			"hougang cc": {PostalCode: "538840", Name: "Hougang Community Club"},
+			"hougang cc": {ID: 1, Name: "Hougang Community Club"},
 		},
 	}
 	r := NewResolver(store, nil)
 	raw := "Hougang CC"
 	got := r.Resolve(context.Background(), &raw)
-	if got == nil || got.PostalCode != "538840" {
-		t.Fatalf("Resolve(%q) = %v, want postal 538840", raw, got)
+	if got == nil || got.ID != 1 {
+		t.Fatalf("Resolve(%q) = %v, want id 1", raw, got)
 	}
 }
 
 func TestResolve_ExpandedAlias(t *testing.T) {
-	// "hougang cc" is NOT an alias, but "hougang community club" IS.
-	// The resolver should expand "hougang cc" → "hougang community club",
-	// find the alias, and auto-add "hougang cc" as a new alias.
 	store := &stubStore{
 		aliases: map[string]db.Venue{
-			"hougang community club": {PostalCode: "538840", Name: "Hougang Community Club"},
+			"hougang community club": {ID: 1, Name: "Hougang Community Club"},
 		},
 	}
 	r := NewResolver(store, nil)
 	raw := "Hougang CC"
 	got := r.Resolve(context.Background(), &raw)
-	if got == nil || got.PostalCode != "538840" {
-		t.Fatalf("Resolve(%q) = %v, want postal 538840", raw, got)
+	if got == nil || got.ID != 1 {
+		t.Fatalf("Resolve(%q) = %v, want id 1", raw, got)
 	}
-	// Verify the original alias was cached
 	if len(store.upserts) != 1 || store.upserts[0].Alias != "hougang cc" {
 		t.Errorf("expected alias 'hougang cc' to be cached, got %v", store.upserts)
 	}
 }
 
 func TestResolve_ExpandedAlias_SecSch(t *testing.T) {
-	// "hougang sec" expands to "hougang secondary", which is looked up as alias.
-	// If that fails, fuzzy match against venue names should catch it.
 	store := &stubStore{
 		venues: []db.ListVenueNamesRow{
-			{PostalCode: "530540", Name: "Hougang Secondary School"},
+			{ID: 9, Name: "Hougang Secondary School"},
 		},
 	}
 	r := NewResolver(store, nil)
 	raw := "Hougang Sec"
 	got := r.Resolve(context.Background(), &raw)
-	if got == nil || got.PostalCode != "530540" {
-		t.Fatalf("Resolve(%q) = %v, want postal 530540", raw, got)
+	if got == nil || got.ID != 9 {
+		t.Fatalf("Resolve(%q) = %v, want id 9", raw, got)
 	}
-	// Verify alias was cached
 	if len(store.upserts) != 1 || store.upserts[0].Alias != "hougang sec" {
 		t.Errorf("expected alias 'hougang sec' to be cached, got %v", store.upserts)
 	}
 }
 
 func TestResolve_FuzzyMatch(t *testing.T) {
-	// "Canberra Sport Hall" should fuzzy match "Bukit Canberra Sports Hall"
 	store := &stubStore{
 		venues: []db.ListVenueNamesRow{
-			{PostalCode: "757716", Name: "Bukit Canberra Sports Hall"},
+			{ID: 5, Name: "Bukit Canberra Sports Hall"},
 		},
 	}
 	r := NewResolver(store, nil)
 	raw := "Canberra Sport Hall"
 	got := r.Resolve(context.Background(), &raw)
-	if got == nil || got.PostalCode != "757716" {
-		t.Fatalf("Resolve(%q) = %v, want postal 757716", raw, got)
+	if got == nil || got.ID != 5 {
+		t.Fatalf("Resolve(%q) = %v, want id 5", raw, got)
 	}
 }
 

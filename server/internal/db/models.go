@@ -39,7 +39,7 @@ type Play struct {
 	SourceSenderUsername *string
 	SourceRawMessage     *string
 	SourceMessageTime    *time.Time
-	VenuePostalCode      *string
+	VenueID              *int64
 }
 
 type RawMessage struct {
@@ -59,7 +59,8 @@ type RawMessage struct {
 }
 
 type Venue struct {
-	PostalCode string
+	ID         int64
+	PostalCode *string
 	Name       string
 	Address    string
 	Latitude   float64
@@ -69,6 +70,6 @@ type Venue struct {
 }
 
 type VenueAlias struct {
-	Alias           string
-	VenuePostalCode string
+	Alias   string
+	VenueID int64
 }
