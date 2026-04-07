@@ -1,3 +1,8 @@
 .env
 
 tele_session.db
+openplays*.db
+
+plans/
+
+test_messages/
