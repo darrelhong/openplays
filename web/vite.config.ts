@@ -1,9 +1,16 @@
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { sveltekit } from '@sveltejs/kit/vite';
+import UnoCSS from 'unocss/vite';
+import extractorSvelte from '@unocss/extractor-svelte';
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [
+		UnoCSS({
+			extractors: [extractorSvelte()]
+		}),
+		sveltekit()
+	],
 	test: {
 		expect: { requireAssertions: true },
 		projects: [
