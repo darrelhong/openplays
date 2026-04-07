@@ -14,7 +14,7 @@ import (
 
 const countUpcomingPlays = `-- name: CountUpcomingPlays :one
 SELECT COUNT(*) FROM plays p
-WHERE p.starts_at > CURRENT_TIMESTAMP
+WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND p.listing_type = 'play'
   AND (?1 IS NULL OR p.sport = ?1)
   AND (?2 IS NULL OR p.venue_id = ?2)
@@ -35,7 +35,8 @@ func (q *Queries) CountUpcomingPlays(ctx context.Context, arg CountUpcomingPlays
 
 const getPlayByID = `-- name: GetPlayByID :one
 SELECT
-    p.id, p.listing_type, p.sport, p.game_type, p.host_name,
+    p.id, p.created_at, p.updated_at,
+    p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_norm, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -50,6 +51,8 @@ WHERE p.id = ?
 
 type GetPlayByIDRow struct {
 	ID              int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 	ListingType     model.ListingType
 	Sport           model.Sport
 	GameType        *model.GameType
@@ -83,6 +86,8 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 	var i GetPlayByIDRow
 	err := row.Scan(
 		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.ListingType,
 		&i.Sport,
 		&i.GameType,
@@ -115,7 +120,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
 SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id FROM plays
-WHERE starts_at > CURRENT_TIMESTAMP
+WHERE starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND listing_type = 'play'
 ORDER BY starts_at ASC
 `
@@ -175,7 +180,8 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 
 const listUpcomingPlays = `-- name: ListUpcomingPlays :many
 SELECT
-    p.id, p.listing_type, p.sport, p.game_type, p.host_name,
+    p.id, p.created_at, p.updated_at,
+    p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_norm, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -185,24 +191,29 @@ SELECT
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
-WHERE p.starts_at > CURRENT_TIMESTAMP
+WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND p.listing_type = 'play'
   AND (?1 IS NULL OR p.sport = ?1)
   AND (?2 IS NULL OR p.venue_id = ?2)
-  AND (?3 IS NULL OR p.id > ?3)
+  AND (?3 IS NULL
+    OR p.starts_at > ?3
+    OR (p.starts_at = ?3 AND p.id > ?4))
 ORDER BY p.starts_at ASC, p.id ASC
-LIMIT ?4
+LIMIT ?5
 `
 
 type ListUpcomingPlaysParams struct {
-	Sport    interface{}
-	VenueID  interface{}
-	Cursor   interface{}
-	PageSize int64
+	Sport          interface{}
+	VenueID        interface{}
+	CursorStartsAt interface{}
+	CursorID       *int64
+	PageSize       int64
 }
 
 type ListUpcomingPlaysRow struct {
 	ID              int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 	ListingType     model.ListingType
 	Sport           model.Sport
 	GameType        *model.GameType
@@ -232,13 +243,14 @@ type ListUpcomingPlaysRow struct {
 }
 
 // Paginated upcoming plays with optional filters and venue data.
-// Forward-only cursor pagination: pass last seen play ID as 'cursor'.
-// Requests page_size + 1 rows; if all are returned, there are more pages.
+// Forward-only cursor pagination using composite (starts_at, id) cursor
+// to match the sort order. Both cursor params must be provided together.
 func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysParams) ([]ListUpcomingPlaysRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUpcomingPlays,
 		arg.Sport,
 		arg.VenueID,
-		arg.Cursor,
+		arg.CursorStartsAt,
+		arg.CursorID,
 		arg.PageSize,
 	)
 	if err != nil {
@@ -250,6 +262,8 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 		var i ListUpcomingPlaysRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 			&i.ListingType,
 			&i.Sport,
 			&i.GameType,
@@ -328,7 +342,7 @@ ON CONFLICT(host_name, starts_at, ends_at, sport, venue_id) DO UPDATE SET
     source_sender_username = excluded.source_sender_username,
     source_raw_message    = excluded.source_raw_message,
     source_message_time   = excluded.source_message_time,
-    updated_at            = CURRENT_TIMESTAMP
+    updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id
 `
 

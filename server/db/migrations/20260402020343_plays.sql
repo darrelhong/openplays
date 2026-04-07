@@ -7,8 +7,8 @@
 -- sqlc overrides are used to into typed structs defined in internal/model/play.go
 CREATE TABLE plays (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at      TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')),
+    updated_at      TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')),
 
     listing_type    TEXT NOT NULL, -- distinguishes between different kinds of listings
     sport           TEXT NOT NULL, -- sport type
@@ -45,8 +45,12 @@ CREATE TABLE plays (
     source_message_time    TIMESTAMP
 );
 
--- Primary query: upcoming plays filtered by sport
-CREATE INDEX idx_plays_upcoming ON plays(sport, starts_at);
+-- Supports forward keyset pagination for the public plays listing:
+--   WHERE listing_type = 'play'
+--     AND starts_at > now
+--     AND (starts_at, id) > cursor
+--   ORDER BY starts_at, id
+CREATE INDEX IF NOT EXISTS idx_plays_list_order ON plays(listing_type, starts_at, sport, id);
 
 -- Dedup: prevent duplicate plays from the same host at the same time/venue
 CREATE UNIQUE INDEX idx_plays_dedup ON plays(host_name, starts_at, venue);

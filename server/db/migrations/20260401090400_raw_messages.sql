@@ -4,8 +4,8 @@
 -- Each incoming message is stored here, then processed async by the worker.
 CREATE TABLE raw_messages (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at      TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')),
+    updated_at      TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')),
 
     source          TEXT NOT NULL,
     sender_username TEXT NOT NULL,

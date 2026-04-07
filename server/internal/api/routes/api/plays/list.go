@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,12 +19,51 @@ import (
 type ListInput struct {
 	Sport   string `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
 	VenueID int64  `query:"venue_id" doc:"Filter by venue ID"`
-	Cursor  int64  `query:"cursor" doc:"Cursor for pagination (play ID)"`
+	Cursor  string `query:"cursor" doc:"Opaque cursor from previous page"`
 	Limit   int64  `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Number of results per page"`
 }
 
 type ListOutput struct {
 	Body pagination.Page[PlayPublic]
+}
+
+// sqliteTimeFormat is the format SQLite uses for datetime columns.
+const sqliteTimeFormat = "2006-01-02 15:04:05+00:00"
+
+// encodeCursor encodes a (starts_at, id) pair into an opaque cursor string.
+// The cursor stays in RFC3339 format externally so API consumers never need to
+// know about SQLite's internal timestamp representation.
+func encodeCursor(startsAtRFC3339 string, id int64) string {
+	t, err := time.Parse(time.RFC3339, startsAtRFC3339)
+	if err != nil {
+		return fmt.Sprintf("%s,%d", startsAtRFC3339, id)
+	}
+	return fmt.Sprintf("%s,%d", t.UTC().Format(time.RFC3339), id)
+}
+
+// decodeCursor decodes an opaque cursor string into (starts_at, id).
+// Returns zero values if the cursor is empty or invalid.
+func decodeCursor(cursor string) (startsAt string, id int64, ok bool) {
+	if cursor == "" {
+		return "", 0, false
+	}
+	parts := strings.SplitN(cursor, ",", 2)
+	if len(parts) != 2 {
+		return "", 0, false
+	}
+	parsed, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return "", 0, false
+	}
+	return parts[0], parsed, true
+}
+
+func cursorStartsAtForDB(startsAtRFC3339 string) (string, bool) {
+	t, err := time.Parse(time.RFC3339, startsAtRFC3339)
+	if err != nil {
+		return "", false
+	}
+	return t.UTC().Format(sqliteTimeFormat), true
 }
 
 func RegisterList(api huma.API, queries *db.Queries) {
@@ -49,16 +89,22 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		if input.VenueID != 0 {
 			venueID = input.VenueID
 		}
-		var cursor interface{}
-		if input.Cursor != 0 {
-			cursor = input.Cursor
+
+		var cursorStartsAt interface{}
+		var cursorID *int64
+		if startsAt, id, ok := decodeCursor(input.Cursor); ok {
+			if dbStartsAt, ok := cursorStartsAtForDB(startsAt); ok {
+				cursorStartsAt = dbStartsAt
+				cursorID = &id
+			}
 		}
 
 		rows, err := queries.ListUpcomingPlays(ctx, db.ListUpcomingPlaysParams{
-			Sport:    sport,
-			VenueID:  venueID,
-			Cursor:   cursor,
-			PageSize: pageSize,
+			Sport:          sport,
+			VenueID:        venueID,
+			CursorStartsAt: cursorStartsAt,
+			CursorID:       cursorID,
+			PageSize:        pageSize,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list plays", err)
@@ -76,6 +122,8 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		for i, r := range rows {
 			items[i] = PlayPublic{
 				ID:              r.ID,
+				CreatedAt:       r.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:       r.UpdatedAt.Format(time.RFC3339),
 				ListingType:     r.ListingType,
 				Sport:           r.Sport,
 				GameType:        r.GameType,
@@ -102,8 +150,8 @@ func RegisterList(api huma.API, queries *db.Queries) {
 			}
 		}
 
-		page := pagination.Paginate(items, input.Limit, total, func(p PlayPublic) int64 {
-			return p.ID
+		page := pagination.Paginate(items, input.Limit, total, func(p PlayPublic) string {
+			return encodeCursor(p.StartsAt, p.ID)
 		})
 
 		return &ListOutput{Body: page}, nil

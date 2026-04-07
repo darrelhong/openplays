@@ -29,7 +29,7 @@ type MessageStore interface {
 // recent messages in the store, and inserts into the job queue if new.
 func HandleMessage(ctx context.Context, store MessageStore, source, senderName, msgText string, msgTime time.Time) (HandleResult, error) {
 	// Dedupe check: compare against recent messages (last 24hrs)
-	cutoff := time.Now().Add(-24 * time.Hour)
+	cutoff := time.Now().UTC().Add(-24 * time.Hour)
 	recent, err := store.GetRecentMessageTexts(ctx, cutoff)
 	if err != nil {
 		log.Printf("error fetching recent messages for dedup: %v", err)

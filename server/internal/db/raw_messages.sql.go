@@ -77,7 +77,7 @@ func (q *Queries) GetRecentMessageTexts(ctx context.Context, createdAt time.Time
 const getRetryJob = `-- name: GetRetryJob :one
 SELECT id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response
 FROM raw_messages
-WHERE status = 'failed' AND next_retry_at <= CURRENT_TIMESTAMP
+WHERE status = 'failed' AND next_retry_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 ORDER BY next_retry_at ASC
 LIMIT 1
 `
@@ -148,7 +148,7 @@ func (q *Queries) InsertRawMessage(ctx context.Context, arg InsertRawMessagePara
 
 const markDone = `-- name: MarkDone :exec
 UPDATE raw_messages
-SET status = 'done', llm_response = ?, updated_at = CURRENT_TIMESTAMP
+SET status = 'done', llm_response = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 `
 
@@ -168,7 +168,7 @@ SET status = 'failed',
     retry_count = retry_count + 1,
     next_retry_at = ?,
     last_error = ?,
-    updated_at = CURRENT_TIMESTAMP
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 `
 
@@ -185,7 +185,7 @@ func (q *Queries) MarkFailed(ctx context.Context, arg MarkFailedParams) error {
 
 const markProcessing = `-- name: MarkProcessing :exec
 UPDATE raw_messages
-SET status = 'processing', updated_at = CURRENT_TIMESTAMP
+SET status = 'processing', updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 `
 
@@ -196,7 +196,7 @@ func (q *Queries) MarkProcessing(ctx context.Context, id int64) error {
 
 const markSkipped = `-- name: MarkSkipped :exec
 UPDATE raw_messages
-SET status = 'skipped', updated_at = CURRENT_TIMESTAMP
+SET status = 'skipped', updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 `
 
