@@ -37,8 +37,9 @@ func RegisterGet(api huma.API, queries *db.Queries) {
 
 		item := PlayPublic{
 			ID:              r.ID,
-			Sport:           string(r.Sport),
-			GameType:        gameTypeStr(r.GameType),
+			ListingType:     r.ListingType,
+			Sport:           r.Sport,
+			GameType:        r.GameType,
 			HostName:        r.HostName,
 			StartsAt:        r.StartsAt.Format(time.RFC3339),
 			EndsAt:          r.EndsAt.Format(time.RFC3339),

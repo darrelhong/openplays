@@ -128,13 +128,17 @@ export interface components {
             ends_at: string;
             /** Format: int64 */
             fee?: number;
-            game_type?: string;
-            gender_pref?: string;
+            /** @enum {string} */
+            game_type?: "doubles" | "singles" | "mixed_doubles";
+            /** @enum {string} */
+            gender_pref?: "all" | "male_only" | "female_only";
             host_name: string;
             /** Format: int64 */
             id: number;
             level_max?: string;
             level_min?: string;
+            /** @enum {string} */
+            listing_type: "play" | "sell_booking";
             /** Format: int64 */
             max_players?: number;
             meta: {
@@ -142,7 +146,8 @@ export interface components {
             };
             /** Format: int64 */
             slots_left?: number;
-            sport: string;
+            /** @enum {string} */
+            sport: "badminton" | "tennis" | "football" | "pickleball";
             starts_at: string;
             timezone: string;
             venue: string;

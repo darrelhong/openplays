@@ -134,5 +134,3 @@ func (c *Client) refreshToken(ctx context.Context) (string, error) {
 	c.expiresAt = time.Unix(expiry, 0)
 	return c.token, nil
 }
-
-

@@ -76,8 +76,9 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		for i, r := range rows {
 			items[i] = PlayPublic{
 				ID:              r.ID,
-				Sport:           string(r.Sport),
-				GameType:        gameTypeStr(r.GameType),
+				ListingType:     r.ListingType,
+				Sport:           r.Sport,
+				GameType:        r.GameType,
 				HostName:        r.HostName,
 				StartsAt:        r.StartsAt.Format(time.RFC3339),
 				EndsAt:          r.EndsAt.Format(time.RFC3339),
@@ -107,12 +108,4 @@ func RegisterList(api huma.API, queries *db.Queries) {
 
 		return &ListOutput{Body: page}, nil
 	})
-}
-
-func gameTypeStr(gt *model.GameType) *string {
-	if gt == nil {
-		return nil
-	}
-	s := string(*gt)
-	return &s
 }

@@ -4,7 +4,10 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
+
+	"github.com/danielgtaylor/huma/v2"
 )
 
 // Sport represents a supported sport type.
@@ -25,6 +28,15 @@ var SportValues = []string{
 	string(SportPickleball),
 }
 
+// Schema implements huma.SchemaProvider so huma generates enum values in the OpenAPI spec.
+func (s Sport) Schema(r huma.Registry) *huma.Schema {
+	schema := r.Schema(reflect.TypeOf(""), false, "")
+	for _, v := range SportValues {
+		schema.Enum = append(schema.Enum, v)
+	}
+	return schema
+}
+
 // GenderPref represents gender preference for a play session.
 type GenderPref string
 
@@ -33,6 +45,13 @@ const (
 	GenderMaleOnly   GenderPref = "male_only"
 	GenderFemaleOnly GenderPref = "female_only"
 )
+
+// Schema implements huma.SchemaProvider.
+func (g GenderPref) Schema(r huma.Registry) *huma.Schema {
+	schema := r.Schema(reflect.TypeOf(""), false, "")
+	schema.Enum = []any{string(GenderAll), string(GenderMaleOnly), string(GenderFemaleOnly)}
+	return schema
+}
 
 // ContactMethod represents a structured way to reach a host.
 type ContactMethod struct {
@@ -48,6 +67,13 @@ const (
 	ListingSellBooking ListingType = "sell_booking" // reselling/letting go a booked facility
 )
 
+// Schema implements huma.SchemaProvider.
+func (l ListingType) Schema(r huma.Registry) *huma.Schema {
+	schema := r.Schema(reflect.TypeOf(""), false, "")
+	schema.Enum = []any{string(ListingPlay), string(ListingSellBooking)}
+	return schema
+}
+
 // GameType represents the format of play.
 type GameType string
 
@@ -56,6 +82,13 @@ const (
 	GameSingles      GameType = "singles"
 	GameMixedDoubles GameType = "mixed_doubles"
 )
+
+// Schema implements huma.SchemaProvider.
+func (g GameType) Schema(r huma.Registry) *huma.Schema {
+	schema := r.Schema(reflect.TypeOf(""), false, "")
+	schema.Enum = []any{string(GameDoubles), string(GameSingles), string(GameMixedDoubles)}
+	return schema
+}
 
 // Contacts is a slice of ContactMethod that implements sql Scanner/Valuer
 // for transparent JSON storage in SQLite TEXT columns.

@@ -4,16 +4,17 @@ import "openplays/server/internal/model"
 
 // PlayPublic is the API response schema for a play.
 type PlayPublic struct {
-	ID        int64   `json:"id"`
-	Sport     string  `json:"sport"`
-	GameType  *string `json:"game_type,omitempty"`
-	HostName  string  `json:"host_name"`
-	StartsAt  string  `json:"starts_at"`
-	EndsAt    string  `json:"ends_at"`
-	Timezone  string  `json:"timezone"`
-	Venue     string  `json:"venue"`
-	VenueName *string `json:"venue_name,omitempty"`
-	VenueID   *int64  `json:"venue_id,omitempty"`
+	ID          int64             `json:"id"`
+	ListingType model.ListingType `json:"listing_type"`
+	Sport       model.Sport       `json:"sport"`
+	GameType    *model.GameType   `json:"game_type,omitempty"`
+	HostName    string            `json:"host_name"`
+	StartsAt    string            `json:"starts_at"`
+	EndsAt      string            `json:"ends_at"`
+	Timezone    string            `json:"timezone"`
+	Venue       string            `json:"venue"`
+	VenueName   *string           `json:"venue_name,omitempty"`
+	VenueID     *int64            `json:"venue_id,omitempty"`
 
 	VenuePostalCode *string  `json:"venue_postal_code,omitempty"`
 	VenueLatitude   *float64 `json:"venue_latitude,omitempty"`
