@@ -1,0 +1,5 @@
+apis:
+  main:
+    root: http://localhost:8080/openapi.json
+    x-openapi-ts:
+      output: src/lib/api/types.gen.ts
