@@ -12,6 +12,107 @@ import (
 	"openplays/server/internal/model"
 )
 
+const countUpcomingPlays = `-- name: CountUpcomingPlays :one
+SELECT COUNT(*) FROM plays p
+WHERE p.starts_at > CURRENT_TIMESTAMP
+  AND p.listing_type = 'play'
+  AND (?1 IS NULL OR p.sport = ?1)
+  AND (?2 IS NULL OR p.venue_id = ?2)
+`
+
+type CountUpcomingPlaysParams struct {
+	Sport   interface{}
+	VenueID interface{}
+}
+
+// Total count of upcoming plays matching the same filters (for "showing X plays").
+func (q *Queries) CountUpcomingPlays(ctx context.Context, arg CountUpcomingPlaysParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUpcomingPlays, arg.Sport, arg.VenueID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getPlayByID = `-- name: GetPlayByID :one
+SELECT
+    p.id, p.listing_type, p.sport, p.game_type, p.host_name,
+    p.starts_at, p.ends_at, p.timezone,
+    p.venue, p.venue_norm, p.venue_id,
+    p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
+    p.fee, p.currency, p.max_players, p.slots_left, p.courts,
+    p.contacts, p.gender_pref, p.meta,
+    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude
+FROM plays p
+LEFT JOIN venues v ON v.id = p.venue_id
+WHERE p.id = ?
+`
+
+type GetPlayByIDRow struct {
+	ID              int64
+	ListingType     model.ListingType
+	Sport           model.Sport
+	GameType        *model.GameType
+	HostName        string
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Timezone        string
+	Venue           string
+	VenueNorm       string
+	VenueID         *int64
+	LevelMin        *string
+	LevelMax        *string
+	LevelMinOrd     *int64
+	LevelMaxOrd     *int64
+	Fee             *int64
+	Currency        string
+	MaxPlayers      *int64
+	SlotsLeft       *int64
+	Courts          *int64
+	Contacts        model.Contacts
+	GenderPref      *model.GenderPref
+	Meta            model.Meta
+	VenueName       *string
+	VenuePostalCode *string
+	VenueLatitude   *float64
+	VenueLongitude  *float64
+}
+
+func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, error) {
+	row := q.db.QueryRowContext(ctx, getPlayByID, id)
+	var i GetPlayByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ListingType,
+		&i.Sport,
+		&i.GameType,
+		&i.HostName,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.Timezone,
+		&i.Venue,
+		&i.VenueNorm,
+		&i.VenueID,
+		&i.LevelMin,
+		&i.LevelMax,
+		&i.LevelMinOrd,
+		&i.LevelMaxOrd,
+		&i.Fee,
+		&i.Currency,
+		&i.MaxPlayers,
+		&i.SlotsLeft,
+		&i.Courts,
+		&i.Contacts,
+		&i.GenderPref,
+		&i.Meta,
+		&i.VenueName,
+		&i.VenuePostalCode,
+		&i.VenueLatitude,
+		&i.VenueLongitude,
+	)
+	return i, err
+}
+
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
 SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id FROM plays
 WHERE starts_at > CURRENT_TIMESTAMP
@@ -58,6 +159,123 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.SourceRawMessage,
 			&i.SourceMessageTime,
 			&i.VenueID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUpcomingPlays = `-- name: ListUpcomingPlays :many
+SELECT
+    p.id, p.listing_type, p.sport, p.game_type, p.host_name,
+    p.starts_at, p.ends_at, p.timezone,
+    p.venue, p.venue_norm, p.venue_id,
+    p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
+    p.fee, p.currency, p.max_players, p.slots_left, p.courts,
+    p.contacts, p.gender_pref, p.meta,
+    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude
+FROM plays p
+LEFT JOIN venues v ON v.id = p.venue_id
+WHERE p.starts_at > CURRENT_TIMESTAMP
+  AND p.listing_type = 'play'
+  AND (?1 IS NULL OR p.sport = ?1)
+  AND (?2 IS NULL OR p.venue_id = ?2)
+  AND (?3 IS NULL OR p.id > ?3)
+ORDER BY p.starts_at ASC, p.id ASC
+LIMIT ?4
+`
+
+type ListUpcomingPlaysParams struct {
+	Sport    interface{}
+	VenueID  interface{}
+	Cursor   interface{}
+	PageSize int64
+}
+
+type ListUpcomingPlaysRow struct {
+	ID              int64
+	ListingType     model.ListingType
+	Sport           model.Sport
+	GameType        *model.GameType
+	HostName        string
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Timezone        string
+	Venue           string
+	VenueNorm       string
+	VenueID         *int64
+	LevelMin        *string
+	LevelMax        *string
+	LevelMinOrd     *int64
+	LevelMaxOrd     *int64
+	Fee             *int64
+	Currency        string
+	MaxPlayers      *int64
+	SlotsLeft       *int64
+	Courts          *int64
+	Contacts        model.Contacts
+	GenderPref      *model.GenderPref
+	Meta            model.Meta
+	VenueName       *string
+	VenuePostalCode *string
+	VenueLatitude   *float64
+	VenueLongitude  *float64
+}
+
+// Paginated upcoming plays with optional filters and venue data.
+// Forward-only cursor pagination: pass last seen play ID as 'cursor'.
+// Requests page_size + 1 rows; if all are returned, there are more pages.
+func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysParams) ([]ListUpcomingPlaysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUpcomingPlays,
+		arg.Sport,
+		arg.VenueID,
+		arg.Cursor,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUpcomingPlaysRow
+	for rows.Next() {
+		var i ListUpcomingPlaysRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ListingType,
+			&i.Sport,
+			&i.GameType,
+			&i.HostName,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Timezone,
+			&i.Venue,
+			&i.VenueNorm,
+			&i.VenueID,
+			&i.LevelMin,
+			&i.LevelMax,
+			&i.LevelMinOrd,
+			&i.LevelMaxOrd,
+			&i.Fee,
+			&i.Currency,
+			&i.MaxPlayers,
+			&i.SlotsLeft,
+			&i.Courts,
+			&i.Contacts,
+			&i.GenderPref,
+			&i.Meta,
+			&i.VenueName,
+			&i.VenuePostalCode,
+			&i.VenueLatitude,
+			&i.VenueLongitude,
 		); err != nil {
 			return nil, err
 		}

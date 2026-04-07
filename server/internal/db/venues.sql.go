@@ -32,6 +32,26 @@ func (q *Queries) GetVenueByAlias(ctx context.Context, alias string) (Venue, err
 	return i, err
 }
 
+const getVenueByID = `-- name: GetVenueByID :one
+SELECT id, postal_code, name, address, latitude, longitude, source, search_term FROM venues WHERE id = ?
+`
+
+func (q *Queries) GetVenueByID(ctx context.Context, id int64) (Venue, error) {
+	row := q.db.QueryRowContext(ctx, getVenueByID, id)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.PostalCode,
+		&i.Name,
+		&i.Address,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Source,
+		&i.SearchTerm,
+	)
+	return i, err
+}
+
 const listAliases = `-- name: ListAliases :many
 SELECT va.alias, va.venue_id, v.name AS venue_name
 FROM venue_aliases va

@@ -35,3 +35,6 @@ SELECT va.alias, va.venue_id, v.name AS venue_name
 FROM venue_aliases va
 JOIN venues v ON v.id = va.venue_id
 ORDER BY va.alias;
+
+-- name: GetVenueByID :one
+SELECT * FROM venues WHERE id = ?;

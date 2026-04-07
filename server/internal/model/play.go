@@ -17,6 +17,14 @@ const (
 	SportPickleball Sport = "pickleball"
 )
 
+// SportValues is the list of valid sport strings, for use in API enum validation.
+var SportValues = []string{
+	string(SportBadminton),
+	string(SportTennis),
+	string(SportFootball),
+	string(SportPickleball),
+}
+
 // GenderPref represents gender preference for a play session.
 type GenderPref string
 

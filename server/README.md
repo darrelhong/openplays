@@ -1,6 +1,6 @@
 # OpenPlays Server
 
-Listens to Telegram group messages, extracts structured sports session listings using a local LLM, and outputs parsed play data.
+Listens to Telegram group messages, extracts structured sports session listings using a local LLM, and serves parsed play data via a REST API.
 
 ## Prerequisites
 
@@ -86,6 +86,24 @@ LLM_MODEL=gpt-4o-mini \
 LLM_API_KEY=sk-... \
 go run ./tools/parsetest/ < example_messages.txt
 ```
+
+## API Server
+
+REST API for querying plays and venues. Built with [huma](https://huma.rocks/) + [chi](https://github.com/go-chi/chi). Auto-generates an OpenAPI 3.1 spec from Go types.
+
+```bash
+go run ./cmd/api/
+```
+
+The server starts on port 8080 by default (configure with `API_PORT` in `.env`).
+
+- `GET /plays` — list upcoming plays with optional filters (`sport`, `venue_id`, `cursor`, `limit`)
+- `GET /plays/{id}` — get a single play
+
+Pagination is cursor-based. The response includes `next_cursor` and `has_more` for paging through results.
+
+- OpenAPI spec: http://localhost:8080/openapi.json
+- Interactive docs: http://localhost:8080/docs
 
 ## Test OneMap search
 

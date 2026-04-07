@@ -4,7 +4,9 @@ go 1.26.1
 
 require (
 	github.com/celestix/gotgproto v1.0.0-beta22
+	github.com/danielgtaylor/huma/v2 v2.37.3
 	github.com/glebarez/sqlite v1.11.0
+	github.com/go-chi/chi/v5 v5.2.5
 	github.com/gotd/td v0.132.0
 	github.com/joho/godotenv v1.5.1
 	github.com/pressly/goose/v3 v3.27.0
