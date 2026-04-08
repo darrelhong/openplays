@@ -176,6 +176,8 @@ export interface operations {
     "list-plays": {
         parameters: {
             query?: {
+                /** @description Filter by listing type */
+                listing_type?: "play" | "sell_booking" | "";
                 /** @description Filter by sport */
                 sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
                 /** @description Filter by venue ID */

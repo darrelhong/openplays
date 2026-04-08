@@ -17,10 +17,11 @@ import (
 )
 
 type ListInput struct {
-	Sport   string `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
-	VenueID int64  `query:"venue_id" doc:"Filter by venue ID"`
-	Cursor  string `query:"cursor" doc:"Opaque cursor from previous page"`
-	Limit   int64  `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Number of results per page"`
+	ListingType string `query:"listing_type" doc:"Filter by listing type" enum:"play,sell_booking,"`
+	Sport       string `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
+	VenueID     int64  `query:"venue_id" doc:"Filter by venue ID"`
+	Cursor      string `query:"cursor" doc:"Opaque cursor from previous page"`
+	Limit       int64  `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Number of results per page"`
 }
 
 type ListOutput struct {
@@ -81,6 +82,10 @@ func RegisterList(api huma.API, queries *db.Queries) {
 
 		pageSize := input.Limit + 1
 
+		var listingType interface{}
+		if input.ListingType != "" {
+			listingType = input.ListingType
+		}
 		var sport interface{}
 		if input.Sport != "" {
 			sport = input.Sport
@@ -100,6 +105,7 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		}
 
 		rows, err := queries.ListUpcomingPlays(ctx, db.ListUpcomingPlaysParams{
+			ListingType:    listingType,
 			Sport:          sport,
 			VenueID:        venueID,
 			CursorStartsAt: cursorStartsAt,
@@ -111,8 +117,9 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		}
 
 		total, err := queries.CountUpcomingPlays(ctx, db.CountUpcomingPlaysParams{
-			Sport:   sport,
-			VenueID: venueID,
+			ListingType: listingType,
+			Sport:       sport,
+			VenueID:     venueID,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to count plays", err)

@@ -50,7 +50,7 @@ WHERE starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 ORDER BY starts_at ASC;
 
 -- name: ListUpcomingPlays :many
--- Paginated upcoming plays with optional filters and venue data.
+-- Paginated upcoming listings with optional filters and venue data.
 -- Forward-only cursor pagination using composite (starts_at, id) cursor
 -- to match the sort order. Both cursor params must be provided together.
 SELECT
@@ -67,7 +67,7 @@ SELECT
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND p.listing_type = 'play'
+  AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
   AND (sqlc.narg('cursor_starts_at') IS NULL
@@ -77,10 +77,10 @@ ORDER BY p.starts_at ASC, p.id ASC
 LIMIT sqlc.arg('page_size');
 
 -- name: CountUpcomingPlays :one
--- Total count of upcoming plays matching the same filters (for "showing X plays").
+-- Total count of upcoming listings matching the same filters.
 SELECT COUNT(*) FROM plays p
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND p.listing_type = 'play'
+  AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'));
 

@@ -88,7 +88,9 @@
 	<div class="overflow-auto">
 		<table class="w-full border-collapse">
 			<thead>
-				<tr class="text-stone-400 border-b border-neutral-500 *:font-medium *:p-2 *:text-start">
+				<tr
+					class="text-stone-400 border-b border-neutral-500 *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
+				>
 					<th>Venue</th>
 					<th>Date</th>
 					<th>Time</th>
@@ -96,7 +98,7 @@
 					<th>Sport</th>
 					<th>Level</th>
 					<th>Fee</th>
-					<th>Slots</th>
+					<th>Slots/Type</th>
 					<th>Details</th>
 				</tr>
 			</thead>
@@ -115,7 +117,10 @@
 						<td>{capitalize(play.sport)}</td>
 						<td>{formatLevel(play.level_min, play.level_max)}</td>
 						<td>{formatPlayFee(play)}</td>
-						<td>{play.slots_left ?? '-'} / {play.max_players ?? '-'}</td>
+						<td
+							>{#if play.listing_type === 'sell_booking'}To let go{:else}{play.slots_left ?? '-'} / {play.max_players ??
+									'-'}{/if}</td
+						>
 						<td>
 							<Dialog.Root>
 								<Dialog.Trigger><Button size="xs" variant="outline">View</Button></Dialog.Trigger>

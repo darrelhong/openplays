@@ -15,19 +15,20 @@ import (
 const countUpcomingPlays = `-- name: CountUpcomingPlays :one
 SELECT COUNT(*) FROM plays p
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND p.listing_type = 'play'
-  AND (?1 IS NULL OR p.sport = ?1)
-  AND (?2 IS NULL OR p.venue_id = ?2)
+  AND (?1 IS NULL OR p.listing_type = ?1)
+  AND (?2 IS NULL OR p.sport = ?2)
+  AND (?3 IS NULL OR p.venue_id = ?3)
 `
 
 type CountUpcomingPlaysParams struct {
-	Sport   interface{}
-	VenueID interface{}
+	ListingType interface{}
+	Sport       interface{}
+	VenueID     interface{}
 }
 
-// Total count of upcoming plays matching the same filters (for "showing X plays").
+// Total count of upcoming listings matching the same filters.
 func (q *Queries) CountUpcomingPlays(ctx context.Context, arg CountUpcomingPlaysParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUpcomingPlays, arg.Sport, arg.VenueID)
+	row := q.db.QueryRowContext(ctx, countUpcomingPlays, arg.ListingType, arg.Sport, arg.VenueID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -202,17 +203,18 @@ SELECT
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND p.listing_type = 'play'
-  AND (?1 IS NULL OR p.sport = ?1)
-  AND (?2 IS NULL OR p.venue_id = ?2)
-  AND (?3 IS NULL
-    OR p.starts_at > ?3
-    OR (p.starts_at = ?3 AND p.id > ?4))
+  AND (?1 IS NULL OR p.listing_type = ?1)
+  AND (?2 IS NULL OR p.sport = ?2)
+  AND (?3 IS NULL OR p.venue_id = ?3)
+  AND (?4 IS NULL
+    OR p.starts_at > ?4
+    OR (p.starts_at = ?4 AND p.id > ?5))
 ORDER BY p.starts_at ASC, p.id ASC
-LIMIT ?5
+LIMIT ?6
 `
 
 type ListUpcomingPlaysParams struct {
+	ListingType    interface{}
 	Sport          interface{}
 	VenueID        interface{}
 	CursorStartsAt interface{}
@@ -255,11 +257,12 @@ type ListUpcomingPlaysRow struct {
 	VenueLongitude  *float64
 }
 
-// Paginated upcoming plays with optional filters and venue data.
+// Paginated upcoming listings with optional filters and venue data.
 // Forward-only cursor pagination using composite (starts_at, id) cursor
 // to match the sort order. Both cursor params must be provided together.
 func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysParams) ([]ListUpcomingPlaysRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUpcomingPlays,
+		arg.ListingType,
 		arg.Sport,
 		arg.VenueID,
 		arg.CursorStartsAt,
