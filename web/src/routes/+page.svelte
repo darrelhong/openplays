@@ -246,9 +246,12 @@
 	<p>No plays found.</p>
 {/if}
 
-{#if data.has_more && data.next_cursor != null}
-	<div class="my-6">
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-		<Button variant="outline" href={getNextPageUrl(data.next_cursor)}>Next</Button>
-	</div>
-{/if}
+<div class="my-6 flex gap-4 w-full">
+	{#if page.url.searchParams.has('cursor')}
+		<Button variant="outline" onclick={() => history.back()}>Previous</Button>
+	{/if}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+	{#if data.has_more && data.next_cursor != null}
+		<Button class="ms-auto" variant="outline" href={getNextPageUrl(data.next_cursor)}>Next</Button>
+	{/if}
+</div>
