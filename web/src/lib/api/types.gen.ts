@@ -103,11 +103,8 @@ export interface components {
             /** @description Whether there are more results after this page */
             has_more: boolean;
             items: components["schemas"]["PlayPublic"][] | null;
-            /**
-             * Format: int64
-             * @description ID of the last item; pass as cursor to get the next page
-             */
-            next_cursor?: number;
+            /** @description Opaque cursor; pass as cursor to get the next page */
+            next_cursor?: string;
             /**
              * Format: int64
              * @description Total number of matching results across all pages
@@ -124,6 +121,7 @@ export interface components {
             contacts: components["schemas"]["ContactMethod"][] | null;
             /** Format: int64 */
             courts?: number;
+            created_at: string;
             currency: string;
             ends_at: string;
             /** Format: int64 */
@@ -150,6 +148,7 @@ export interface components {
             sport: "badminton" | "tennis" | "football" | "pickleball";
             starts_at: string;
             timezone: string;
+            updated_at: string;
             venue: string;
             /** Format: int64 */
             venue_id?: number;
@@ -176,8 +175,8 @@ export interface operations {
                 sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
                 /** @description Filter by venue ID */
                 venue_id?: number;
-                /** @description Cursor for pagination (play ID) */
-                cursor?: number;
+                /** @description Opaque cursor from previous page */
+                cursor?: string;
                 /** @description Number of results per page */
                 limit?: number;
             };

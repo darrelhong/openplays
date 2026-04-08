@@ -7,10 +7,12 @@ import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 import svelteConfig from './svelte.config.js';
+import unocss from '@unocss/eslint-config/flat';
 
 const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 
 export default defineConfig(
+	unocss,
 	includeIgnoreFile(gitignorePath),
 	js.configs.recommended,
 	ts.configs.recommended,
@@ -39,6 +41,13 @@ export default defineConfig(
 	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			'unocss/order': [
+				'error',
+				{
+					unoVariables: ['^cls', 'classNames?$', 'variantClasses$', 'sizeClasses$']
+				}
+			]
+		}
 	}
 );

@@ -36,6 +36,9 @@ importers:
       '@types/node':
         specifier: ^20
         version: 20.19.39
+      '@unocss/eslint-config':
+        specifier: ^66.6.7
+        version: 66.6.7(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
       '@unocss/extractor-svelte':
         specifier: ^66.6.7
         version: 66.6.7
@@ -501,6 +504,10 @@ packages:
   '@oxc-project/types@0.115.0':
     resolution: {integrity: sha512-4n91DKnebUS4yjUHl2g3/b2T+IUdCfmoZGhmwsovZCDaJSs+QkVAM+0AqqTxHSsHfeiMuueT75cZaZcT/m0pSw==}
 
+  '@pkgr/core@0.2.9':
+    resolution: {integrity: sha512-QNqXyfVS2wm9hweSYD2O7F0G06uurj9kZ96TRQE5Y9hU7+tgdZwIkbAKc5Ocy1HxEY2kuDQa6cQ1WRs/O5LFKA==}
+    engines: {node: ^12.20.0 || ^14.18.0 || >=16.0.0}
+
   '@playwright/test@1.59.1':
     resolution: {integrity: sha512-PG6q63nQg5c9rIi4/Z5lR5IVF7yU5MqmKaPOe0HSc0O2cX1fPi96sUQu5j7eo4gKCkB2AnNGoWt7y4/Xx3Kcqg==}
     engines: {node: '>=18'}
@@ -797,6 +804,14 @@ packages:
 
   '@unocss/core@66.6.7':
     resolution: {integrity: sha512-Q8456iWFtdwrUNYKVOQY8ygRggjZOVtLc6Jc8KIkxig7OiNlUWOgXJTfCh4I8g6jBYzC5eHaHFDLgJOmOrxBsg==}
+
+  '@unocss/eslint-config@66.6.7':
+    resolution: {integrity: sha512-l33NbugpKr5twWmRbFwQcvAuD/lWAqT9Nrnguga75geeUBENOVNQialeyEFcZAmR7/eYOeILIrhM8XtFUmtf2g==}
+    engines: {node: '>=14'}
+
+  '@unocss/eslint-plugin@66.6.7':
+    resolution: {integrity: sha512-0pNFT918CUOiWSlr3ZmePL5Bb06/g/mmP8zP+/dpl2+Vc/GuW6wHVsP+qn5hT2c5FwCPRZ3CUm0HprTru2/sGA==}
+    engines: {node: '>=14'}
 
   '@unocss/extractor-arbitrary-variants@66.6.7':
     resolution: {integrity: sha512-PQiBHK0yUJ0BR+3GYnTPU6va6HVSRPV+O+s1zZmt23TWbyIeucoKCNR47TDtv+Z1xuksY8krIjtDYtufdrVWKw==}
@@ -1575,6 +1590,10 @@ packages:
     resolution: {integrity: sha512-QjvU7EFemf6mRzdMGlAFttMWtAAVXrax61SZYHdkD6yoVGQ89VeyKfZD4H1JrV1WLmJBxWhFch9H6ig/87VGjw==}
     engines: {node: '>=18'}
 
+  synckit@0.11.12:
+    resolution: {integrity: sha512-Bh7QjT8/SuKUIfObSXNHNSK6WHo6J1tHCqJsuaFDP7gP0fkzSfTxI8y85JrppZ0h8l0maIgc2tfuZQ6/t3GtnQ==}
+    engines: {node: ^14.18.0 || >=16.0.0}
+
   tabbable@6.4.0:
     resolution: {integrity: sha512-05PUHKSNE8ou2dwIxTngl4EzcnsCDZGJ/iCLtDflR/SHB/ny14rXc+qU5P4mG9JkusiV7EivzY9Mhm55AzAvCg==}
 
@@ -2087,6 +2106,8 @@ snapshots:
 
   '@oxc-project/types@0.115.0': {}
 
+  '@pkgr/core@0.2.9': {}
+
   '@playwright/test@1.59.1':
     dependencies:
       playwright: 1.59.1
@@ -2393,6 +2414,27 @@ snapshots:
       unconfig: 7.5.0
 
   '@unocss/core@66.6.7': {}
+
+  '@unocss/eslint-config@66.6.7(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)':
+    dependencies:
+      '@unocss/eslint-plugin': 66.6.7(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
+    transitivePeerDependencies:
+      - eslint
+      - supports-color
+      - typescript
+
+  '@unocss/eslint-plugin@66.6.7(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)':
+    dependencies:
+      '@typescript-eslint/utils': 8.58.0(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
+      '@unocss/config': 66.6.7
+      '@unocss/core': 66.6.7
+      '@unocss/rule-utils': 66.6.7
+      magic-string: 0.30.21
+      synckit: 0.11.12
+    transitivePeerDependencies:
+      - eslint
+      - supports-color
+      - typescript
 
   '@unocss/extractor-arbitrary-variants@66.6.7':
     dependencies:
@@ -3271,6 +3313,10 @@ snapshots:
       locate-character: 3.0.0
       magic-string: 0.30.21
       zimmerframe: 1.1.4
+
+  synckit@0.11.12:
+    dependencies:
+      '@pkgr/core': 0.2.9
 
   tabbable@6.4.0: {}
 

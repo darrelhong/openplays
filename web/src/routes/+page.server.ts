@@ -16,7 +16,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			params: {
 				query: {
 					sport: sport as Sport,
-					cursor: cursor ? Number(cursor) : undefined,
+					cursor: cursor || undefined,
 					limit: limit ? Number(limit) : undefined
 				}
 			}
@@ -30,5 +30,5 @@ export const load: PageServerLoad = async ({ url }) => {
 		error(response.error.status ?? 500, response.error.detail ?? 'Failed to fetch plays');
 	}
 
-	return { plays: response.data };
+	return response.data;
 };
