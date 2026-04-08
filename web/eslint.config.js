@@ -45,6 +45,7 @@ export default defineConfig(
 			'unocss/order': [
 				'error',
 				{
+					unoFunctions: ['cn'],
 					unoVariables: ['^cls', 'classNames?$', 'variantClasses$', 'sizeClasses$']
 				}
 			]

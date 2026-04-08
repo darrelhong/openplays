@@ -52,7 +52,10 @@
 		]
 	},
 	"dependencies": {
+		"@lucide/svelte": "^1.7.0",
 		"bits-ui": "^2.17.2",
-		"openapi-fetch": "^0.17.0"
+		"clsx": "^2.1.1",
+		"openapi-fetch": "^0.17.0",
+		"tailwind-merge": "^3.5.0"
 	}
 }
