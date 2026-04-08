@@ -1,6 +1,6 @@
 -- name: InsertRawMessage :one
-INSERT INTO raw_messages (source, sender_username, message_text, message_time, content_hash, status)
-VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO raw_messages (source, sender_username, message_text, message_time, content_hash, status, source_message_id, source_group)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetPendingJob :one

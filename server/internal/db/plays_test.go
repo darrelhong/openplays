@@ -119,6 +119,8 @@ func TestUpsertPlay_DifferentVenueID_InsertsBoth(t *testing.T) {
 
 func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.UpsertPlayParams {
 	source := "telegram"
+	levelMin := "LB"
+	levelMax := "HB"
 	return db.UpsertPlayParams{
 		ListingType: model.ListingPlay,
 		Sport:       model.SportBadminton,
@@ -129,6 +131,8 @@ func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.Up
 		Venue:       venue,
 		VenueNorm:   venue,
 		VenueID:     &venueID,
+		LevelMin:    &levelMin,
+		LevelMax:    &levelMax,
 		Currency:    "SGD",
 		Source:      &source,
 	}

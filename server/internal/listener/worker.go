@@ -142,11 +142,13 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 
 	// Build parser input
 	input := parser.MessageInput{
-		Text:       job.MessageText,
-		SenderName: job.SenderUsername,
-		Timestamp:  job.MessageTime,
-		Timezone:   w.timezone,
-		Source:     job.Source,
+		Text:            job.MessageText,
+		SenderName:      job.SenderUsername,
+		Timestamp:       job.MessageTime,
+		Timezone:        w.timezone,
+		Source:          job.Source,
+		SourceMessageID: job.SourceMessageID,
+		SourceGroup:     job.SourceGroup,
 	}
 
 	// Call LLM

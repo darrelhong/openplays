@@ -50,7 +50,7 @@ func TestHandleMessage(t *testing.T) {
 		store := &SpyMessageStore{}
 
 		result, err := HandleMessage(context.Background(), store, "telegram", "Daniel",
-			"Looking for HB players at Bedok, 3 Apr 8pm", time.Now())
+			"Looking for HB players at Bedok, 3 Apr 8pm", time.Now(), nil, nil)
 
 		assertNoError(t, err)
 		assertResult(t, result, HandleInserted)
@@ -61,9 +61,9 @@ func TestHandleMessage(t *testing.T) {
 		store := &SpyMessageStore{}
 		msg := "Looking for HB players at Bedok, 3 Apr 8pm, $10, RSL Supreme"
 
-		HandleMessage(context.Background(), store, "telegram", "Daniel", msg, time.Now())
+		HandleMessage(context.Background(), store, "telegram", "Daniel", msg, time.Now(), nil, nil)
 
-		result, err := HandleMessage(context.Background(), store, "telegram", "Daniel", msg, time.Now())
+		result, err := HandleMessage(context.Background(), store, "telegram", "Daniel", msg, time.Now(), nil, nil)
 
 		assertNoError(t, err)
 		assertResult(t, result, HandleSkipped)
@@ -90,8 +90,8 @@ $10 per pax, RSL Supreme`
 2 slot left
 $10 per pax, RSL Supreme`
 
-		HandleMessage(context.Background(), store, "telegram", "Daniel", original, time.Now())
-		result, err := HandleMessage(context.Background(), store, "telegram", "Daniel", repost, time.Now())
+		HandleMessage(context.Background(), store, "telegram", "Daniel", original, time.Now(), nil, nil)
+		result, err := HandleMessage(context.Background(), store, "telegram", "Daniel", repost, time.Now(), nil, nil)
 
 		assertNoError(t, err)
 		assertResult(t, result, HandleSkipped)
@@ -101,9 +101,9 @@ $10 per pax, RSL Supreme`
 		store := &SpyMessageStore{}
 
 		HandleMessage(context.Background(), store, "telegram", "Daniel",
-			"Looking for HB players at Heartbeat Bedok, 3 Apr 8pm, $10", time.Now())
+			"Looking for HB players at Heartbeat Bedok, 3 Apr 8pm, $10", time.Now(), nil, nil)
 		result, err := HandleMessage(context.Background(), store, "telegram", "Nic",
-			"Court let go at cost $16, Hougang CC, 7:30-9:30pm", time.Now())
+			"Court let go at cost $16, Hougang CC, 7:30-9:30pm", time.Now(), nil, nil)
 
 		assertNoError(t, err)
 		assertResult(t, result, HandleInserted)
@@ -127,7 +127,7 @@ $10 per pax, RSL Supreme`
 		}
 
 		for i, c := range cases {
-			result, err := HandleMessage(context.Background(), store, "telegram", c.sender, c.text, time.Now())
+			result, err := HandleMessage(context.Background(), store, "telegram", c.sender, c.text, time.Now(), nil, nil)
 			assertNoError(t, err)
 			if result != c.want {
 				t.Errorf("message %d (%s): got %d, want %d", i, c.sender, result, c.want)
@@ -139,7 +139,7 @@ $10 per pax, RSL Supreme`
 		store := &SpyMessageStore{}
 
 		HandleMessage(context.Background(), store, "telegram", "Daniel",
-			"Looking for HB players", time.Now())
+			"Looking for HB players", time.Now(), nil, nil)
 
 		// Verify the operation order: dedup check happens before insert
 		if len(store.Calls) < 2 {
@@ -159,7 +159,7 @@ $10 per pax, RSL Supreme`
 		}
 
 		result, err := HandleMessage(context.Background(), store, "telegram", "Daniel",
-			"Looking for HB players", time.Now())
+			"Looking for HB players", time.Now(), nil, nil)
 
 		assertResult(t, result, HandleError)
 		if err == nil {
@@ -173,7 +173,7 @@ $10 per pax, RSL Supreme`
 		}
 
 		result, err := HandleMessage(context.Background(), store, "telegram", "Daniel",
-			"Looking for HB players", time.Now())
+			"Looking for HB players", time.Now(), nil, nil)
 
 		assertNoError(t, err)
 		assertResult(t, result, HandleInserted)

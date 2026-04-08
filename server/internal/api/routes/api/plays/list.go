@@ -147,6 +147,10 @@ func RegisterList(api huma.API, queries *db.Queries) {
 				Contacts:        r.Contacts,
 				GenderPref:      r.GenderPref,
 				Meta:            r.Meta,
+				Source:          r.Source,
+				SourceMessageID: r.SourceMessageID,
+				SourceGroup:     r.SourceGroup,
+				SourceLink:      buildSourceLink(r.Source, r.SourceGroup, r.SourceMessageID),
 			}
 		}
 

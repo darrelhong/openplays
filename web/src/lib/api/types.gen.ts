@@ -144,6 +144,11 @@ export interface components {
             };
             /** Format: int64 */
             slots_left?: number;
+            source?: string;
+            source_group?: string;
+            /** @description Deep link to original message, e.g. t.me/group/123 */
+            source_link?: string;
+            source_message_id?: string;
             /** @enum {string} */
             sport: "badminton" | "tennis" | "football" | "pickleball";
             starts_at: string;

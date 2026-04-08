@@ -1,6 +1,10 @@
 package plays
 
-import "openplays/server/internal/model"
+import (
+	"fmt"
+
+	"openplays/server/internal/model"
+)
 
 // PlayPublic is the API response schema for a play.
 type PlayPublic struct {
@@ -34,4 +38,22 @@ type PlayPublic struct {
 	Contacts   model.Contacts    `json:"contacts"`
 	GenderPref *model.GenderPref `json:"gender_pref,omitempty"`
 	Meta       model.Meta        `json:"meta"`
+
+	Source          *string `json:"source,omitempty"`
+	SourceMessageID *string `json:"source_message_id,omitempty"`
+	SourceGroup     *string `json:"source_group,omitempty"`
+	SourceLink      *string `json:"source_link,omitempty" doc:"Deep link to original message, e.g. t.me/group/123"`
+}
+
+// buildSourceLink constructs a deep link to the original message.
+// Returns nil if the source is not supported or fields are missing.
+func buildSourceLink(source, group, messageID *string) *string {
+	if source == nil || group == nil || messageID == nil {
+		return nil
+	}
+	if *source == "telegram" {
+		link := fmt.Sprintf("https://t.me/%s/%s", *group, *messageID)
+		return &link
+	}
+	return nil
 }

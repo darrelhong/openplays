@@ -104,7 +104,10 @@ func main() {
 		senderName := resolveSenderName(update, fromID)
 		msgTime := time.Unix(int64(msg.Date), 0).UTC()
 
-		result, err := listener.HandleMessage(ctx, queries, "telegram", senderName, msg.Message.Message, msgTime)
+		msgID := fmt.Sprintf("%d", msg.ID)
+		group := channel.Username
+
+		result, err := listener.HandleMessage(ctx, queries, "telegram", senderName, msg.Message.Message, msgTime, &msgID, &group)
 		if err != nil {
 			log.Printf("failed to handle message: %v", err)
 			return nil

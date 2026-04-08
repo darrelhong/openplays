@@ -217,6 +217,18 @@
 											</dl>
 										</div>
 									{/if}
+									{#if play.source === 'telegram' && play.source_link}
+										<div class="mt-3 pt-3 border-t border-stone-700">
+											<a
+												rel="external noopener noreferrer"
+												href={play.source_link}
+												target="_blank"
+												class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+											>
+												View in Telegram ↗
+											</a>
+										</div>
+									{/if}
 								</Dialog.Content>
 							</Dialog.Root>
 						</td>

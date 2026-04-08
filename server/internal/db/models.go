@@ -40,22 +40,26 @@ type Play struct {
 	SourceRawMessage     *string
 	SourceMessageTime    *time.Time
 	VenueID              *int64
+	SourceMessageID      *string
+	SourceGroup          *string
 }
 
 type RawMessage struct {
-	ID             int64
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	Source         string
-	SenderUsername string
-	MessageText    string
-	MessageTime    time.Time
-	ContentHash    string
-	Status         string
-	RetryCount     int64
-	NextRetryAt    *time.Time
-	LastError      *string
-	LlmResponse    *string
+	ID              int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Source          string
+	SenderUsername  string
+	MessageText     string
+	MessageTime     time.Time
+	ContentHash     string
+	Status          string
+	RetryCount      int64
+	NextRetryAt     *time.Time
+	LastError       *string
+	LlmResponse     *string
+	SourceMessageID *string
+	SourceGroup     *string
 }
 
 type Venue struct {

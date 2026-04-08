@@ -42,6 +42,7 @@ SELECT
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
+    p.source, p.source_message_id, p.source_group,
     v.name AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
@@ -75,6 +76,9 @@ type GetPlayByIDRow struct {
 	Contacts        model.Contacts
 	GenderPref      *model.GenderPref
 	Meta            model.Meta
+	Source          *string
+	SourceMessageID *string
+	SourceGroup     *string
 	VenueName       *string
 	VenuePostalCode *string
 	VenueLatitude   *float64
@@ -110,6 +114,9 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 		&i.Contacts,
 		&i.GenderPref,
 		&i.Meta,
+		&i.Source,
+		&i.SourceMessageID,
+		&i.SourceGroup,
 		&i.VenueName,
 		&i.VenuePostalCode,
 		&i.VenueLatitude,
@@ -119,7 +126,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 }
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
-SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id FROM plays
+SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group FROM plays
 WHERE starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND listing_type = 'play'
 ORDER BY starts_at ASC
@@ -164,6 +171,8 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.SourceRawMessage,
 			&i.SourceMessageTime,
 			&i.VenueID,
+			&i.SourceMessageID,
+			&i.SourceGroup,
 		); err != nil {
 			return nil, err
 		}
@@ -187,6 +196,7 @@ SELECT
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
+    p.source, p.source_message_id, p.source_group,
     v.name AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
@@ -236,6 +246,9 @@ type ListUpcomingPlaysRow struct {
 	Contacts        model.Contacts
 	GenderPref      *model.GenderPref
 	Meta            model.Meta
+	Source          *string
+	SourceMessageID *string
+	SourceGroup     *string
 	VenueName       *string
 	VenuePostalCode *string
 	VenueLatitude   *float64
@@ -286,6 +299,9 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.Contacts,
 			&i.GenderPref,
 			&i.Meta,
+			&i.Source,
+			&i.SourceMessageID,
+			&i.SourceGroup,
 			&i.VenueName,
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
@@ -312,7 +328,8 @@ INSERT INTO plays (
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
-    source, source_sender_username, source_raw_message, source_message_time
+    source, source_sender_username, source_raw_message, source_message_time,
+    source_message_id, source_group
 ) VALUES (
     ?, ?, ?, ?,
     ?, ?, ?,
@@ -320,13 +337,14 @@ INSERT INTO plays (
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
-    ?, ?, ?, ?
+    ?, ?, ?, ?,
+    ?, ?
 )
-ON CONFLICT(host_name, starts_at, ends_at, sport, venue_id) DO UPDATE SET
+ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
-    venue                 = excluded.venue,
     venue_norm            = excluded.venue_norm,
+    venue_id              = excluded.venue_id,
     level_min             = excluded.level_min,
     level_max             = excluded.level_max,
     level_min_ord         = excluded.level_min_ord,
@@ -342,8 +360,10 @@ ON CONFLICT(host_name, starts_at, ends_at, sport, venue_id) DO UPDATE SET
     source_sender_username = excluded.source_sender_username,
     source_raw_message    = excluded.source_raw_message,
     source_message_time   = excluded.source_message_time,
+    source_message_id     = excluded.source_message_id,
+    source_group          = excluded.source_group,
     updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group
 `
 
 type UpsertPlayParams struct {
@@ -373,6 +393,8 @@ type UpsertPlayParams struct {
 	SourceSenderUsername *string
 	SourceRawMessage     *string
 	SourceMessageTime    *time.Time
+	SourceMessageID      *string
+	SourceGroup          *string
 }
 
 func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, error) {
@@ -403,6 +425,8 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		arg.SourceSenderUsername,
 		arg.SourceRawMessage,
 		arg.SourceMessageTime,
+		arg.SourceMessageID,
+		arg.SourceGroup,
 	)
 	var i Play
 	err := row.Scan(
@@ -435,6 +459,8 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		&i.SourceRawMessage,
 		&i.SourceMessageTime,
 		&i.VenueID,
+		&i.SourceMessageID,
+		&i.SourceGroup,
 	)
 	return i, err
 }

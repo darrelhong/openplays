@@ -10,11 +10,13 @@ import (
 
 // MessageInput holds the raw message data from a source (Telegram, etc.).
 type MessageInput struct {
-	Text       string    // full raw message text
-	SenderName string    // username or display name of sender
-	Timestamp  time.Time // when the message was sent
-	Timezone   string    // IANA timezone of the source, e.g. "Asia/Singapore"
-	Source     string    // source of the message, e.g. "telegram"
+	Text            string    // full raw message text
+	SenderName      string    // username or display name of sender
+	Timestamp       time.Time // when the message was sent
+	Timezone        string    // IANA timezone of the source, e.g. "Asia/Singapore"
+	Source          string    // source of the message, e.g. "telegram"
+	SourceMessageID *string   // platform message ID, e.g. Telegram message ID
+	SourceGroup     *string   // platform group/channel, e.g. "sgbadmintontelecom"
 }
 
 // Pipeline orchestrates message splitting and LLM-based extraction.
@@ -100,6 +102,8 @@ func ToPlay(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue)
 		SourceSenderUsername: &input.SenderName,
 		SourceRawMessage:     &input.Text,
 		SourceMessageTime:    &input.Timestamp,
+		SourceMessageID:      input.SourceMessageID,
+		SourceGroup:          input.SourceGroup,
 	}
 
 	if rv != nil {
@@ -161,6 +165,8 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *Re
 		SourceSenderUsername: &input.SenderName,
 		SourceRawMessage:     &input.Text,
 		SourceMessageTime:    &input.Timestamp,
+		SourceMessageID:      input.SourceMessageID,
+		SourceGroup:          input.SourceGroup,
 	}
 
 	if rv != nil {
