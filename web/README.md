@@ -20,14 +20,27 @@ pnpm dlx sv@0.14.1 create --template minimal --types ts --add prettier eslint vi
 
 ## Developing
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+Once you've installed dependencies with `pnpm install`, start a development server:
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+pnpm dev
 ```
+
+## API Types
+
+TypeScript types are auto-generated from the Go API's OpenAPI spec. The generated file is `src/lib/api/types.gen.ts`.
+
+To regenerate after changing the API:
+
+```sh
+# 1. Start the Go API server (in the server/ directory)
+cd ../server && go run ./cmd/api/
+
+# 2. Generate types (in the web/ directory)
+pnpm gen:types
+```
+
+This fetches `http://localhost:8080/openapi.json` and generates typed request/response interfaces. The config is in `redocly.yaml`.
 
 ## Building
 
