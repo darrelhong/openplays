@@ -104,7 +104,7 @@ func RegisterList(api huma.API, queries *db.Queries) {
 			VenueID:        venueID,
 			CursorStartsAt: cursorStartsAt,
 			CursorID:       cursorID,
-			PageSize:        pageSize,
+			PageSize:       pageSize,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list plays", err)

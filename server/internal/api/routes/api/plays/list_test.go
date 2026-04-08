@@ -37,11 +37,11 @@ func TestEncodeCursor(t *testing.T) {
 
 func TestDecodeCursor(t *testing.T) {
 	tests := []struct {
-		name       string
-		cursor     string
-		wantTime   string
-		wantID     int64
-		wantOK     bool
+		name     string
+		cursor   string
+		wantTime string
+		wantID   int64
+		wantOK   bool
 	}{
 		{
 			name:     "valid cursor",
@@ -105,10 +105,10 @@ func TestCursorRoundTrip(t *testing.T) {
 
 func TestCursorStartsAtForDB(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		want     string
-		wantOK   bool
+		name   string
+		input  string
+		want   string
+		wantOK bool
 	}{
 		{
 			name:   "convert RFC3339 UTC to sqlite format",
