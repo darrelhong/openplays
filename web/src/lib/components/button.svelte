@@ -3,7 +3,7 @@
 	import { Button, type ButtonRootProps } from 'bits-ui';
 
 	type Variant = 'default' | 'secondary' | 'outline' | 'ghost';
-	type Size = 'sm' | 'md' | 'lg';
+	type Size = 'xs' | 'sm' | 'md' | 'lg';
 
 	type Props = ButtonRootProps & {
 		variant?: Variant;
@@ -28,6 +28,7 @@
     //     link: "text-primary underline-offset-4 hover:underline",
 
 	const sizeClasses: Record<Size, string> = {
+		xs: 'text-xs px-2 h-6',
 		sm: 'text-sm px-2.5 h-8',
 		md: 'text-base px-3 py-1.5',
 		lg: 'text-base px-2.5 h-10'
