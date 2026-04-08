@@ -38,3 +38,9 @@ ORDER BY va.alias;
 
 -- name: GetVenueByID :one
 SELECT * FROM venues WHERE id = ?;
+
+-- name: ListVenuesWithPostalCode :many
+SELECT id, name, postal_code, latitude, longitude
+FROM venues
+WHERE postal_code IS NOT NULL
+ORDER BY name;
