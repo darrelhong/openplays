@@ -43,6 +43,10 @@ type PlayPublic struct {
 	SourceMessageID *string `json:"source_message_id,omitempty"`
 	SourceGroup     *string `json:"source_group,omitempty"`
 	SourceLink      *string `json:"source_link,omitempty" doc:"Deep link to original message, e.g. t.me/group/123"`
+
+	// distanceKm is an internal field used for cursor encoding when sorting
+	// by distance. Not serialized to JSON (lowercase unexported in json tag).
+	distanceKm float64 `json:"-"`
 }
 
 // buildSourceLink constructs a deep link to the original message.

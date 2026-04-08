@@ -34,6 +34,29 @@ func (q *Queries) CountUpcomingPlays(ctx context.Context, arg CountUpcomingPlays
 	return count, err
 }
 
+const countUpcomingPlaysByDistance = `-- name: CountUpcomingPlaysByDistance :one
+SELECT COUNT(*) FROM plays p
+INNER JOIN venues v ON v.id = p.venue_id
+WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND (?1 IS NULL OR p.listing_type = ?1)
+  AND (?2 IS NULL OR p.sport = ?2)
+  AND (?3 IS NULL OR p.venue_id = ?3)
+`
+
+type CountUpcomingPlaysByDistanceParams struct {
+	ListingType interface{}
+	Sport       interface{}
+	VenueID     interface{}
+}
+
+// Total count of upcoming listings with a resolved venue, matching the same filters.
+func (q *Queries) CountUpcomingPlaysByDistance(ctx context.Context, arg CountUpcomingPlaysByDistanceParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUpcomingPlaysByDistance, arg.ListingType, arg.Sport, arg.VenueID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getPlayByID = `-- name: GetPlayByID :one
 SELECT
     p.id, p.created_at, p.updated_at,
@@ -309,6 +332,160 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
 			&i.VenueLongitude,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUpcomingPlaysByDistance = `-- name: ListUpcomingPlaysByDistance :many
+SELECT
+    p.id, p.created_at, p.updated_at,
+    p.listing_type, p.sport, p.game_type, p.host_name,
+    p.starts_at, p.ends_at, p.timezone,
+    p.venue, p.venue_norm, p.venue_id,
+    p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
+    p.fee, p.currency, p.max_players, p.slots_left, p.courts,
+    p.contacts, p.gender_pref, p.meta,
+    p.source, p.source_message_id, p.source_group,
+    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    CAST(2 * 6371 * asin(sqrt(
+        pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
+        cos(radians(?1)) * cos(radians(v.latitude)) *
+        pow(sin((radians(v.longitude) - radians(?2)) / 2), 2)
+    )) AS REAL) AS distance_km
+FROM plays p
+INNER JOIN venues v ON v.id = p.venue_id
+WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND (?3 IS NULL OR p.listing_type = ?3)
+  AND (?4 IS NULL OR p.sport = ?4)
+  AND (?5 IS NULL OR p.venue_id = ?5)
+  AND (?6 IS NULL
+    OR 2 * 6371 * asin(sqrt(
+        pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
+        cos(radians(?1)) * cos(radians(v.latitude)) *
+        pow(sin((radians(v.longitude) - radians(?2)) / 2), 2)
+    )) > ?6
+    OR (2 * 6371 * asin(sqrt(
+        pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
+        cos(radians(?1)) * cos(radians(v.latitude)) *
+        pow(sin((radians(v.longitude) - radians(?2)) / 2), 2)
+    )) = ?6 AND p.id > ?7))
+ORDER BY distance_km ASC, p.id ASC
+LIMIT ?8
+`
+
+type ListUpcomingPlaysByDistanceParams struct {
+	RefLat         interface{}
+	RefLng         interface{}
+	ListingType    interface{}
+	Sport          interface{}
+	VenueID        interface{}
+	CursorDistance interface{}
+	CursorID       *int64
+	PageSize       int64
+}
+
+type ListUpcomingPlaysByDistanceRow struct {
+	ID              int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	ListingType     model.ListingType
+	Sport           model.Sport
+	GameType        *model.GameType
+	HostName        string
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Timezone        string
+	Venue           string
+	VenueNorm       string
+	VenueID         *int64
+	LevelMin        *string
+	LevelMax        *string
+	LevelMinOrd     *int64
+	LevelMaxOrd     *int64
+	Fee             *int64
+	Currency        string
+	MaxPlayers      *int64
+	SlotsLeft       *int64
+	Courts          *int64
+	Contacts        model.Contacts
+	GenderPref      *model.GenderPref
+	Meta            model.Meta
+	Source          *string
+	SourceMessageID *string
+	SourceGroup     *string
+	VenueName       string
+	VenuePostalCode *string
+	VenueLatitude   float64
+	VenueLongitude  float64
+	DistanceKm      float64
+}
+
+// Paginated upcoming listings sorted by Haversine distance from a reference point.
+// Only includes plays with a resolved venue (INNER JOIN).
+// Forward-only cursor pagination using composite (distance_km, id).
+func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcomingPlaysByDistanceParams) ([]ListUpcomingPlaysByDistanceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUpcomingPlaysByDistance,
+		arg.RefLat,
+		arg.RefLng,
+		arg.ListingType,
+		arg.Sport,
+		arg.VenueID,
+		arg.CursorDistance,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUpcomingPlaysByDistanceRow
+	for rows.Next() {
+		var i ListUpcomingPlaysByDistanceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ListingType,
+			&i.Sport,
+			&i.GameType,
+			&i.HostName,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Timezone,
+			&i.Venue,
+			&i.VenueNorm,
+			&i.VenueID,
+			&i.LevelMin,
+			&i.LevelMax,
+			&i.LevelMinOrd,
+			&i.LevelMaxOrd,
+			&i.Fee,
+			&i.Currency,
+			&i.MaxPlayers,
+			&i.SlotsLeft,
+			&i.Courts,
+			&i.Contacts,
+			&i.GenderPref,
+			&i.Meta,
+			&i.Source,
+			&i.SourceMessageID,
+			&i.SourceGroup,
+			&i.VenueName,
+			&i.VenuePostalCode,
+			&i.VenueLatitude,
+			&i.VenueLongitude,
+			&i.DistanceKm,
 		); err != nil {
 			return nil, err
 		}
