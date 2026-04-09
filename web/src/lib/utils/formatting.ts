@@ -3,6 +3,21 @@ export function capitalize(s: string): string {
 }
 
 /**
+ * Format an ISO datetime string as a short absolute datetime.
+ * e.g. "8 Apr 2026, 5:30 pm"
+ */
+export function formatDateTime(iso: string): string {
+	const d = new Date(iso);
+	return d.toLocaleString('en-SG', {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit'
+	});
+}
+
+/**
  * Format an ISO date string for display.
  * e.g. "Tue, 8 Apr"
  */

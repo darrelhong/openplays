@@ -10,6 +10,7 @@
 		capitalize,
 		formatDate,
 		formatTime,
+		formatDateTime,
 		formatPlayFee,
 		formatLevel
 	} from '$lib/utils/formatting';
@@ -234,6 +235,20 @@
 											</a>
 										</div>
 									{/if}
+									<div class="mt-3 pt-3 border-t border-stone-700">
+										<dl class="text-xs text-stone-500 space-y-1">
+											<div class="flex gap-4">
+												<dt class="w-24">Created</dt>
+												<dd>{formatDateTime(play.created_at)}</dd>
+											</div>
+											{#if play.updated_at !== play.created_at}
+												<div class="flex gap-4">
+													<dt class="w-24">Updated</dt>
+													<dd>{formatDateTime(play.updated_at)}</dd>
+												</div>
+											{/if}
+										</dl>
+									</div>
 								</Dialog.Content>
 							</Dialog.Root>
 						</td>

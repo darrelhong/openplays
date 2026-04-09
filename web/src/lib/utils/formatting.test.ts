@@ -3,6 +3,7 @@ import {
 	capitalize,
 	formatDate,
 	formatTime,
+	formatDateTime,
 	formatFee,
 	getNumericFee,
 	getMetaFee,
@@ -216,5 +217,25 @@ describe('formatLevel', () => {
 
 	it('returns dash when both are empty strings', () => {
 		expect(formatLevel('', '')).toBe('-');
+	});
+});
+
+describe('formatDateTime', () => {
+	it('formats an ISO datetime string with date and time', () => {
+		// UTC timestamp — output depends on local timezone of test runner
+		const result = formatDateTime('2026-04-03T11:29:43Z');
+		expect(result).toContain('Apr');
+		expect(result).toContain('2026');
+	});
+
+	it('includes minutes in the output', () => {
+		const result = formatDateTime('2026-04-03T11:29:43Z');
+		// Should contain the minute portion (varies by timezone)
+		expect(result).toMatch(/\d{1,2}:\d{2}/);
+	});
+
+	it('handles midnight UTC', () => {
+		const result = formatDateTime('2026-01-01T00:00:00Z');
+		expect(result).toContain('2026');
 	});
 });
