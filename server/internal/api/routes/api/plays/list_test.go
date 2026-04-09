@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestEncodeCursor(t *testing.T) {
+func TestEncodeTimeCursor(t *testing.T) {
 	tests := []struct {
 		name     string
 		startsAt string
@@ -27,15 +27,15 @@ func TestEncodeCursor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := encodeCursor(tt.startsAt, tt.id)
+			got := encodeTimeCursor(tt.startsAt, tt.id)
 			if got != tt.want {
-				t.Errorf("encodeCursor(%q, %d) = %q, want %q", tt.startsAt, tt.id, got, tt.want)
+				t.Errorf("encodeTimeCursor(%q, %d) = %q, want %q", tt.startsAt, tt.id, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestDecodeCursor(t *testing.T) {
+func TestDecodeTimeCursor(t *testing.T) {
 	tests := []struct {
 		name     string
 		cursor   string
@@ -69,18 +69,18 @@ func TestDecodeCursor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotTime, gotID, gotOK := decodeCursor(tt.cursor)
+			gotTime, gotID, gotOK := decodeTimeCursor(tt.cursor)
 			if gotOK != tt.wantOK {
-				t.Fatalf("decodeCursor(%q) ok = %v, want %v", tt.cursor, gotOK, tt.wantOK)
+				t.Fatalf("decodeTimeCursor(%q) ok = %v, want %v", tt.cursor, gotOK, tt.wantOK)
 			}
 			if !gotOK {
 				return
 			}
 			if gotTime != tt.wantTime {
-				t.Errorf("decodeCursor(%q) time = %q, want %q", tt.cursor, gotTime, tt.wantTime)
+				t.Errorf("decodeTimeCursor(%q) time = %q, want %q", tt.cursor, gotTime, tt.wantTime)
 			}
 			if gotID != tt.wantID {
-				t.Errorf("decodeCursor(%q) id = %d, want %d", tt.cursor, gotID, tt.wantID)
+				t.Errorf("decodeTimeCursor(%q) id = %d, want %d", tt.cursor, gotID, tt.wantID)
 			}
 		})
 	}
@@ -89,11 +89,11 @@ func TestDecodeCursor(t *testing.T) {
 func TestCursorRoundTrip(t *testing.T) {
 	// Encode from API format (RFC3339), decode, and verify the cursor stays
 	// in RFC3339 externally.
-	cursor := encodeCursor("2026-04-10T12:00:00Z", 123)
+	cursor := encodeTimeCursor("2026-04-10T12:00:00Z", 123)
 
-	startsAt, id, ok := decodeCursor(cursor)
+	startsAt, id, ok := decodeTimeCursor(cursor)
 	if !ok {
-		t.Fatalf("decodeCursor(%q) failed", cursor)
+		t.Fatalf("decodeTimeCursor(%q) failed", cursor)
 	}
 	if id != 123 {
 		t.Errorf("round-trip id = %d, want 123", id)
