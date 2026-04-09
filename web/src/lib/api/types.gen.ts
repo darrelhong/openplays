@@ -38,6 +38,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/venues/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List venues with postal codes
+         * @description Returns all resolved venues that have a postal code and coordinates. Useful for building venue selectors.
+         */
+        get: operations["list-venues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -92,6 +112,15 @@ export interface components {
              * @example https://example.com/errors/example
              */
             type: string;
+        };
+        ListBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListBody.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["VenuePublic"][] | null;
         };
         PagePlayPublic: {
             /**
@@ -164,6 +193,16 @@ export interface components {
             venue_name?: string;
             venue_postal_code?: string;
         };
+        VenuePublic: {
+            /** Format: int64 */
+            id: number;
+            /** Format: double */
+            latitude: number;
+            /** Format: double */
+            longitude: number;
+            name: string;
+            postal_code: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -182,6 +221,10 @@ export interface operations {
                 sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
                 /** @description Filter by venue ID */
                 venue_id?: number;
+                /** @description Reference latitude for distance sorting */
+                lat?: number;
+                /** @description Reference longitude for distance sorting */
+                lng?: number;
                 /** @description Opaque cursor from previous page */
                 cursor?: string;
                 /** @description Number of results per page */
@@ -232,6 +275,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayPublic"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-venues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListBody"];
                 };
             };
             /** @description Error */

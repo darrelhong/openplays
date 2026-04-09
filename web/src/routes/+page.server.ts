@@ -9,26 +9,35 @@ export const load: PageServerLoad = async ({ url }) => {
 	const sport = url.searchParams.get('sport') || undefined;
 	const cursor = url.searchParams.get('cursor');
 	const limit = url.searchParams.get('limit');
+	const lat = url.searchParams.get('lat');
+	const lng = url.searchParams.get('lng');
 
-	let response;
-	try {
-		response = await api.GET('/api/plays/', {
-			params: {
-				query: {
-					sport: sport as Sport,
-					cursor: cursor || undefined,
-					limit: limit ? Number(limit) : undefined
+	const [playsResponse, venuesResponse] = await Promise.all([
+		api
+			.GET('/api/plays/', {
+				params: {
+					query: {
+						sport: sport as Sport,
+						cursor: cursor || undefined,
+						limit: limit ? Number(limit) : undefined,
+						lat: lat ? Number(lat) : undefined,
+						lng: lng ? Number(lng) : undefined
+					}
 				}
-			}
-		});
-	} catch {
-		// Network error (API down, connection refused, timeout)
+			})
+			.catch(() => null),
+		api.GET('/api/venues/').catch(() => null)
+	]);
+
+	if (!playsResponse) {
 		error(503, 'API is currently unavailable');
 	}
-
-	if (response.error) {
-		error(response.error.status ?? 500, response.error.detail ?? 'Failed to fetch plays');
+	if (playsResponse.error) {
+		error(playsResponse.error.status ?? 500, playsResponse.error.detail ?? 'Failed to fetch plays');
 	}
 
-	return response.data;
+	return {
+		plays: playsResponse.data,
+		venues: venuesResponse?.data?.items ?? []
+	};
 };

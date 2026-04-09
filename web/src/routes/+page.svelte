@@ -1,14 +1,56 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
+	import type { components } from '$lib/api/types.gen';
 	import Button from '$lib/components/button.svelte';
 	import * as Dialog from '$lib/components/dialog/index';
+	import { Combobox } from '$lib/components/combobox/index';
 	import { capitalize } from '$lib/utils/formatting';
 
-	type Play = NonNullable<PageData['items']>[number];
+	type Play = components['schemas']['PlayPublic'];
 
 	let { data }: { data: PageData } = $props();
+
+	let selectedVenue = $state<string>(getInitialVenue());
+
+	const venueItems = $derived(data.venues.map((v) => ({ value: String(v.id), label: v.name })));
+
+	function getInitialVenue(): string {
+		const lat = page.url.searchParams.get('lat');
+		const lng = page.url.searchParams.get('lng');
+		if (!lat || !lng) return '';
+
+		const latNum = Number(lat);
+		const lngNum = Number(lng);
+		const match = data.venues.find(
+			(v) => String(v.latitude) === String(latNum) && String(v.longitude) === String(lngNum)
+		);
+		return match ? String(match.id) : '';
+	}
+
+	function handleVenueChange(value: string) {
+		const venue = value ? data.venues.find((v) => String(v.id) === value) : undefined;
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+
+		if (venue) {
+			params.set('lat', String(venue.latitude));
+			params.set('lng', String(venue.longitude));
+		} else {
+			params.delete('lat');
+			params.delete('lng');
+		}
+		params.delete('cursor');
+
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+	}
+
+	function resetVenue() {
+		selectedVenue = '';
+		handleVenueChange('');
+	}
 
 	function formatDate(iso: string, tz: string): string {
 		const d = new Date(iso);
@@ -82,8 +124,26 @@
 
 <h1 class="text-xl font-semibold mb-2">Plays</h1>
 
-{#if data.items && data.items.length > 0}
-	<p class="text-stone-300 mb-1">Showing {data.total} plays</p>
+{#if data.plays.items && data.plays.items.length > 0}
+	<div class="mb-4 flex gap-2 items-end">
+		<div class="w-70">
+			<label for="venue-filter" class="text-sm text-stone-400 mb-1 block">Sort by distance</label>
+			<Combobox
+				type="single"
+				items={venueItems}
+				bind:value={selectedVenue}
+				onValueChange={handleVenueChange}
+				placeholder="Search venues"
+				openOnClick
+				inputProps={{ id: 'venue-filter' }}
+			/>
+		</div>
+		{#if selectedVenue}
+			<Button variant="outline" onclick={resetVenue}>Reset</Button>
+		{/if}
+	</div>
+
+	<p class="text-stone-300 mb-1">Showing {data.plays.total} plays</p>
 
 	<div class="overflow-auto">
 		<table class="w-full border-collapse">
@@ -103,7 +163,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each data.items as play (play.id)}
+				{#each data.plays.items as play (play.id)}
 					<tr class="border-b border-neutral-700 *:p-2 hover:bg-stone-800 *:whitespace-nowrap">
 						<td>{play.venue_name || play.venue}</td>
 						<td>{formatDate(play.starts_at, play.timezone)}</td>
@@ -251,7 +311,9 @@
 		<Button variant="outline" onclick={() => history.back()}>Previous</Button>
 	{/if}
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-	{#if data.has_more && data.next_cursor != null}
-		<Button class="ms-auto" variant="outline" href={getNextPageUrl(data.next_cursor)}>Next</Button>
+	{#if data.plays.has_more && data.plays.next_cursor != null}
+		<Button class="ms-auto" variant="outline" href={getNextPageUrl(data.plays.next_cursor)}
+			>Next</Button
+		>
 	{/if}
 </div>
