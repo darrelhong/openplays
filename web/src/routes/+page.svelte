@@ -3,13 +3,16 @@
 	import { goto } from '$app/navigation';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
-	import type { components } from '$lib/api/types.gen';
 	import Button from '$lib/components/button.svelte';
 	import * as Dialog from '$lib/components/dialog/index';
 	import { Combobox } from '$lib/components/combobox/index';
-	import { capitalize } from '$lib/utils/formatting';
-
-	type Play = components['schemas']['PlayPublic'];
+	import {
+		capitalize,
+		formatDate,
+		formatTime,
+		formatPlayFee,
+		formatLevel
+	} from '$lib/utils/formatting';
 
 	let { data }: { data: PageData } = $props();
 
@@ -50,69 +53,6 @@
 	function resetVenue() {
 		selectedVenue = '';
 		handleVenueChange('');
-	}
-
-	function formatDate(iso: string, tz: string): string {
-		const d = new Date(iso);
-		return d.toLocaleDateString('en-SG', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			timeZone: tz
-		});
-	}
-
-	function formatTime(iso: string, tz: string): string {
-		const d = new Date(iso);
-		const minute = d.toLocaleString('en-SG', { minute: 'numeric', timeZone: tz });
-		return d.toLocaleTimeString('en-SG', {
-			hour: 'numeric',
-			...(minute !== '0' && { minute: '2-digit' }),
-			timeZone: tz
-		});
-	}
-
-	function formatFee(cents: number, currency: string): string {
-		const dollars = cents / 100;
-		const minimumFractionDigits = cents % 100 === 0 ? 0 : cents >= 1000 && cents % 10 === 0 ? 1 : 2;
-
-		return new Intl.NumberFormat('en-SG', {
-			style: 'currency',
-			currency,
-			minimumFractionDigits,
-			maximumFractionDigits: 2
-		}).format(dollars);
-	}
-
-	function getNumericFee(value: unknown): number | null {
-		return typeof value === 'number' && Number.isFinite(value) ? value : null;
-	}
-
-	function getMetaFee(meta: unknown, key: 'fee_male' | 'fee_female'): number | null {
-		if (meta == null || typeof meta !== 'object') return null;
-
-		return getNumericFee((meta as Record<string, unknown>)[key]);
-	}
-
-	function formatPlayFee(play: Play): string {
-		const fee = getNumericFee(play.fee);
-		if (fee != null) return formatFee(fee, play.currency);
-
-		const feeMale = getMetaFee(play.meta, 'fee_male');
-		const feeFemale = getMetaFee(play.meta, 'fee_female');
-		const fees = [
-			feeMale != null ? `${formatFee(feeMale, play.currency)} (M)` : null,
-			feeFemale != null ? `${formatFee(feeFemale, play.currency)} (F)` : null
-		].filter((value): value is string => value != null);
-
-		return fees.length > 0 ? fees.join(', ') : '-';
-	}
-
-	function formatLevel(min?: string, max?: string): string {
-		if (min && max) return `${min} - ${max}`;
-		if (min) return `${min}+`;
-		if (max) return `- ${max}`;
-		return '-';
 	}
 
 	function getNextPageUrl(nextCursor: string): string {
