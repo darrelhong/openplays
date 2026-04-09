@@ -12,7 +12,7 @@
 
 <div class="text-stone-50 bg-stone-900 min-h-screen">
 	<header class="p-4">
-		<a href={resolve('/')} class="text-2xltext-white font-bold">OpenPlays</a>
+		<a href={resolve('/')} class="text-2xl text-white font-bold">OpenPlays</a>
 	</header>
 	<main class="px-4">
 		{@render children()}
