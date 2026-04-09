@@ -124,7 +124,11 @@
 						>
 						<td>
 							<Dialog.Root>
-								<Dialog.Trigger><Button size="xs" variant="outline">View</Button></Dialog.Trigger>
+								<Dialog.Trigger>
+									{#snippet child({ props })}
+										<Button {...props} size="xs" variant="outline">View</Button>
+									{/snippet}
+								</Dialog.Trigger>
 								<Dialog.Content variant="right">
 									<Dialog.Header>
 										<Dialog.Title class="text-xl pe-6">{play.venue_name || play.venue}</Dialog.Title
