@@ -130,7 +130,7 @@
 										<Dialog.Title class="text-xl pe-6">{play.venue_name || play.venue}</Dialog.Title
 										>
 										<p class="text-lg mb-4">
-											{formatDate(play.starts_at, play.timezone)} · {formatTime(
+											{formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(
 												play.starts_at,
 												play.timezone
 											)} - {formatTime(play.ends_at, play.timezone)}
@@ -170,7 +170,7 @@
 									</dl>
 									{#if play.contacts?.length}
 										<div class="mt-3 pt-3 border-t border-stone-700">
-											<p class="text-xs text-stone-400 mb-2">Contacts</p>
+											<p class="text-stone-300 mb-2">Contacts</p>
 											{#each play.contacts as contact (`${contact.type}:${contact.value}`)}
 												<div class="text-sm flex gap-4">
 													<dt class="text-stone-400 shrink-0 w-24">{contact.type}</dt>
@@ -192,7 +192,7 @@
 									)}
 									{#if meta.shuttle || meta.air_con != null || meta.details || extraEntries.length > 0}
 										<div class="mt-3 pt-3 border-t border-stone-700">
-											<p class="text-xs text-stone-400 mb-2">Info</p>
+											<p class="text-stone-300 mb-2">Info</p>
 											<dl class="text-sm space-y-2">
 												{#if meta.shuttle}
 													<div class="flex gap-4">
