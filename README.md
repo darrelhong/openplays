@@ -17,9 +17,18 @@ Simple platform to discover and organise sports sessions and activities.
 | Frontend | SvelteKit, Bits UI, UnoCSS |
 | Ingestion | Telegram Bot API, LLM parsing, Go worker |
 
+### Version Management
+
+[asdf](https://asdf-vm.com/) is used for version management.
+
+Add plugins for golang, nodejs, and pnpm
+
+`asdf install`
+
 ## Structure
 
 ```
 server/     Go API + migrations + tools
 web/        SvelteKit frontend
 ```
+
