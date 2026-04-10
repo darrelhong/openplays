@@ -66,3 +66,45 @@
 - Time display: omit minutes when :00 (e.g. "7 pm" vs "7:30 pm")
 - Fee display: whole dollar amounts omit decimals ($10 vs $10.50)
 - Find nearby activities using existing venues and their coordinates so as to not require separate call to expensive geo APIs
+
+## Deployment
+
+### Infrastructure
+- VPS, Ubuntu 24.04 LTS (5-year support over 25.10's 9 months), 1 vCPU / 1GB RAM, amd64
+- UFW firewall: only SSH, 80, 443 open
+
+### SSL & Domain
+- Cloudflare DNS with Full (Strict) SSL mode — Caddy auto-provisions Let's Encrypt cert, Cloudflare verifies it
+
+### Reverse Proxy
+- Caddy as reverse proxy — auto-HTTPS, minimal config, no nginx tuning
+- Go API is not publicly exposed — only SvelteKit server-side calls it via localhost:8080
+- Caddy proxies everything to SvelteKit on :3000
+- Caddyfile lives in repo at `deploy/Caddyfile`, gets rsynced to VPS then copied to `/etc/caddy/Caddyfile` on deploy — manual VPS edits get overwritten
+
+### Services
+- Three separate systemd units (api, listener, web) — independent restart, independent logs, independent failure recovery
+- `deploy` system user with passwordless sudo scoped to systemctl restart/reload/daemon-reload and cp to systemd/caddy dirs
+- WorkingDirectory for Go services is `/opt/openplays/data` so relative paths resolve to the data directory (DB files, session files)
+- SvelteKit binds to 127.0.0.1:3000 (HOST env var) — not exposed directly, only through Caddy
+- Listener has higher RestartSec (10s vs 5s) — Telegram reconnection needs more breathing room
+- Web service has `After=openplays-api.service` — ensures API is started before frontend (though not guaranteed ready)
+- Systemd hardening: NoNewPrivileges, ProtectSystem=strict, ProtectHome=true, ReadWritePaths only for /opt/openplays/data
+
+### Build & Deploy
+- SvelteKit uses adapter-node — builds to standalone `build/` directory, runs with `node build/index.js`
+- adapter-node externalizes `dependencies`, bundles `devDependencies` — packages like bits-ui, clsx, openapi-fetch must be in devDependencies to be bundled, otherwise they need node_modules on the server
+- `prepare` script only runs `svelte-kit sync` — Playwright browser install is explicit via `pnpm prepare:browsers` to avoid slow installs in CI when not running e2e
+- Go build without `CGO_ENABLED=0` in CI — setting it in deploy but not in test invalidates Go build cache (cache is keyed on env vars). Binary works fine since both GH runner and VPS are same glibc
+- Local build + rsync to VPS (not building on VPS) also possible
+- DB backup before every migration: `cp openplays.db openplays.db.bak.<timestamp>`
+- Health check after deploy: wait 3s, check `systemctl is-active` for each service, dump last 20 journal lines on failure, exit 1 to fail the workflow
+
+### CI/CD
+- Go unit tests and Svelte unit tests including Playwright tests
+
+### VPS Directory Structure
+- `/opt/openplays/` mirrors repo structure: `server/bin/`, `server/db/migrations/`, `web/build/`, `deploy/`, `data/`
+- `data/` directory holds SQLite DB and Telegram session DB — single ReadWritePaths target for systemd
+- Env files at `/opt/openplays/server/.env` and `/opt/openplays/web/.env` with chmod 600 — not in repo, created by setup.sh stubs
+- Telegram session DB (`tele_session.db`) is needed on server
