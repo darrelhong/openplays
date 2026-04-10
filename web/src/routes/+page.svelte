@@ -2,10 +2,13 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
+	import { CalendarDate } from '@internationalized/date';
+	import type { DateValue } from '@internationalized/date';
 	import type { PageData } from './$types';
 	import Button from '$lib/components/ui/button.svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import { Combobox } from '$lib/components/ui/combobox/index';
+	import { DatePicker } from '$lib/components/ui/date-picker/index';
 	import {
 		capitalize,
 		formatDate,
@@ -19,6 +22,7 @@
 	let { data }: { data: PageData } = $props();
 
 	let selectedVenue = $state<string>(getInitialVenue());
+	let selectedDate = $state<DateValue | undefined>(getInitialDate());
 
 	const venueItems = $derived(data.venues.map((v) => ({ value: String(v.id), label: v.name })));
 
@@ -33,6 +37,14 @@
 			(v) => String(v.latitude) === String(latNum) && String(v.longitude) === String(lngNum)
 		);
 		return match ? String(match.id) : '';
+	}
+
+	function getInitialDate(): DateValue | undefined {
+		const dateStr = page.url.searchParams.get('date');
+		if (!dateStr) return undefined;
+		const [y, m, d] = dateStr.split('-').map(Number);
+		if (!y || !m || !d) return undefined;
+		return new CalendarDate(y, m, d);
 	}
 
 	function handleVenueChange(value: string) {
@@ -52,9 +64,27 @@
 		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
 	}
 
+	function handleDateChange(value: DateValue | undefined) {
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+		if (value) {
+			params.set('date', `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`);
+		} else {
+			params.delete('date');
+		}
+		params.delete('cursor');
+
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+	}
+
 	function resetVenue() {
 		selectedVenue = '';
 		handleVenueChange('');
+	}
+
+	function resetDate() {
+		selectedDate = undefined;
+		handleDateChange(undefined);
 	}
 
 	function getNextPageUrl(nextCursor: string): string {
@@ -67,7 +97,7 @@
 <h1 class="text-xl font-semibold mb-2">Plays</h1>
 
 {#if data.plays.items && data.plays.items.length > 0}
-	<div class="mb-4 flex gap-2 items-end">
+	<div class="mb-4 flex flex-wrap gap-2 items-end">
 		<div class="w-70">
 			<label for="venue-filter" class="text-sm text-stone-400 mb-1 block">Sort by distance</label>
 			<Combobox
@@ -80,8 +110,15 @@
 				inputProps={{ id: 'venue-filter' }}
 			/>
 		</div>
-		{#if selectedVenue}
-			<Button variant="outline" onclick={resetVenue}>Reset</Button>
+		<div class="w-40">
+			<DatePicker
+				label="Starts after"
+				bind:value={selectedDate}
+				onValueChange={handleDateChange}
+			/>
+		</div>
+		{#if selectedVenue || selectedDate}
+			<Button variant="outline" onclick={() => { resetVenue(); resetDate(); }}>Reset</Button>
 		{/if}
 	</div>
 
