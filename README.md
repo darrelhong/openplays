@@ -28,7 +28,50 @@ Add plugins for golang, nodejs, and pnpm
 ## Structure
 
 ```
-server/     Go API + migrations + tools
+server/     Go API + Telegram listener + migrations + tools
 web/        SvelteKit frontend
+deploy/     Systemd units, Caddyfile, setup/deploy scripts
 ```
 
+## CI/CD
+
+GitHub Actions runs on every push/PR:
+
+- **test.yml** -- Go tests + SvelteKit unit tests + `svelte-check` (PRs and deploys)
+- **deploy.yml** -- runs tests, builds, rsyncs to VPS, migrates DB, restarts services (push to main)
+
+## Deployment
+
+Single VPS running all services behind Caddy (auto-HTTPS):
+
+```
+Cloudflare → Caddy (:443) → SvelteKit (:3000)
+                           → Go API (:8080)
+                           Go Listener (background)
+                           SQLite (file on disk)
+```
+
+First-time setup:
+
+```bash
+ssh root@VPS 'bash -s' < deploy/setup.sh   # provision server
+# edit /opt/openplays/server/.env            # add secrets
+# edit /opt/openplays/web/.env               # set ORIGIN
+```
+
+Manual deploy (or push to main for CI deploy):
+
+```bash
+./deploy/deploy.sh
+```
+
+## Migrations
+
+Deploys automatically back up the DB before migrating. If a migration fails, restore from backup:
+
+```bash
+cp /opt/openplays/data/openplays.db.bak.TIMESTAMP /opt/openplays/data/openplays.db
+sudo systemctl restart openplays-api openplays-listener
+```
+
+Prefer **additive migrations** (new columns as nullable, new tables, new indexes). For breaking changes, deploy in phases: new code that handles both schemas → migration → remove old schema support.

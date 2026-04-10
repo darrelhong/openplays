@@ -15,15 +15,16 @@ import (
 
 // Config holds Telegram API credentials, DB, LLM, and geocoding settings.
 type Config struct {
-	APIID                       int
-	APIHash                     string
-	Phone                       string
-	TargetTelegramGroupUsername string
-	TargetTelegramGroupTimezone string
-	DBURL                       string
-	LLM                         parser.LLMConfig
-	OneMap                      onemap.Config
-	Google                      google.Config
+	TelegramAPIID         int
+	TelegramAPIHash       string
+	TelegramUserPhone     string
+	TelegramSessionDB     string
+	TelegramGroupUsername string
+	TelegramGroupTimezone string
+	DBURL                 string
+	LLM                   parser.LLMConfig
+	OneMap                onemap.Config
+	Google                google.Config
 }
 
 // LoadConfig reads environment variables.
@@ -42,9 +43,14 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("TELEGRAM_API_HASH is required")
 	}
 
-	phone := os.Getenv("TELEGRAM_PHONE")
+	phone := os.Getenv("TELEGRAM_USER_PHONE")
 	if phone == "" {
-		return nil, fmt.Errorf("TELEGRAM_PHONE is required")
+		return nil, fmt.Errorf("TELEGRAM_USER_PHONE is required")
+	}
+
+	sessionDB := os.Getenv("TELEGRAM_SESSION_DB")
+	if sessionDB == "" {
+		sessionDB = "tele_session.db"
 	}
 
 	targetTelegramGroupUsername := os.Getenv("TELEGRAM_GROUP_USERNAME")
@@ -90,14 +96,15 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		APIID:                       apiID,
-		APIHash:                     apiHash,
-		Phone:                       phone,
-		TargetTelegramGroupUsername: targetTelegramGroupUsername,
-		TargetTelegramGroupTimezone: targetTelegramGroupTimezone,
-		DBURL:                       dbURL,
-		LLM:                         llmCfg,
-		OneMap:                      oneMapCfg,
-		Google:                      googleCfg,
+		TelegramAPIID:         apiID,
+		TelegramAPIHash:       apiHash,
+		TelegramUserPhone:     phone,
+		TelegramSessionDB:     sessionDB,
+		TelegramGroupUsername: targetTelegramGroupUsername,
+		TelegramGroupTimezone: targetTelegramGroupTimezone,
+		DBURL:                 dbURL,
+		LLM:                   llmCfg,
+		OneMap:                oneMapCfg,
+		Google:                googleCfg,
 	}, nil
 }

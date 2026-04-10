@@ -1,0 +1,22 @@
+[Unit]
+Description=OpenPlays API
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/openplays/data
+ExecStart=/opt/openplays/server/bin/api
+EnvironmentFile=/opt/openplays/server/.env
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/openplays/data
+
+[Install]
+WantedBy=multi-user.target

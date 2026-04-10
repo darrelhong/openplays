@@ -1,0 +1,106 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Cancel in-flight deploys if a new push arrives
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Build Go binaries
+        working-directory: server
+        env:
+          GOOS: linux
+          GOARCH: ${{ vars.VPS_ARCH || 'amd64' }}
+          CGO_ENABLED: "0"
+        run: |
+          go build -o bin/api ./cmd/api
+          go build -o bin/listener ./cmd/listener
+
+      - uses: pnpm/action-setup@v5
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: web/package.json
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - name: Build SvelteKit
+        working-directory: web
+        run: |
+          cp .env.example .env
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+        env:
+          SSH_AUTH_SOCK: /dev/null
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
+          SSH_KEY: ~/.ssh/deploy_key
+          APP_DIR: /opt/openplays
+        run: |
+          export RSYNC_RSH="ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no"
+          SSH_OPTS="-i ${SSH_KEY} -o StrictHostKeyChecking=no"
+
+          # Go binaries
+          rsync -avz --mkpath server/bin/ ${VPS_HOST}:${APP_DIR}/server/bin/
+
+          # Migrations
+          rsync -avz --mkpath --delete server/db/migrations/ ${VPS_HOST}:${APP_DIR}/server/db/migrations/
+
+          # SvelteKit build
+          rsync -avz --mkpath --delete web/build/ ${VPS_HOST}:${APP_DIR}/web/build/
+          rsync -avz --mkpath web/package.json ${VPS_HOST}:${APP_DIR}/web/package.json
+
+          # Deploy config (systemd units, Caddyfile)
+          rsync -avz --mkpath \
+            deploy/openplays-api.service \
+            deploy/openplays-listener.service \
+            deploy/openplays-web.service \
+            deploy/Caddyfile \
+            ${VPS_HOST}:${APP_DIR}/deploy/
+
+          # Run migrations + restart
+          ssh ${SSH_OPTS} ${VPS_HOST} bash <<'EOF'
+          set -euo pipefail
+          APP_DIR="/opt/openplays"
+
+          # Update systemd units
+          for svc in openplays-api openplays-listener openplays-web; do
+            sudo cp "${APP_DIR}/deploy/${svc}.service" "/etc/systemd/system/${svc}.service"
+          done
+          sudo cp "${APP_DIR}/deploy/Caddyfile" /etc/caddy/Caddyfile
+          sudo systemctl daemon-reload
+
+          # Migrations (backup first if DB exists)
+          source "${APP_DIR}/server/.env"
+          [ -f "${DB_URL}" ] && cp "${DB_URL}" "${DB_URL}.bak.$(date +%Y%m%d%H%M%S)"
+          goose -dir "${APP_DIR}/server/db/migrations" sqlite3 "${DB_URL}" up
+
+          # Restart
+          sudo systemctl restart openplays-api openplays-listener openplays-web
+          sudo systemctl reload caddy
+          EOF

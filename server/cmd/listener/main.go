@@ -64,17 +64,17 @@ func main() {
 	_ = google.Config{}
 
 	resolver := venue.NewResolver(queries, geocoder)
-	worker := listener.NewWorker(queries, pipeline, resolver, cfg.TargetTelegramGroupTimezone)
+	worker := listener.NewWorker(queries, pipeline, resolver, cfg.TelegramGroupTimezone)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go worker.Run(ctx)
 
 	client, err := gotgproto.NewClient(
-		cfg.APIID,
-		cfg.APIHash,
-		gotgproto.ClientTypePhone(cfg.Phone),
+		cfg.TelegramAPIID,
+		cfg.TelegramAPIHash,
+		gotgproto.ClientTypePhone(cfg.TelegramUserPhone),
 		&gotgproto.ClientOpts{
-			Session: sessionMaker.SqlSession(sqlite.Open("tele_session.db")),
+			Session: sessionMaker.SqlSession(sqlite.Open(cfg.TelegramSessionDB)),
 		},
 	)
 	if err != nil {
@@ -87,7 +87,7 @@ func main() {
 		}
 
 		channel, ok := update.EffectiveChat().(*types.Channel)
-		if !ok || channel.Username != cfg.TargetTelegramGroupUsername {
+		if !ok || channel.Username != cfg.TelegramGroupUsername {
 			return nil
 		}
 
@@ -126,7 +126,7 @@ func main() {
 
 	fmt.Println("Listening for messages...")
 	fmt.Printf("LLM: %s (model: %s)\n", cfg.LLM.BaseURL, cfg.LLM.Model)
-	fmt.Printf("Group: %s (%s)\n", cfg.TargetTelegramGroupUsername, cfg.TargetTelegramGroupTimezone)
+	fmt.Printf("Group: %s (%s)\n", cfg.TelegramGroupUsername, cfg.TelegramGroupTimezone)
 	client.Idle()
 }
 
