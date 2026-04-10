@@ -89,19 +89,6 @@ ENV
     chmod 600 "${APP_DIR}/web/.env"
 fi
 
-# --- Swap (safety net for 512MB instances) ---
-echo "==> Setting up 1GB swap"
-if [ ! -f /swapfile ]; then
-    fallocate -l 1G /swapfile
-    chmod 600 /swapfile
-    mkswap /swapfile
-    swapon /swapfile
-    echo '/swapfile none swap sw 0 0' >> /etc/fstab
-    # Low swappiness — only swap under pressure
-    echo 'vm.swappiness=10' >> /etc/sysctl.conf
-    sysctl vm.swappiness=10
-fi
-
 # --- Systemd services ---
 echo "==> Installing systemd services"
 for svc in openplays-api openplays-listener openplays-web; do
