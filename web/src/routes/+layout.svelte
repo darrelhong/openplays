@@ -7,7 +7,9 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+	<link rel="icon" type="image/svg+xml" href={favicon} />
+	<title>OpenPlays</title>
+	<meta name="description" content="Discover and organise sports sessions" />
 </svelte:head>
 
 <div class="text-stone-50 bg-stone-900 min-h-screen">
