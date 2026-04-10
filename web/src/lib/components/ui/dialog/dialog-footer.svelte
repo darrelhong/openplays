@@ -2,7 +2,7 @@
 	import { cn } from '$lib/utils/cn';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { Dialog as DialogPrimitive } from 'bits-ui';
-	import Button from '$lib/components/button.svelte';
+	import Button from '$lib/components/ui/button.svelte';
 	import type { WithElementRef } from 'bits-ui';
 	let {
 		ref = $bindable(null),

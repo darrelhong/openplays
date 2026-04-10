@@ -3,9 +3,9 @@
 	import { goto } from '$app/navigation';
 	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import type { PageData } from './$types';
-	import Button from '$lib/components/button.svelte';
-	import * as Dialog from '$lib/components/dialog/index';
-	import { Combobox } from '$lib/components/combobox/index';
+	import Button from '$lib/components/ui/button.svelte';
+	import * as Dialog from '$lib/components/ui/dialog/index';
+	import { Combobox } from '$lib/components/ui/combobox/index';
 	import {
 		capitalize,
 		formatDate,

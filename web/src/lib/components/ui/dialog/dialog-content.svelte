@@ -5,7 +5,7 @@
 	import * as Dialog from './index';
 	import { cn } from '$lib/utils/cn';
 	import type { ComponentProps } from 'svelte';
-	import Button from '$lib/components/button.svelte';
+	import Button from '$lib/components/ui/button.svelte';
 	import XIcon from '@lucide/svelte/icons/x';
 
 	type Variant = 'center' | 'right';
