@@ -6,20 +6,6 @@
 # Generate password hash: caddy hash-password --plaintext YOUR_PASSWORD
 
 openplays.456123789.xyz {
-    # OpenAPI docs — protected by basic auth
-    handle /docs {
-        basic_auth {
-            admin REPLACE_WITH_HASHED_PASSWORD
-        }
-        reverse_proxy localhost:8080
-    }
-    handle /openapi.json {
-        basic_auth {
-            admin REPLACE_WITH_HASHED_PASSWORD
-        }
-        reverse_proxy localhost:8080
-    }
-
     # Everything else goes to the SvelteKit frontend
     handle {
         reverse_proxy localhost:3000
