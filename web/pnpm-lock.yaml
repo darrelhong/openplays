@@ -7,22 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      '@lucide/svelte':
-        specifier: ^1.7.0
-        version: 1.7.0(svelte@5.55.1)
-      bits-ui:
-        specifier: ^2.17.2
-        version: 2.17.2(@internationalized/date@3.12.0)(@sveltejs/kit@2.56.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.1)(vite@7.3.2(@types/node@20.19.39)(jiti@2.6.1)))(svelte@5.55.1)(typescript@5.9.3)(vite@7.3.2(@types/node@20.19.39)(jiti@2.6.1)))(svelte@5.55.1)
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      openapi-fetch:
-        specifier: ^0.17.0
-        version: 0.17.0
-      tailwind-merge:
-        specifier: ^3.5.0
-        version: 3.5.0
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.3
@@ -30,6 +14,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.2.0(jiti@2.6.1))
+      '@lucide/svelte':
+        specifier: ^1.7.0
+        version: 1.7.0(svelte@5.55.1)
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.59.1
@@ -60,6 +47,12 @@ importers:
       '@vitest/browser-playwright':
         specifier: ^4.1.0
         version: 4.1.2(playwright@1.59.1)(vite@7.3.2(@types/node@20.19.39)(jiti@2.6.1))(vitest@4.1.2)
+      bits-ui:
+        specifier: ^2.17.2
+        version: 2.17.2(@internationalized/date@3.12.0)(@sveltejs/kit@2.56.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.1)(vite@7.3.2(@types/node@20.19.39)(jiti@2.6.1)))(svelte@5.55.1)(typescript@5.9.3)(vite@7.3.2(@types/node@20.19.39)(jiti@2.6.1)))(svelte@5.55.1)
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       eslint:
         specifier: ^10.0.3
         version: 10.2.0(jiti@2.6.1)
@@ -72,6 +65,9 @@ importers:
       globals:
         specifier: ^17.4.0
         version: 17.4.0
+      openapi-fetch:
+        specifier: ^0.17.0
+        version: 0.17.0
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@5.9.3)
@@ -90,6 +86,9 @@ importers:
       svelte-check:
         specifier: ^4.4.2
         version: 4.4.6(picomatch@4.0.4)(svelte@5.55.1)(typescript@5.9.3)
+      tailwind-merge:
+        specifier: ^3.5.0
+        version: 3.5.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
