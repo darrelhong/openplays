@@ -15,6 +15,7 @@ import (
 	"openplays/server/internal/api/param"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/sqliteutils"
 )
 
 type ListInput struct {
@@ -31,9 +32,6 @@ type ListInput struct {
 type ListOutput struct {
 	Body pagination.Page[PlayPublic]
 }
-
-// sqliteTimeFormat is the format SQLite uses for datetime columns.
-const sqliteTimeFormat = "2006-01-02 15:04:05+00:00"
 
 // --- Time-based cursor (starts_at, id) ---
 
@@ -67,7 +65,7 @@ func cursorStartsAtForDB(startsAtRFC3339 string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	return t.UTC().Format(sqliteTimeFormat), true
+	return t.UTC().Format(sqliteutils.DateTimeFormat), true
 }
 
 // --- Distance-based cursor (distance_km, id) ---
@@ -122,7 +120,7 @@ func buildFilters(input *ListInput) filters {
 		// Parse YYYY-MM-DD and convert to SQLite datetime at start of day UTC
 		t, err := time.Parse("2006-01-02", input.StartsAfter)
 		if err == nil {
-			f.startsAfter = t.UTC().Format(sqliteTimeFormat)
+			f.startsAfter = t.UTC().Format(sqliteutils.DateTimeFormat)
 		}
 	}
 	return f
