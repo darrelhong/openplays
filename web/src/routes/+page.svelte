@@ -14,6 +14,7 @@
 		formatPlayFee,
 		formatLevel
 	} from '$lib/utils/formatting';
+	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -86,7 +87,7 @@
 
 	<p class="text-stone-300 mb-1">Showing {data.plays.total} plays</p>
 
-	<div class="overflow-auto">
+	<ScrollArea orientation="horizontal" viewportClasses="pb-2.5">
 		<table class="w-full border-collapse">
 			<thead>
 				<tr
@@ -260,7 +261,7 @@
 				{/each}
 			</tbody>
 		</table>
-	</div>
+	</ScrollArea>
 {:else}
 	<p>No plays found.</p>
 {/if}
