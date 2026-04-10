@@ -3,6 +3,7 @@ name: Test
 on:
   pull_request:
     branches: [main]
+  workflow_call:
 
 jobs:
   server:
@@ -36,6 +37,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm prepare:browsers
       - run: cp .env.example .env
       - run: pnpm test:unit -- --run
       - run: pnpm check

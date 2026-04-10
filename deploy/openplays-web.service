@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenPlays SvelteKit Frontend
+After=network.target openplays-api.service
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/opt/openplays/web
+ExecStart=/usr/bin/node build/index.js
+Environment=PORT=3000
+Environment=HOST=127.0.0.1
+EnvironmentFile=/opt/openplays/web/.env
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
