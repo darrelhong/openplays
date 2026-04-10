@@ -15,12 +15,14 @@ import (
 const countUpcomingPlays = `-- name: CountUpcomingPlays :one
 SELECT COUNT(*) FROM plays p
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND (?1 IS NULL OR p.listing_type = ?1)
-  AND (?2 IS NULL OR p.sport = ?2)
-  AND (?3 IS NULL OR p.venue_id = ?3)
+  AND (?1 IS NULL OR p.starts_at >= ?1)
+  AND (?2 IS NULL OR p.listing_type = ?2)
+  AND (?3 IS NULL OR p.sport = ?3)
+  AND (?4 IS NULL OR p.venue_id = ?4)
 `
 
 type CountUpcomingPlaysParams struct {
+	StartsAfter interface{}
 	ListingType interface{}
 	Sport       interface{}
 	VenueID     interface{}
@@ -28,7 +30,12 @@ type CountUpcomingPlaysParams struct {
 
 // Total count of upcoming listings matching the same filters.
 func (q *Queries) CountUpcomingPlays(ctx context.Context, arg CountUpcomingPlaysParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUpcomingPlays, arg.ListingType, arg.Sport, arg.VenueID)
+	row := q.db.QueryRowContext(ctx, countUpcomingPlays,
+		arg.StartsAfter,
+		arg.ListingType,
+		arg.Sport,
+		arg.VenueID,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -38,12 +45,14 @@ const countUpcomingPlaysByDistance = `-- name: CountUpcomingPlaysByDistance :one
 SELECT COUNT(*) FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND (?1 IS NULL OR p.listing_type = ?1)
-  AND (?2 IS NULL OR p.sport = ?2)
-  AND (?3 IS NULL OR p.venue_id = ?3)
+  AND (?1 IS NULL OR p.starts_at >= ?1)
+  AND (?2 IS NULL OR p.listing_type = ?2)
+  AND (?3 IS NULL OR p.sport = ?3)
+  AND (?4 IS NULL OR p.venue_id = ?4)
 `
 
 type CountUpcomingPlaysByDistanceParams struct {
+	StartsAfter interface{}
 	ListingType interface{}
 	Sport       interface{}
 	VenueID     interface{}
@@ -51,7 +60,12 @@ type CountUpcomingPlaysByDistanceParams struct {
 
 // Total count of upcoming listings with a resolved venue, matching the same filters.
 func (q *Queries) CountUpcomingPlaysByDistance(ctx context.Context, arg CountUpcomingPlaysByDistanceParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUpcomingPlaysByDistance, arg.ListingType, arg.Sport, arg.VenueID)
+	row := q.db.QueryRowContext(ctx, countUpcomingPlaysByDistance,
+		arg.StartsAfter,
+		arg.ListingType,
+		arg.Sport,
+		arg.VenueID,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -226,17 +240,19 @@ SELECT
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND (?1 IS NULL OR p.listing_type = ?1)
-  AND (?2 IS NULL OR p.sport = ?2)
-  AND (?3 IS NULL OR p.venue_id = ?3)
-  AND (?4 IS NULL
-    OR p.starts_at > ?4
-    OR (p.starts_at = ?4 AND p.id > ?5))
+  AND (?1 IS NULL OR p.starts_at >= ?1)
+  AND (?2 IS NULL OR p.listing_type = ?2)
+  AND (?3 IS NULL OR p.sport = ?3)
+  AND (?4 IS NULL OR p.venue_id = ?4)
+  AND (?5 IS NULL
+    OR p.starts_at > ?5
+    OR (p.starts_at = ?5 AND p.id > ?6))
 ORDER BY p.starts_at ASC, p.id ASC
-LIMIT ?6
+LIMIT ?7
 `
 
 type ListUpcomingPlaysParams struct {
+	StartsAfter    interface{}
 	ListingType    interface{}
 	Sport          interface{}
 	VenueID        interface{}
@@ -285,6 +301,7 @@ type ListUpcomingPlaysRow struct {
 // to match the sort order. Both cursor params must be provided together.
 func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysParams) ([]ListUpcomingPlaysRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUpcomingPlays,
+		arg.StartsAfter,
 		arg.ListingType,
 		arg.Sport,
 		arg.VenueID,
@@ -366,27 +383,29 @@ SELECT
 FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-  AND (?3 IS NULL OR p.listing_type = ?3)
-  AND (?4 IS NULL OR p.sport = ?4)
-  AND (?5 IS NULL OR p.venue_id = ?5)
-  AND (?6 IS NULL
+  AND (?3 IS NULL OR p.starts_at >= ?3)
+  AND (?4 IS NULL OR p.listing_type = ?4)
+  AND (?5 IS NULL OR p.sport = ?5)
+  AND (?6 IS NULL OR p.venue_id = ?6)
+  AND (?7 IS NULL
     OR 2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
         cos(radians(?1)) * cos(radians(v.latitude)) *
         pow(sin((radians(v.longitude) - radians(?2)) / 2), 2)
-    )) > ?6
+    )) > ?7
     OR (2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
         cos(radians(?1)) * cos(radians(v.latitude)) *
         pow(sin((radians(v.longitude) - radians(?2)) / 2), 2)
-    )) = ?6 AND p.id > ?7))
+    )) = ?7 AND p.id > ?8))
 ORDER BY distance_km ASC, p.id ASC
-LIMIT ?8
+LIMIT ?9
 `
 
 type ListUpcomingPlaysByDistanceParams struct {
 	RefLat         interface{}
 	RefLng         interface{}
+	StartsAfter    interface{}
 	ListingType    interface{}
 	Sport          interface{}
 	VenueID        interface{}
@@ -438,6 +457,7 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 	rows, err := q.db.QueryContext(ctx, listUpcomingPlaysByDistance,
 		arg.RefLat,
 		arg.RefLng,
+		arg.StartsAfter,
 		arg.ListingType,
 		arg.Sport,
 		arg.VenueID,

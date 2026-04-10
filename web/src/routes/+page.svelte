@@ -23,6 +23,9 @@
 
 	let selectedVenue = $state<string>(getInitialVenue());
 	let selectedDate = $state<DateValue | undefined>(getInitialDate());
+	const today = $derived(
+		new CalendarDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate())
+	);
 
 	const venueItems = $derived(data.venues.map((v) => ({ value: String(v.id), label: v.name })));
 
@@ -40,7 +43,7 @@
 	}
 
 	function getInitialDate(): DateValue | undefined {
-		const dateStr = page.url.searchParams.get('date');
+		const dateStr = page.url.searchParams.get('starts_after');
 		if (!dateStr) return undefined;
 		const [y, m, d] = dateStr.split('-').map(Number);
 		if (!y || !m || !d) return undefined;
@@ -67,9 +70,12 @@
 	function handleDateChange(value: DateValue | undefined) {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		if (value) {
-			params.set('date', `${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`);
+			params.set(
+				'starts_after',
+				`${value.year}-${String(value.month).padStart(2, '0')}-${String(value.day).padStart(2, '0')}`
+			);
 		} else {
-			params.delete('date');
+			params.delete('starts_after');
 		}
 		params.delete('cursor');
 
@@ -115,10 +121,17 @@
 				label="Starts after"
 				bind:value={selectedDate}
 				onValueChange={handleDateChange}
+				minValue={today}
 			/>
 		</div>
 		{#if selectedVenue || selectedDate}
-			<Button variant="outline" onclick={() => { resetVenue(); resetDate(); }}>Reset</Button>
+			<Button
+				variant="outline"
+				onclick={() => {
+					resetVenue();
+					resetDate();
+				}}>Reset</Button
+			>
 		{/if}
 	</div>
 

@@ -67,6 +67,7 @@ SELECT
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
@@ -80,6 +81,7 @@ LIMIT sqlc.arg('page_size');
 -- Total count of upcoming listings matching the same filters.
 SELECT COUNT(*) FROM plays p
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'));
@@ -107,6 +109,7 @@ SELECT
 FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
@@ -129,6 +132,7 @@ LIMIT sqlc.arg('page_size');
 SELECT COUNT(*) FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'));

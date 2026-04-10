@@ -21,6 +21,7 @@ type ListInput struct {
 	ListingType string                  `query:"listing_type" doc:"Filter by listing type" enum:"play,sell_booking,"`
 	Sport       string                  `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
 	VenueID     int64                   `query:"venue_id" doc:"Filter by venue ID"`
+	StartsAfter string                  `query:"starts_after" doc:"Only include plays starting on or after this date (YYYY-MM-DD)"`
 	Lat         param.Optional[float64] `query:"lat" doc:"Reference latitude for distance sorting"`
 	Lng         param.Optional[float64] `query:"lng" doc:"Reference longitude for distance sorting"`
 	Cursor      string                  `query:"cursor" doc:"Opaque cursor from previous page"`
@@ -103,6 +104,7 @@ type filters struct {
 	listingType interface{}
 	sport       interface{}
 	venueID     interface{}
+	startsAfter interface{}
 }
 
 func buildFilters(input *ListInput) filters {
@@ -115,6 +117,13 @@ func buildFilters(input *ListInput) filters {
 	}
 	if input.VenueID != 0 {
 		f.venueID = input.VenueID
+	}
+	if input.StartsAfter != "" {
+		// Parse YYYY-MM-DD and convert to SQLite datetime at start of day UTC
+		t, err := time.Parse("2006-01-02", input.StartsAfter)
+		if err == nil {
+			f.startsAfter = t.UTC().Format(sqliteTimeFormat)
+		}
 	}
 	return f
 }
@@ -215,6 +224,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 		ListingType:    f.listingType,
 		Sport:          f.sport,
 		VenueID:        f.venueID,
+		StartsAfter:    f.startsAfter,
 		CursorStartsAt: cursorStartsAt,
 		CursorID:       cursorID,
 		PageSize:       pageSize,
@@ -227,6 +237,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 		ListingType: f.listingType,
 		Sport:       f.sport,
 		VenueID:     f.venueID,
+		StartsAfter: f.startsAfter,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("count plays: %w", err)
@@ -256,6 +267,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 		ListingType:    f.listingType,
 		Sport:          f.sport,
 		VenueID:        f.venueID,
+		StartsAfter:    f.startsAfter,
 		CursorDistance: cursorDistance,
 		CursorID:       cursorID,
 		PageSize:       pageSize,
@@ -268,6 +280,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 		ListingType: f.listingType,
 		Sport:       f.sport,
 		VenueID:     f.venueID,
+		StartsAfter: f.startsAfter,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("count plays by distance: %w", err)

@@ -221,6 +221,8 @@ export interface operations {
                 sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
                 /** @description Filter by venue ID */
                 venue_id?: number;
+                /** @description Only include plays starting on or after this date (YYYY-MM-DD) */
+                starts_after?: string;
                 /** @description Reference latitude for distance sorting */
                 lat?: number;
                 /** @description Reference longitude for distance sorting */
