@@ -24,8 +24,6 @@ jobs:
           cache-dependency-path: server/go.sum
       - name: Build Go binaries
         working-directory: server
-        env:
-          CGO_ENABLED: "0"
         run: |
           go build -o bin/api ./cmd/api
           go build -o bin/listener ./cmd/listener
