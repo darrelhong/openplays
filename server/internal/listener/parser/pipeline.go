@@ -2,6 +2,8 @@ package parser
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"time"
 
 	"openplays/server/internal/db"
@@ -95,7 +97,7 @@ func ToPlay(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue)
 		Currency:             currency,
 		MaxPlayers:           intToInt64(c.MaxPlayers),
 		SlotsLeft:            intToInt64(c.SlotsLeft),
-		Courts:               intToInt64(c.Courts),
+		Courts:               floatToInt64(c.Courts),
 		Contacts:             model.Contacts(c.Contacts),
 		GenderPref:           toGenderPref(c.GenderPref),
 		Meta:                 buildMeta(c),
@@ -159,7 +161,7 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *Re
 		Currency:             currency,
 		MaxPlayers:           intToInt64(c.MaxPlayers),
 		SlotsLeft:            intToInt64(c.SlotsLeft),
-		Courts:               intToInt64(c.Courts),
+		Courts:               floatToInt64(c.Courts),
 		Contacts:             model.Contacts(c.Contacts),
 		GenderPref:           toGenderPref(c.GenderPref),
 		Meta:                 buildMeta(c),
@@ -241,6 +243,14 @@ func buildMeta(c *model.ParsedPlayCandidate) model.Meta {
 	if c.LevelFemaleMax != nil {
 		meta["level_female_max"] = *c.LevelFemaleMax
 	}
+	if c.Courts != nil && !isWhole(*c.Courts) {
+		courtsNote := fmt.Sprintf("%g courts", *c.Courts)
+		if existing, ok := meta["details"].(string); ok && existing != "" {
+			meta["details"] = existing + ", " + courtsNote
+		} else {
+			meta["details"] = courtsNote
+		}
+	}
 	if len(meta) == 0 {
 		return nil
 	}
@@ -255,6 +265,19 @@ func intToInt64(v *int) *int64 {
 	}
 	i := int64(*v)
 	return &i
+}
+
+func floatToInt64(v *float64) *int64 {
+	if v == nil {
+		return nil
+	}
+	i := int64(math.Floor(*v))
+	return &i
+}
+
+// isWhole returns true if the float has no fractional part.
+func isWhole(v float64) bool {
+	return v == math.Floor(v)
 }
 
 func derefTimeOrZero(t *time.Time) time.Time {

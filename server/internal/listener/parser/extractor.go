@@ -90,7 +90,7 @@ Field rules:
 - currency: default "SGD".
 - max_players: "6 pax max"->6, "Max 6, including host"->6.
 - slots_left: "2 slot left"->2, "Slots: 3"->3.
-- courts: "2 Courts"->2, "one court"->1.
+- courts: "2 Courts"->2, "one court"->1, "3.5 courts"->3.5. Use the exact number from the text.
 - gender_pref: "all", "male_only", "female_only", or null.
 - shuttle: brand/model e.g. "RSL Supreme". Strip "New" prefix.
 - air_con: true if mentioned, null otherwise.
@@ -243,22 +243,22 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 func parseResponse(content string, block string) ([]model.ParsedPlayCandidate, error) {
 	content = strings.TrimSpace(content)
 
-	// Try array first
+	// Try array first (most common response format)
 	var candidates []model.ParsedPlayCandidate
-	if err := json.Unmarshal([]byte(content), &candidates); err == nil {
-		for i := range candidates {
-			candidates[i].RawBlock = block
+	if err := json.Unmarshal([]byte(content), &candidates); err != nil {
+		// Try single object as fallback
+		var single model.ParsedPlayCandidate
+		if singleErr := json.Unmarshal([]byte(content), &single); singleErr != nil {
+			// Report the array error since that's the expected format
+			return nil, fmt.Errorf("parse LLM JSON output: %w (raw: %.500s)", err, content)
 		}
-		return candidates, nil
+		single.RawBlock = block
+		return []model.ParsedPlayCandidate{single}, nil
 	}
-
-	// Fall back to single object
-	var single model.ParsedPlayCandidate
-	if err := json.Unmarshal([]byte(content), &single); err != nil {
-		return nil, fmt.Errorf("parse LLM JSON output: %w (raw: %.500s)", err, content)
+	for i := range candidates {
+		candidates[i].RawBlock = block
 	}
-	single.RawBlock = block
-	return []model.ParsedPlayCandidate{single}, nil
+	return candidates, nil
 }
 
 // cleanJSONResponse strips markdown code fences and whitespace that LLMs
