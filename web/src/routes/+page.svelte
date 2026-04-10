@@ -14,6 +14,7 @@
 		formatPlayFee,
 		formatLevel
 	} from '$lib/utils/formatting';
+	import { ChevronRight, CircleChevronRight, Ellipsis, EllipsisVertical } from '@lucide/svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -100,7 +101,7 @@
 					<th>Level</th>
 					<th>Fee</th>
 					<th>Slots/Type</th>
-					<th>Details</th>
+					<th class="text-end border-l border-stone-700 bg-stone-800 right-0 sticky z-20">Details</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -122,7 +123,7 @@
 							>{#if play.listing_type === 'sell_booking'}To let go{:else}{play.slots_left ?? '-'} / {play.max_players ??
 									'-'}{/if}</td
 						>
-						<td>
+						<td class="text-end border-stone-700 bg-stone-900/90 right-0 sticky z-10">
 							<Dialog.Root>
 								<Dialog.Trigger>
 									{#snippet child({ props })}
