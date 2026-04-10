@@ -143,7 +143,8 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 	// Build parser input
 	input := parser.MessageInput{
 		Text:            job.MessageText,
-		SenderName:      job.SenderUsername,
+		SenderUsername:  job.SenderUsername,
+		SenderName:      job.SenderName,
 		Timestamp:       job.MessageTime,
 		Timezone:        w.timezone,
 		Source:          job.Source,

@@ -100,6 +100,7 @@ func makeJob(id int64, text string, retryCount int64) db.RawMessage {
 		ID:             id,
 		Source:         "telegram",
 		SenderUsername: "test_user",
+		SenderName:     "Test User",
 		MessageText:    text,
 		MessageTime:    time.Date(2026, 4, 4, 10, 0, 0, 0, time.UTC),
 		Status:         "pending",

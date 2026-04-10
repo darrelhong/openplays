@@ -6,7 +6,7 @@ INSERT INTO plays (
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
-    source, source_sender_username, source_raw_message, source_message_time,
+    source, source_sender_username, source_sender_name, source_raw_message, source_message_time,
     source_message_id, source_group
 ) VALUES (
     ?, ?, ?, ?,
@@ -15,7 +15,7 @@ INSERT INTO plays (
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?
 )
 ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id) DO UPDATE SET
@@ -36,6 +36,7 @@ ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id
     gender_pref           = excluded.gender_pref,
     meta                  = excluded.meta,
     source_sender_username = excluded.source_sender_username,
+    source_sender_name    = excluded.source_sender_name,
     source_raw_message    = excluded.source_raw_message,
     source_message_time   = excluded.source_message_time,
     source_message_id     = excluded.source_message_id,

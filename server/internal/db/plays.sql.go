@@ -164,7 +164,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 }
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
-SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group FROM plays
+SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name FROM plays
 WHERE starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND listing_type = 'play'
 ORDER BY starts_at ASC
@@ -211,6 +211,7 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.VenueID,
 			&i.SourceMessageID,
 			&i.SourceGroup,
+			&i.SourceSenderName,
 		); err != nil {
 			return nil, err
 		}
@@ -528,7 +529,7 @@ INSERT INTO plays (
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
-    source, source_sender_username, source_raw_message, source_message_time,
+    source, source_sender_username, source_sender_name, source_raw_message, source_message_time,
     source_message_id, source_group
 ) VALUES (
     ?, ?, ?, ?,
@@ -537,7 +538,7 @@ INSERT INTO plays (
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?
 )
 ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id) DO UPDATE SET
@@ -558,12 +559,13 @@ ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id
     gender_pref           = excluded.gender_pref,
     meta                  = excluded.meta,
     source_sender_username = excluded.source_sender_username,
+    source_sender_name    = excluded.source_sender_name,
     source_raw_message    = excluded.source_raw_message,
     source_message_time   = excluded.source_message_time,
     source_message_id     = excluded.source_message_id,
     source_group          = excluded.source_group,
     updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name
 `
 
 type UpsertPlayParams struct {
@@ -591,6 +593,7 @@ type UpsertPlayParams struct {
 	Meta                 model.Meta
 	Source               *string
 	SourceSenderUsername *string
+	SourceSenderName     *string
 	SourceRawMessage     *string
 	SourceMessageTime    *time.Time
 	SourceMessageID      *string
@@ -623,6 +626,7 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		arg.Meta,
 		arg.Source,
 		arg.SourceSenderUsername,
+		arg.SourceSenderName,
 		arg.SourceRawMessage,
 		arg.SourceMessageTime,
 		arg.SourceMessageID,
@@ -661,6 +665,7 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		&i.VenueID,
 		&i.SourceMessageID,
 		&i.SourceGroup,
+		&i.SourceSenderName,
 	)
 	return i, err
 }

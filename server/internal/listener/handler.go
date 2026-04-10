@@ -27,7 +27,7 @@ type MessageStore interface {
 
 // HandleMessage processes an incoming message: checks for duplicates against
 // recent messages in the store, and inserts into the job queue if new.
-func HandleMessage(ctx context.Context, store MessageStore, source, senderName, msgText string, msgTime time.Time, sourceMessageID, sourceGroup *string) (HandleResult, error) {
+func HandleMessage(ctx context.Context, store MessageStore, source, senderUsername, senderName, msgText string, msgTime time.Time, sourceMessageID, sourceGroup *string) (HandleResult, error) {
 	// Dedupe check: compare against recent messages (last 24hrs)
 	cutoff := time.Now().UTC().Add(-24 * time.Hour)
 	recent, err := store.GetRecentMessageTexts(ctx, cutoff)
@@ -47,7 +47,8 @@ func HandleMessage(ctx context.Context, store MessageStore, source, senderName, 
 	contentHash := dedupe.ContentHash(msgText)
 	_, err = store.InsertRawMessage(ctx, db.InsertRawMessageParams{
 		Source:          source,
-		SenderUsername:  senderName,
+		SenderUsername:  senderUsername,
+		SenderName:      senderName,
 		MessageText:     msgText,
 		MessageTime:     msgTime,
 		ContentHash:     contentHash,

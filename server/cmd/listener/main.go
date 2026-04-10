@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"openplays/server/internal/db"
@@ -13,6 +12,7 @@ import (
 	"openplays/server/internal/google"
 	"openplays/server/internal/listener"
 	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/telegramutils"
 	"openplays/server/internal/venue"
 
 	"github.com/celestix/gotgproto"
@@ -101,13 +101,24 @@ func main() {
 			fromID = peer.UserID
 		}
 
-		senderName := resolveSenderName(update, fromID)
+		var userInfo *telegramutils.UserInfo
+		if user := update.EffectiveUser(); user != nil {
+			ui := telegramutils.UserInfo{}
+			if u, ok := user.GetUsername(); ok {
+				ui.Username = u
+			}
+			ui.FirstName, _ = user.GetFirstName()
+			ui.LastName, _ = user.GetLastName()
+			userInfo = &ui
+		}
+
+		senderUsername, senderName := telegramutils.ResolveSender(userInfo, fromID)
 		msgTime := time.Unix(int64(msg.Date), 0).UTC()
 
 		msgID := fmt.Sprintf("%d", msg.ID)
 		group := channel.Username
 
-		result, err := listener.HandleMessage(ctx, queries, "telegram", senderName, msg.Message.Message, msgTime, &msgID, &group)
+		result, err := listener.HandleMessage(ctx, queries, "telegram", senderUsername, senderName, msg.Message.Message, msgTime, &msgID, &group)
 		if err != nil {
 			log.Printf("failed to handle message: %v", err)
 			return nil
@@ -128,24 +139,4 @@ func main() {
 	fmt.Printf("LLM: %s (model: %s)\n", cfg.LLM.BaseURL, cfg.LLM.Model)
 	fmt.Printf("Group: %s (%s)\n", cfg.TelegramGroupUsername, cfg.TelegramGroupTimezone)
 	client.Idle()
-}
-
-// resolveSenderName extracts the user's display name from the update entities.
-// Prefers username (linkable on Telegram), then full name, then fallback.
-func resolveSenderName(update *ext.Update, userID int64) string {
-	if user := update.EffectiveUser(); user != nil {
-		if username, ok := user.GetUsername(); ok && username != "" {
-			return username
-		}
-		first, _ := user.GetFirstName()
-		last, _ := user.GetLastName()
-		name := strings.TrimSpace(first + " " + last)
-		if name != "" {
-			return name
-		}
-	}
-	if userID != 0 {
-		return fmt.Sprintf("User_%d", userID)
-	}
-	return "Unknown"
 }

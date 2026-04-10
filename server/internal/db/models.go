@@ -42,6 +42,7 @@ type Play struct {
 	VenueID              *int64
 	SourceMessageID      *string
 	SourceGroup          *string
+	SourceSenderName     *string
 }
 
 type RawMessage struct {
@@ -60,6 +61,7 @@ type RawMessage struct {
 	LlmResponse     *string
 	SourceMessageID *string
 	SourceGroup     *string
+	SenderName      string
 }
 
 type Venue struct {

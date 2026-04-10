@@ -11,7 +11,7 @@ import (
 )
 
 const getPendingJob = `-- name: GetPendingJob :one
-SELECT id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response, source_message_id, source_group
+SELECT id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response, source_message_id, source_group, sender_name
 FROM raw_messages
 WHERE status = 'pending'
 ORDER BY created_at ASC
@@ -37,6 +37,7 @@ func (q *Queries) GetPendingJob(ctx context.Context) (RawMessage, error) {
 		&i.LlmResponse,
 		&i.SourceMessageID,
 		&i.SourceGroup,
+		&i.SenderName,
 	)
 	return i, err
 }
@@ -77,7 +78,7 @@ func (q *Queries) GetRecentMessageTexts(ctx context.Context, createdAt time.Time
 }
 
 const getRetryJob = `-- name: GetRetryJob :one
-SELECT id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response, source_message_id, source_group
+SELECT id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response, source_message_id, source_group, sender_name
 FROM raw_messages
 WHERE status = 'failed' AND next_retry_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 ORDER BY next_retry_at ASC
@@ -103,19 +104,21 @@ func (q *Queries) GetRetryJob(ctx context.Context) (RawMessage, error) {
 		&i.LlmResponse,
 		&i.SourceMessageID,
 		&i.SourceGroup,
+		&i.SenderName,
 	)
 	return i, err
 }
 
 const insertRawMessage = `-- name: InsertRawMessage :one
-INSERT INTO raw_messages (source, sender_username, message_text, message_time, content_hash, status, source_message_id, source_group)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response, source_message_id, source_group
+INSERT INTO raw_messages (source, sender_username, sender_name, message_text, message_time, content_hash, status, source_message_id, source_group)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, created_at, updated_at, source, sender_username, message_text, message_time, content_hash, status, retry_count, next_retry_at, last_error, llm_response, source_message_id, source_group, sender_name
 `
 
 type InsertRawMessageParams struct {
 	Source          string
 	SenderUsername  string
+	SenderName      string
 	MessageText     string
 	MessageTime     time.Time
 	ContentHash     string
@@ -128,6 +131,7 @@ func (q *Queries) InsertRawMessage(ctx context.Context, arg InsertRawMessagePara
 	row := q.db.QueryRowContext(ctx, insertRawMessage,
 		arg.Source,
 		arg.SenderUsername,
+		arg.SenderName,
 		arg.MessageText,
 		arg.MessageTime,
 		arg.ContentHash,
@@ -152,6 +156,7 @@ func (q *Queries) InsertRawMessage(ctx context.Context, arg InsertRawMessagePara
 		&i.LlmResponse,
 		&i.SourceMessageID,
 		&i.SourceGroup,
+		&i.SenderName,
 	)
 	return i, err
 }

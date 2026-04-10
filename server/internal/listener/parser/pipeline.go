@@ -11,7 +11,8 @@ import (
 // MessageInput holds the raw message data from a source (Telegram, etc.).
 type MessageInput struct {
 	Text            string    // full raw message text
-	SenderName      string    // username or display name of sender
+	SenderUsername  string    // Telegram @username (empty if user has none)
+	SenderName      string    // display name (first+last or username fallback)
 	Timestamp       time.Time // when the message was sent
 	Timezone        string    // IANA timezone of the source, e.g. "Asia/Singapore"
 	Source          string    // source of the message, e.g. "telegram"
@@ -99,7 +100,8 @@ func ToPlay(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue)
 		GenderPref:           toGenderPref(c.GenderPref),
 		Meta:                 buildMeta(c),
 		Source:               &source,
-		SourceSenderUsername: &input.SenderName,
+		SourceSenderUsername: nilIfEmpty(input.SenderUsername),
+		SourceSenderName:     nilIfEmpty(input.SenderName),
 		SourceRawMessage:     &input.Text,
 		SourceMessageTime:    &input.Timestamp,
 		SourceMessageID:      input.SourceMessageID,
@@ -162,7 +164,8 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *Re
 		GenderPref:           toGenderPref(c.GenderPref),
 		Meta:                 buildMeta(c),
 		Source:               &source,
-		SourceSenderUsername: &input.SenderName,
+		SourceSenderUsername: nilIfEmpty(input.SenderUsername),
+		SourceSenderName:     nilIfEmpty(input.SenderName),
 		SourceRawMessage:     &input.Text,
 		SourceMessageTime:    &input.Timestamp,
 		SourceMessageID:      input.SourceMessageID,
@@ -266,4 +269,11 @@ func derefStringOrEmpty(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
