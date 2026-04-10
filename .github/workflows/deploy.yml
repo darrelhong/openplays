@@ -100,7 +100,25 @@ jobs:
           [ -f "${DB_URL}" ] && cp "${DB_URL}" "${DB_URL}.bak.$(date +%Y%m%d%H%M%S)"
           goose -dir "${APP_DIR}/server/db/migrations" sqlite3 "${DB_URL}" up
 
-          # Restart
+          # Restart services
           sudo systemctl restart openplays-api openplays-listener openplays-web
           sudo systemctl reload caddy
+          sudo systemctl enable openplays-api openplays-listener openplays-web caddy
+
+          # Health check — wait a few seconds then verify all services are running
+          sleep 3
+          FAILED=""
+          for svc in openplays-api openplays-listener openplays-web; do
+            if ! systemctl is-active --quiet "$svc"; then
+              echo "FAILED: $svc"
+              sudo journalctl -u "$svc" -n 20 --no-pager
+              FAILED="$FAILED $svc"
+            fi
+          done
+          if [ -n "$FAILED" ]; then
+            echo "Deploy failed — services not running:$FAILED"
+            exit 1
+          fi
+          echo "All services running"
+          exit 0
           EOF
