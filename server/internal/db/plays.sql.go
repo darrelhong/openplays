@@ -80,7 +80,7 @@ SELECT
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
-    p.source, p.source_message_id, p.source_group,
+    p.source, p.source_sender_username, p.source_message_id, p.source_group,
     v.name AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
@@ -89,38 +89,39 @@ WHERE p.id = ?
 `
 
 type GetPlayByIDRow struct {
-	ID              int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	ListingType     model.ListingType
-	Sport           model.Sport
-	GameType        *model.GameType
-	HostName        string
-	StartsAt        time.Time
-	EndsAt          time.Time
-	Timezone        string
-	Venue           string
-	VenueNorm       string
-	VenueID         *int64
-	LevelMin        *string
-	LevelMax        *string
-	LevelMinOrd     *int64
-	LevelMaxOrd     *int64
-	Fee             *int64
-	Currency        string
-	MaxPlayers      *int64
-	SlotsLeft       *int64
-	Courts          *int64
-	Contacts        model.Contacts
-	GenderPref      *model.GenderPref
-	Meta            model.Meta
-	Source          *string
-	SourceMessageID *string
-	SourceGroup     *string
-	VenueName       *string
-	VenuePostalCode *string
-	VenueLatitude   *float64
-	VenueLongitude  *float64
+	ID                   int64
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	ListingType          model.ListingType
+	Sport                model.Sport
+	GameType             *model.GameType
+	HostName             string
+	StartsAt             time.Time
+	EndsAt               time.Time
+	Timezone             string
+	Venue                string
+	VenueNorm            string
+	VenueID              *int64
+	LevelMin             *string
+	LevelMax             *string
+	LevelMinOrd          *int64
+	LevelMaxOrd          *int64
+	Fee                  *int64
+	Currency             string
+	MaxPlayers           *int64
+	SlotsLeft            *int64
+	Courts               *int64
+	Contacts             model.Contacts
+	GenderPref           *model.GenderPref
+	Meta                 model.Meta
+	Source               *string
+	SourceSenderUsername *string
+	SourceMessageID      *string
+	SourceGroup          *string
+	VenueName            *string
+	VenuePostalCode      *string
+	VenueLatitude        *float64
+	VenueLongitude       *float64
 }
 
 func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, error) {
@@ -153,6 +154,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 		&i.GenderPref,
 		&i.Meta,
 		&i.Source,
+		&i.SourceSenderUsername,
 		&i.SourceMessageID,
 		&i.SourceGroup,
 		&i.VenueName,
@@ -235,7 +237,7 @@ SELECT
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
-    p.source, p.source_message_id, p.source_group,
+    p.source, p.source_sender_username, p.source_message_id, p.source_group,
     v.name AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
@@ -263,38 +265,39 @@ type ListUpcomingPlaysParams struct {
 }
 
 type ListUpcomingPlaysRow struct {
-	ID              int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	ListingType     model.ListingType
-	Sport           model.Sport
-	GameType        *model.GameType
-	HostName        string
-	StartsAt        time.Time
-	EndsAt          time.Time
-	Timezone        string
-	Venue           string
-	VenueNorm       string
-	VenueID         *int64
-	LevelMin        *string
-	LevelMax        *string
-	LevelMinOrd     *int64
-	LevelMaxOrd     *int64
-	Fee             *int64
-	Currency        string
-	MaxPlayers      *int64
-	SlotsLeft       *int64
-	Courts          *int64
-	Contacts        model.Contacts
-	GenderPref      *model.GenderPref
-	Meta            model.Meta
-	Source          *string
-	SourceMessageID *string
-	SourceGroup     *string
-	VenueName       *string
-	VenuePostalCode *string
-	VenueLatitude   *float64
-	VenueLongitude  *float64
+	ID                   int64
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	ListingType          model.ListingType
+	Sport                model.Sport
+	GameType             *model.GameType
+	HostName             string
+	StartsAt             time.Time
+	EndsAt               time.Time
+	Timezone             string
+	Venue                string
+	VenueNorm            string
+	VenueID              *int64
+	LevelMin             *string
+	LevelMax             *string
+	LevelMinOrd          *int64
+	LevelMaxOrd          *int64
+	Fee                  *int64
+	Currency             string
+	MaxPlayers           *int64
+	SlotsLeft            *int64
+	Courts               *int64
+	Contacts             model.Contacts
+	GenderPref           *model.GenderPref
+	Meta                 model.Meta
+	Source               *string
+	SourceSenderUsername *string
+	SourceMessageID      *string
+	SourceGroup          *string
+	VenueName            *string
+	VenuePostalCode      *string
+	VenueLatitude        *float64
+	VenueLongitude       *float64
 }
 
 // Paginated upcoming listings with optional filters and venue data.
@@ -344,6 +347,7 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.GenderPref,
 			&i.Meta,
 			&i.Source,
+			&i.SourceSenderUsername,
 			&i.SourceMessageID,
 			&i.SourceGroup,
 			&i.VenueName,
@@ -373,7 +377,7 @@ SELECT
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
-    p.source, p.source_message_id, p.source_group,
+    p.source, p.source_sender_username, p.source_message_id, p.source_group,
     v.name AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude,
     CAST(2 * 6371 * asin(sqrt(
@@ -416,39 +420,40 @@ type ListUpcomingPlaysByDistanceParams struct {
 }
 
 type ListUpcomingPlaysByDistanceRow struct {
-	ID              int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	ListingType     model.ListingType
-	Sport           model.Sport
-	GameType        *model.GameType
-	HostName        string
-	StartsAt        time.Time
-	EndsAt          time.Time
-	Timezone        string
-	Venue           string
-	VenueNorm       string
-	VenueID         *int64
-	LevelMin        *string
-	LevelMax        *string
-	LevelMinOrd     *int64
-	LevelMaxOrd     *int64
-	Fee             *int64
-	Currency        string
-	MaxPlayers      *int64
-	SlotsLeft       *int64
-	Courts          *int64
-	Contacts        model.Contacts
-	GenderPref      *model.GenderPref
-	Meta            model.Meta
-	Source          *string
-	SourceMessageID *string
-	SourceGroup     *string
-	VenueName       string
-	VenuePostalCode *string
-	VenueLatitude   float64
-	VenueLongitude  float64
-	DistanceKm      float64
+	ID                   int64
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	ListingType          model.ListingType
+	Sport                model.Sport
+	GameType             *model.GameType
+	HostName             string
+	StartsAt             time.Time
+	EndsAt               time.Time
+	Timezone             string
+	Venue                string
+	VenueNorm            string
+	VenueID              *int64
+	LevelMin             *string
+	LevelMax             *string
+	LevelMinOrd          *int64
+	LevelMaxOrd          *int64
+	Fee                  *int64
+	Currency             string
+	MaxPlayers           *int64
+	SlotsLeft            *int64
+	Courts               *int64
+	Contacts             model.Contacts
+	GenderPref           *model.GenderPref
+	Meta                 model.Meta
+	Source               *string
+	SourceSenderUsername *string
+	SourceMessageID      *string
+	SourceGroup          *string
+	VenueName            string
+	VenuePostalCode      *string
+	VenueLatitude        float64
+	VenueLongitude       float64
+	DistanceKm           float64
 }
 
 // Paginated upcoming listings sorted by Haversine distance from a reference point.
@@ -500,6 +505,7 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 			&i.GenderPref,
 			&i.Meta,
 			&i.Source,
+			&i.SourceSenderUsername,
 			&i.SourceMessageID,
 			&i.SourceGroup,
 			&i.VenueName,

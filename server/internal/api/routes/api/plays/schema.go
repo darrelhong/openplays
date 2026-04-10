@@ -39,10 +39,11 @@ type PlayPublic struct {
 	GenderPref *model.GenderPref `json:"gender_pref,omitempty"`
 	Meta       model.Meta        `json:"meta"`
 
-	Source          *string `json:"source,omitempty"`
-	SourceMessageID *string `json:"source_message_id,omitempty"`
-	SourceGroup     *string `json:"source_group,omitempty"`
-	SourceLink      *string `json:"source_link,omitempty" doc:"Deep link to original message, e.g. t.me/group/123"`
+	Source           *string `json:"source,omitempty"`
+	SourceSenderLink *string `json:"source_sender_link,omitempty" doc:"Link to sender's Telegram profile, e.g. t.me/username"`
+	SourceMessageID  *string `json:"source_message_id,omitempty"`
+	SourceGroup      *string `json:"source_group,omitempty"`
+	SourceLink       *string `json:"source_link,omitempty" doc:"Deep link to original message, e.g. t.me/group/123"`
 
 	// distanceKm is an internal field used for cursor encoding when sorting
 	// by distance. Not serialized to JSON (lowercase unexported in json tag).
@@ -57,6 +58,19 @@ func buildSourceLink(source, group, messageID *string) *string {
 	}
 	if *source == "telegram" {
 		link := fmt.Sprintf("https://t.me/%s/%s", *group, *messageID)
+		return &link
+	}
+	return nil
+}
+
+// buildSenderLink constructs a link to the sender's Telegram profile.
+// Returns nil if the username is not available.
+func buildSenderLink(source, username *string) *string {
+	if source == nil || username == nil || *username == "" {
+		return nil
+	}
+	if *source == "telegram" {
+		link := fmt.Sprintf("https://t.me/%s", *username)
 		return &link
 	}
 	return nil

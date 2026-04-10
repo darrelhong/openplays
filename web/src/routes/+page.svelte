@@ -278,16 +278,28 @@
 											</dl>
 										</div>
 									{/if}
-									{#if play.source === 'telegram' && play.source_link}
-										<div class="mt-3 pt-3 border-t border-stone-700">
-											<a
-												rel="external noopener noreferrer"
-												href={play.source_link}
-												target="_blank"
-												class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
-											>
-												View in Telegram ↗
-											</a>
+									{#if play.source === 'telegram' && (play.source_link || play.source_sender_link)}
+										<div class="mt-3 pt-3 border-t border-stone-700 flex flex-col gap-1">
+											{#if play.source_link}
+												<a
+													rel="external noopener noreferrer"
+													href={play.source_link}
+													target="_blank"
+													class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+												>
+													View in Telegram ↗
+												</a>
+											{/if}
+											{#if play.source_sender_link}
+												<a
+													rel="external noopener noreferrer"
+													href={play.source_sender_link}
+													target="_blank"
+													class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+												>
+													Message sender ↗
+												</a>
+											{/if}
 										</div>
 									{/if}
 									<div class="mt-3 pt-3 border-t border-stone-700">

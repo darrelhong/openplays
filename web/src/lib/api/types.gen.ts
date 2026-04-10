@@ -178,6 +178,8 @@ export interface components {
             /** @description Deep link to original message, e.g. t.me/group/123 */
             source_link?: string;
             source_message_id?: string;
+            /** @description Link to sender's Telegram profile, e.g. t.me/username */
+            source_sender_link?: string;
             /** @enum {string} */
             sport: "badminton" | "tennis" | "football" | "pickleball";
             starts_at: string;
