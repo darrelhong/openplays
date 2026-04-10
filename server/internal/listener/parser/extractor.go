@@ -149,6 +149,11 @@ type chatResponse struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
 }
 
 // Extract sends a text block to the local LLM and returns one or more
@@ -162,8 +167,6 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 	}
 
 	userPrompt := fmt.Sprintf("Sender name: %s\nReference date (today): %s\n\nText block:\n%s", senderName, referenceDate, block)
-
-	log.Printf("LLM user prompt:\n%s\n", userPrompt)
 
 	reqBody := chatRequest{
 		Model: e.config.Model,
@@ -190,6 +193,7 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 		req.Header.Set("Authorization", "Bearer "+e.config.APIKey)
 	}
 
+	start := time.Now()
 	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("LLM request to %s failed: %w", url, err)
@@ -215,6 +219,12 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 	}
 
 	content := chatResp.Choices[0].Message.Content
+	elapsed := time.Since(start)
+	if chatResp.Usage != nil {
+		log.Printf("LLM: %s, %d tokens (%d in, %d out)", elapsed.Round(time.Millisecond), chatResp.Usage.TotalTokens, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens)
+	} else {
+		log.Printf("LLM: %s", elapsed.Round(time.Millisecond))
+	}
 	if strings.TrimSpace(content) == "" {
 		return nil, fmt.Errorf("LLM returned empty content (body: %.500s)", string(respBody))
 	}
