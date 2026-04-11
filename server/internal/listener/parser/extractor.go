@@ -85,8 +85,8 @@ Field rules:
 - venue: the venue NAME only, without parenthetical details. "Hougang Sec (Rubber floor)" -> "Hougang Sec". "SBH Expo (Air Con)" -> "SBH Expo". "Farrer Park (Rubber flooring)" -> "Farrer Park". Strip descriptions like floor type, nearby MRT, area info from the venue name.
 - level_min, level_max: standard badminton codes: LB, MB, HB, LI, MI, HI, A. "High Beginner"->"HB", "Low Intermediate & above"->level_min="LI" level_max=null, "Mid-high beginners"->level_min="MB" level_max="HB", "High Beginners-LI"->level_min="HB" level_max="LI". If single level, set both min and max equal. "X & above" means level_max=null. Null for sell_booking listings. If different levels per gender (e.g. "🚺MB-HB 🚹HB-LI"), use the broadest range for level_min/level_max and put the gendered breakdown in level_male_min/level_male_max/level_female_min/level_female_max.
 - level_raw: original level text as written.
-- fee_cents: dollar to cents. "$10"->1000, "$9.50"->950. CJK "九"->900. For sell_booking, this is the total facility cost, not per person.
-- fee_male_cents, fee_female_cents: for gendered pricing "👨 $12, 👩 $11".
+- fee_cents: dollar to cents. "$10"->1000, "$9.50"->950. CJK "九"->900. For sell_booking, this is the total facility cost, not per person. Must be null if no specific fee is mentioned.
+- fee_male_cents, fee_female_cents: for gendered pricing with ABSOLUTE prices only, e.g. "👨 $12, 👩 $11"->fee_male_cents=1200, fee_female_cents=1100. If the text gives a RELATIVE discount (e.g. "$2 lower for females", "ladies $3 off"), do NOT compute fee_male_cents/fee_female_cents — put the discount note in "details" instead. Never output negative fee values.
 - currency: default "SGD".
 - max_players: "6 pax max"->6, "Max 6, including host"->6.
 - slots_left: "2 slot left"->2, "Slots: 3"->3.
@@ -95,7 +95,7 @@ Field rules:
 - shuttle: brand/model e.g. "RSL Supreme". Strip "New" prefix.
 - air_con: true if mentioned, null otherwise.
 - contacts: [{type, value}]. Types: "whatsapp", "phone", "telegram_pm". Username or digits only for phone numbers.
-- details: venue details and other notable info as a short string. Include floor type, air-con, parking, facilities etc. that were stripped from the venue name. E.g. "Rubber floor", "Air Con", "Parquet flooring, Free parking", "Shower facilities". Null if nothing notable.
+- details: venue details and other notable info as a short string. Include floor type, air-con, parking, facilities, relative pricing discounts (e.g. "Female $2 less on weekends"), and anything else stripped from the venue name. E.g. "Rubber floor", "Air Con, Female $2 less on weekends", "Parquet flooring, Free parking". Null if nothing notable.
 
 Output ONLY a JSON array of objects. No explanation, no markdown fences. Even for a single listing, wrap it in an array.
 
@@ -121,7 +121,7 @@ Each object schema:
   "currency": "string",
   "max_players": "integer or null",
   "slots_left": "integer or null",
-  "courts": "integer or null",
+  "courts": "number or null",
   "gender_pref": "string or null",
   "shuttle": "string or null",
   "air_con": "boolean or null",
