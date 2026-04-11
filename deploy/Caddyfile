@@ -6,8 +6,14 @@
 # Generate password hash: caddy hash-password --plaintext YOUR_PASSWORD
 
 openplays.456123789.xyz {
-    # Everything else goes to the SvelteKit frontend
     handle {
         reverse_proxy localhost:3000
     }
 }
+
+openplays.app {
+    handle {
+        reverse_proxy localhost:3000
+    }
+}
+
