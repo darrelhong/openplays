@@ -42,6 +42,8 @@ jobs:
           cp .env.example .env
           pnpm install --frozen-lockfile
           pnpm build
+        env:
+          PUBLIC_POSTHOG_PROJECT_TOKEN: ${{ vars.PUBLIC_POSTHOG_PROJECT_TOKEN }}
 
       - name: Setup SSH
         run: |
