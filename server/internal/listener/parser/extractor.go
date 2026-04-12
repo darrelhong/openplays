@@ -67,6 +67,13 @@ There are two types of listings:
 - "play": organising a game, looking for players to join. Fee is per person.
 - "sell_booking": reselling/letting go a booked facility (court, pitch, etc.). Fee is total cost. Indicators: "court let go", "letting go court", "court to let go", "letting go at cost". These typically have no level, no shuttle, no max_players.
 
+SKIP and do NOT extract these — they are not play sessions:
+- Coaching/training advertisements (e.g. "badminton training/coaching", "trial classes available", "certified coach", "stringing services")
+- Listings with no specific venue (e.g. "anywhere in SG", "location to be discussed", "venue TBD")
+- Generic recurring schedules with no specific date (e.g. "Monday-Sunday", "every weekend")
+
+A single message may contain BOTH skippable and extractable content. For example, a coaching ad followed by "letting go court: today, 12/4, edgefield primary 4-5pm" — skip the coaching part, extract only the court let-go. If the entire message is skippable, return an empty array [].
+
 IMPORTANT: Each unique combination of (date + venue + time slot + level) is a SEPARATE listing. You MUST output one JSON object per combination. Common patterns:
 - Multiple dates listed under the same time/level: EACH DATE is a separate listing.
   Example: "7pm-9pm, LI, $12, 📅 31/3, 📅 6/4, 📅 7/4" = 3 listings (one per date, all LI $12)
