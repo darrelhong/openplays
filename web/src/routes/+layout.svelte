@@ -32,7 +32,9 @@
 			<Dialog.Content class="border border-stone-700 shadow-lg shadow-stone-800/30">
 				<Dialog.Header>
 					<Dialog.Title>OpenPlays</Dialog.Title>
-					<Dialog.Description>The best way to discover and organise sports sessions</Dialog.Description>
+					<Dialog.Description
+						>The best way to discover and organise sports sessions</Dialog.Description
+					>
 				</Dialog.Header>
 				<Dialog.Footer class="mt-4">
 					<Button

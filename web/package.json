@@ -46,6 +46,7 @@
 		"openapi-fetch": "^0.17.0",
 		"openapi-typescript": "^7.13.0",
 		"playwright": "^1.58.2",
+		"posthog-js": "^1.367.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.4.1",
 		"svelte": "^5.54.0",
