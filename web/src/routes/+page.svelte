@@ -332,10 +332,12 @@
 	{#if page.url.searchParams.has('cursor')}
 		<Button variant="outline" onclick={() => history.back()}>Previous</Button>
 	{/if}
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	{#if data.plays.has_more && data.plays.next_cursor != null}
-		<Button class="ms-auto" variant="outline" href={getNextPageUrl(data.plays.next_cursor)}
-			>Next</Button
+		<Button
+			class="ms-auto"
+			variant="outline"
+			href={getNextPageUrl(data.plays.next_cursor)}
+			data-sveltekit-noscroll>Next</Button
 		>
 	{/if}
 </div>
