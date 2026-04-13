@@ -101,6 +101,12 @@ func main() {
 			fromID = peer.UserID
 		}
 
+		// Telegram only provides the @username in the update entities if the user
+		// has one set AND the update includes a full (non-min) user object.
+		// For supergroup messages, Telegram typically sends min user objects which
+		// lack the username. Resolving via API requires access hashes that are
+		// session-scoped and not linkable — so source_sender_username will be null
+		// for most users. This is a Telegram platform limitation.
 		var userInfo *telegramutils.UserInfo
 		if user := update.EffectiveUser(); user != nil {
 			ui := telegramutils.UserInfo{}
