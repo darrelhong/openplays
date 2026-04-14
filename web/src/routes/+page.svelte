@@ -167,27 +167,29 @@
 				minValue={today}
 			/>
 		</div>
-		<div class="w-44">
-			<Select
-				type="single"
-				items={levelMinItems}
-				bind:value={selectedLevel}
-				onValueChange={() => handleLevelChange()}
-				placeholder="From"
-				label="Level (min)"
-				allowDeselect
-			/>
-		</div>
-		<div class="w-44">
-			<Select
-				type="single"
-				items={levelMaxItems}
-				bind:value={selectedLevelMax}
-				onValueChange={() => handleLevelChange()}
-				placeholder="To"
-				label="Level (max)"
-				allowDeselect
-			/>
+		<div class="flex flex-1 gap-2">
+			<div class="flex-1 max-w-44 min-w-30 sm:min-w-44">
+				<Select
+					type="single"
+					items={levelMinItems}
+					bind:value={selectedLevel}
+					onValueChange={() => handleLevelChange()}
+					placeholder="From"
+					label="Level (min)"
+					allowDeselect
+				/>
+			</div>
+			<div class="flex-1 max-w-44 min-w-30 sm:min-w-44">
+				<Select
+					type="single"
+					items={levelMaxItems}
+					bind:value={selectedLevelMax}
+					onValueChange={() => handleLevelChange()}
+					placeholder="To"
+					label="Level (max)"
+					allowDeselect
+				/>
+			</div>
 		</div>
 		{#if selectedVenue || selectedDate || selectedLevel || selectedLevelMax}
 			<Button
