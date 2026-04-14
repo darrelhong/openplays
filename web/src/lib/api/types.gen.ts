@@ -185,6 +185,7 @@ export interface components {
             starts_at: string;
             timezone: string;
             updated_at: string;
+            /** @description Raw venue name as extracted from the message */
             venue: string;
             /** Format: int64 */
             venue_id?: number;
@@ -192,7 +193,8 @@ export interface components {
             venue_latitude?: number;
             /** Format: double */
             venue_longitude?: number;
-            venue_name?: string;
+            /** @description Display name: resolved venue name, or raw venue name, or 'No venue' */
+            venue_name: string;
             venue_postal_code?: string;
         };
         VenuePublic: {
@@ -223,6 +225,10 @@ export interface operations {
                 sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
                 /** @description Filter by venue ID */
                 venue_id?: number;
+                /** @description Minimum level code (e.g. HB). Shows plays overlapping this range. */
+                level_min?: string;
+                /** @description Maximum level code (e.g. LI). Defaults to level_min if only level_min is set. */
+                level_max?: string;
                 /** @description Only include plays starting on or after this date (YYYY-MM-DD) */
                 starts_after?: string;
                 /** @description Reference latitude for distance sorting */

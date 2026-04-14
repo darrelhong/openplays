@@ -12,6 +12,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	const lat = url.searchParams.get('lat');
 	const lng = url.searchParams.get('lng');
 	const startsAfter = url.searchParams.get('starts_after');
+	const levelMin = url.searchParams.get('level_min');
+	const levelMax = url.searchParams.get('level_max');
 
 	const [playsResponse, venuesResponse] = await Promise.all([
 		api
@@ -23,7 +25,9 @@ export const load: PageServerLoad = async ({ url }) => {
 						limit: limit ? Number(limit) : undefined,
 						lat: lat ? Number(lat) : undefined,
 						lng: lng ? Number(lng) : undefined,
-						starts_after: startsAfter || undefined
+						starts_after: startsAfter || undefined,
+						level_min: levelMin || undefined,
+						level_max: levelMax || undefined
 					}
 				}
 			})

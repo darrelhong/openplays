@@ -22,6 +22,8 @@ type ListInput struct {
 	ListingType string                  `query:"listing_type" doc:"Filter by listing type" enum:"play,sell_booking,"`
 	Sport       string                  `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
 	VenueID     int64                   `query:"venue_id" doc:"Filter by venue ID"`
+	LevelMin    string                  `query:"level_min" doc:"Minimum level code (e.g. HB). Shows plays overlapping this range."`
+	LevelMax    string                  `query:"level_max" doc:"Maximum level code (e.g. LI). Defaults to level_min if only level_min is set."`
 	StartsAfter string                  `query:"starts_after" doc:"Only include plays starting on or after this date (YYYY-MM-DD)"`
 	Lat         param.Optional[float64] `query:"lat" doc:"Reference latitude for distance sorting"`
 	Lng         param.Optional[float64] `query:"lng" doc:"Reference longitude for distance sorting"`
@@ -99,10 +101,12 @@ func decodeDistanceCursor(cursor string) (distance float64, id int64, ok bool) {
 
 // filters holds the common nullable filter values for sqlc queries.
 type filters struct {
-	listingType interface{}
-	sport       interface{}
-	venueID     interface{}
-	startsAfter interface{}
+	listingType       interface{}
+	sport             interface{}
+	venueID           interface{}
+	startsAfter       interface{}
+	filterLevelMinOrd interface{}
+	filterLevelMaxOrd interface{}
 }
 
 func buildFilters(input *ListInput) filters {
@@ -117,10 +121,27 @@ func buildFilters(input *ListInput) filters {
 		f.venueID = input.VenueID
 	}
 	if input.StartsAfter != "" {
-		// Parse YYYY-MM-DD and convert to SQLite datetime at start of day UTC
 		t, err := time.Parse("2006-01-02", input.StartsAfter)
 		if err == nil {
 			f.startsAfter = t.UTC().Format(sqliteutils.DateTimeFormat)
+		}
+	}
+	if input.LevelMin != "" {
+		sport := model.SportBadminton
+		if input.Sport != "" {
+			sport = model.Sport(input.Sport)
+		}
+		if ord := model.LevelOrd(sport, input.LevelMin); ord != nil {
+			f.filterLevelMinOrd = *ord
+		}
+	}
+	if input.LevelMax != "" {
+		sport := model.SportBadminton
+		if input.Sport != "" {
+			sport = model.Sport(input.Sport)
+		}
+		if ord := model.LevelOrd(sport, input.LevelMax); ord != nil {
+			f.filterLevelMaxOrd = *ord
 		}
 	}
 	return f
@@ -221,23 +242,27 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 	}
 
 	rows, err := queries.ListUpcomingPlays(ctx, db.ListUpcomingPlaysParams{
-		ListingType:    f.listingType,
-		Sport:          f.sport,
-		VenueID:        f.venueID,
-		StartsAfter:    f.startsAfter,
-		CursorStartsAt: cursorStartsAt,
-		CursorID:       cursorID,
-		PageSize:       pageSize,
+		ListingType:       f.listingType,
+		Sport:             f.sport,
+		VenueID:           f.venueID,
+		StartsAfter:       f.startsAfter,
+		FilterLevelMinOrd: f.filterLevelMinOrd,
+		FilterLevelMaxOrd: f.filterLevelMaxOrd,
+		CursorStartsAt:    cursorStartsAt,
+		CursorID:          cursorID,
+		PageSize:          pageSize,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list plays: %w", err)
 	}
 
 	total, err := queries.CountUpcomingPlays(ctx, db.CountUpcomingPlaysParams{
-		ListingType: f.listingType,
-		Sport:       f.sport,
-		VenueID:     f.venueID,
-		StartsAfter: f.startsAfter,
+		ListingType:       f.listingType,
+		Sport:             f.sport,
+		VenueID:           f.venueID,
+		StartsAfter:       f.startsAfter,
+		FilterLevelMinOrd: f.filterLevelMinOrd,
+		FilterLevelMaxOrd: f.filterLevelMaxOrd,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("count plays: %w", err)
@@ -262,25 +287,29 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 	}
 
 	rows, err := queries.ListUpcomingPlaysByDistance(ctx, db.ListUpcomingPlaysByDistanceParams{
-		RefLat:         input.Lat.Value,
-		RefLng:         input.Lng.Value,
-		ListingType:    f.listingType,
-		Sport:          f.sport,
-		VenueID:        f.venueID,
-		StartsAfter:    f.startsAfter,
-		CursorDistance: cursorDistance,
-		CursorID:       cursorID,
-		PageSize:       pageSize,
+		RefLat:            input.Lat.Value,
+		RefLng:            input.Lng.Value,
+		ListingType:       f.listingType,
+		Sport:             f.sport,
+		VenueID:           f.venueID,
+		StartsAfter:       f.startsAfter,
+		FilterLevelMinOrd: f.filterLevelMinOrd,
+		FilterLevelMaxOrd: f.filterLevelMaxOrd,
+		CursorDistance:    cursorDistance,
+		CursorID:          cursorID,
+		PageSize:          pageSize,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list plays by distance: %w", err)
 	}
 
 	total, err := queries.CountUpcomingPlaysByDistance(ctx, db.CountUpcomingPlaysByDistanceParams{
-		ListingType: f.listingType,
-		Sport:       f.sport,
-		VenueID:     f.venueID,
-		StartsAfter: f.startsAfter,
+		ListingType:       f.listingType,
+		Sport:             f.sport,
+		VenueID:           f.venueID,
+		StartsAfter:       f.startsAfter,
+		FilterLevelMinOrd: f.filterLevelMinOrd,
+		FilterLevelMaxOrd: f.filterLevelMaxOrd,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("count plays by distance: %w", err)

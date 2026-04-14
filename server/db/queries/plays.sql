@@ -71,6 +71,8 @@ WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
+  AND (sqlc.narg('filter_level_min_ord') IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= sqlc.narg('filter_level_min_ord')))
+  AND (sqlc.narg('filter_level_max_ord') IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= sqlc.narg('filter_level_max_ord')))
   AND (sqlc.narg('cursor_starts_at') IS NULL
     OR p.starts_at > sqlc.narg('cursor_starts_at')
     OR (p.starts_at = sqlc.narg('cursor_starts_at') AND p.id > sqlc.narg('cursor_id')))
@@ -84,7 +86,9 @@ WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
-  AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'));
+  AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
+  AND (sqlc.narg('filter_level_min_ord') IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= sqlc.narg('filter_level_min_ord')))
+  AND (sqlc.narg('filter_level_max_ord') IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= sqlc.narg('filter_level_max_ord')));
 
 -- name: ListUpcomingPlaysByDistance :many
 -- Paginated upcoming listings sorted by Haversine distance from a reference point.
@@ -113,6 +117,8 @@ WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
+  AND (sqlc.narg('filter_level_min_ord') IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= sqlc.narg('filter_level_min_ord')))
+  AND (sqlc.narg('filter_level_max_ord') IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= sqlc.narg('filter_level_max_ord')))
   AND (sqlc.narg('cursor_distance') IS NULL
     OR 2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(sqlc.arg('ref_lat'))) / 2), 2) +
@@ -135,7 +141,9 @@ WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
-  AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'));
+  AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
+  AND (sqlc.narg('filter_level_min_ord') IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= sqlc.narg('filter_level_min_ord')))
+  AND (sqlc.narg('filter_level_max_ord') IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= sqlc.narg('filter_level_max_ord')));
 
 -- name: GetPlayByID :one
 SELECT

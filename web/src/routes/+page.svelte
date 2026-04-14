@@ -8,6 +8,7 @@
 	import Button from '$lib/components/ui/button.svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import { Combobox } from '$lib/components/ui/combobox/index';
+	import { Select } from '$lib/components/ui/select/index';
 	import { DatePicker } from '$lib/components/ui/date-picker/index';
 	import {
 		capitalize,
@@ -18,16 +19,34 @@
 		formatLevel
 	} from '$lib/utils/formatting';
 	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
+	import { badmintonLevels, levelIndex } from '$lib/utils/levels';
 
 	let { data }: { data: PageData } = $props();
 
 	let selectedVenue = $state<string>(getInitialVenue());
 	let selectedDate = $state<DateValue | undefined>(getInitialDate());
+	let selectedLevel = $state<string>(page.url.searchParams.get('level_min') || '');
+	let selectedLevelMax = $state<string>(page.url.searchParams.get('level_max') || '');
 	const today = $derived(
 		new CalendarDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate())
 	);
 
 	const venueItems = $derived(data.venues.map((v) => ({ value: String(v.id), label: v.name })));
+
+	// Disable levels above selected max for min, and below selected min for max
+	const levelMinItems = $derived(
+		badmintonLevels.map((item, idx) => {
+			const maxIdx = levelIndex(badmintonLevels, selectedLevelMax);
+			return { ...item, disabled: maxIdx !== -1 && idx > maxIdx };
+		})
+	);
+
+	const levelMaxItems = $derived(
+		badmintonLevels.map((item, idx) => {
+			const minIdx = levelIndex(badmintonLevels, selectedLevel);
+			return { ...item, disabled: minIdx !== -1 && idx < minIdx };
+		})
+	);
 
 	function getInitialVenue(): string {
 		const lat = page.url.searchParams.get('lat');
@@ -83,6 +102,24 @@
 		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
 	}
 
+	function handleLevelChange() {
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+		if (selectedLevel) {
+			params.set('level_min', selectedLevel);
+		} else {
+			params.delete('level_min');
+		}
+		if (selectedLevelMax) {
+			params.set('level_max', selectedLevelMax);
+		} else {
+			params.delete('level_max');
+		}
+		params.delete('cursor');
+
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+	}
+
 	function resetVenue() {
 		selectedVenue = '';
 		handleVenueChange('');
@@ -91,6 +128,12 @@
 	function resetDate() {
 		selectedDate = undefined;
 		handleDateChange(undefined);
+	}
+
+	function resetLevel() {
+		selectedLevel = '';
+		selectedLevelMax = '';
+		handleLevelChange();
 	}
 
 	function getNextPageUrl(nextCursor: string): string {
@@ -124,12 +167,35 @@
 				minValue={today}
 			/>
 		</div>
-		{#if selectedVenue || selectedDate}
+		<div class="w-44">
+			<Select
+				type="single"
+				items={levelMinItems}
+				bind:value={selectedLevel}
+				onValueChange={() => handleLevelChange()}
+				placeholder="From"
+				label="Level (min)"
+				allowDeselect
+			/>
+		</div>
+		<div class="w-44">
+			<Select
+				type="single"
+				items={levelMaxItems}
+				bind:value={selectedLevelMax}
+				onValueChange={() => handleLevelChange()}
+				placeholder="To"
+				label="Level (max)"
+				allowDeselect
+			/>
+		</div>
+		{#if selectedVenue || selectedDate || selectedLevel || selectedLevelMax}
 			<Button
 				variant="outline"
 				onclick={() => {
 					resetVenue();
 					resetDate();
+					resetLevel();
 				}}>Reset</Button
 			>
 		{/if}
@@ -182,8 +248,7 @@
 								</Dialog.Trigger>
 								<Dialog.Content variant="right">
 									<Dialog.Header>
-										<Dialog.Title class="text-xl pe-6">{play.venue_name}</Dialog.Title
-										>
+										<Dialog.Title class="text-xl pe-6">{play.venue_name}</Dialog.Title>
 										<p class="text-lg mb-4">
 											{formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(
 												play.starts_at,
