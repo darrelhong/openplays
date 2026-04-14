@@ -19,6 +19,10 @@
 - Go workers orchestrate async message processing; on startup, drain leftover pending/failed jobs from previous runs
 - Retry backoff schedule: 30s, 1m, 2m, 5m, 15m (capped)
 - Resilience preference: if dedup check fails (DB error), prefer potential duplicate over dropping a message
+- Sender identity split: `source_sender_username` for Telegram @username (often null), `source_sender_name` for display name. Telegram supergroup updates typically send "min" user objects without usernames — resolving via API requires access hashes that are session-scoped. This is a Telegram platform limitation.
+- LLM prompt skips coaching/training ads, vague "anywhere" venues, and generic recurring schedules — these are not play sessions
+- Fractional courts (e.g. "3.5 courts") accepted as float from LLM, floored to int for DB, original value appended to `details` meta
+- Gendered pricing: only absolute prices go in `fee_male_cents`/`fee_female_cents`. Relative discounts (e.g. "$2 less for females") go in `details` meta — no negative fees
 
 ### Deduplication
 - Two-tier dedup: SHA256 exact-match hash + trigram Jaccard similarity for fuzzy matching
@@ -32,11 +36,22 @@
 - Geocoder is optional — system degrades gracefully to alias/fuzzy matching only
 - Two geocoder providers: Google Places (5,000 free requests/month, requires API key) or OneMap (Singapore government API, free, requires email/password)
 - Venues with postal codes upsert on postal_code; generic locations (e.g. "Simei") without postal codes always insert new rows
+- `venue_norm` column dropped — was a denormalized copy of `venues.name`, now redundant since queries JOIN on `venue_id` with `COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name`
+- `venue_name` in API response is always a non-null string: resolved name > raw LLM name > "No venue"
 
 ### Pagination
 - Cursor-based pagination (forward-only, composite keyset). Default sort uses (starts_at, id), distance sort uses (distance_km, id)
 - Fetch page_size + 1 rows; extra row determines has_more flag without needing a separate query (a separate COUNT query is still issued for the total)
 - Separate SQL queries per sort mode (time, distance) since sqlc is static — can't dynamically change JOIN type or ORDER BY
+
+### Level System
+- Sport-agnostic ordinal system: each sport defines level codes with numeric ordinals (gaps of 10 for future insertions). Badminton: LB=10, MB=20, HB=30, LI=40, MI=50, HI=60, A=70
+- Plays store both level codes (level_min, level_max) and ordinals (level_min_ord, level_max_ord) — codes for display, ordinals for filtering/sorting
+- `level_max` can be NULL, meaning "and above" (e.g. LI & above = min=40, max=NULL)
+- Level filter uses range overlap: `play.level_max_ord >= filter_min AND play.level_min_ord <= filter_max`. NULL play levels always pass (includes sell_booking listings with no level)
+- API accepts `level_min` and `level_max` as separate params. Setting only `level_min` means "this level and above" (no upper bound). Setting only `level_max` means "this level and below". Both set = range overlap filter
+- Frontend uses Select component (not Combobox) for level selection — fixed list, no search needed. Invalid selections disabled based on the other's value (can't set max below min)
+- Level definitions live in `$lib/utils/levels.ts` (frontend) and `internal/model/levels.go` (backend) — will be sport-dependent when multi-sport is added
 - Distance-sorted queries use INNER JOIN venues (excludes plays without a resolved venue); time-sorted uses LEFT JOIN
 
 ### Data Model
