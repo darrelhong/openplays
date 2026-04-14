@@ -129,7 +129,6 @@ func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.Up
 		EndsAt:      startsAt.Add(2 * time.Hour),
 		Timezone:    "Asia/Singapore",
 		Venue:       venue,
-		VenueNorm:   venue,
 		VenueID:     &venueID,
 		LevelMin:    &levelMin,
 		LevelMax:    &levelMax,

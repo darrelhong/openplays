@@ -2,7 +2,7 @@
 INSERT INTO plays (
     listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
-    venue, venue_norm, venue_id,
+    venue, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
@@ -11,7 +11,7 @@ INSERT INTO plays (
 ) VALUES (
     ?, ?, ?, ?,
     ?, ?, ?,
-    ?, ?, ?,
+    ?, ?,
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
@@ -21,7 +21,6 @@ INSERT INTO plays (
 ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
-    venue_norm            = excluded.venue_norm,
     venue_id              = excluded.venue_id,
     level_min             = excluded.level_min,
     level_max             = excluded.level_max,
@@ -58,12 +57,12 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_norm, p.venue_id,
+    p.venue, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
-    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
@@ -95,12 +94,12 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_norm, p.venue_id,
+    p.venue, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
-    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude,
     CAST(2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(sqlc.arg('ref_lat'))) / 2), 2) +
@@ -143,12 +142,12 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_norm, p.venue_id,
+    p.venue, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
-    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id

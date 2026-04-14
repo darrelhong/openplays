@@ -18,8 +18,8 @@ type PlayPublic struct {
 	StartsAt    string            `json:"starts_at"`
 	EndsAt      string            `json:"ends_at"`
 	Timezone    string            `json:"timezone"`
-	Venue       string            `json:"venue"`
-	VenueName   *string           `json:"venue_name,omitempty"`
+	Venue       string            `json:"venue" doc:"Raw venue name as extracted from the message"`
+	VenueName   string            `json:"venue_name" doc:"Display name: resolved venue name, or raw venue name, or 'No venue'"`
 	VenueID     *int64            `json:"venue_id,omitempty"`
 
 	VenuePostalCode *string  `json:"venue_postal_code,omitempty"`

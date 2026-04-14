@@ -76,12 +76,12 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_norm, p.venue_id,
+    p.venue, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
-    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
@@ -100,7 +100,6 @@ type GetPlayByIDRow struct {
 	EndsAt               time.Time
 	Timezone             string
 	Venue                string
-	VenueNorm            string
 	VenueID              *int64
 	LevelMin             *string
 	LevelMax             *string
@@ -118,7 +117,7 @@ type GetPlayByIDRow struct {
 	SourceSenderUsername *string
 	SourceMessageID      *string
 	SourceGroup          *string
-	VenueName            *string
+	VenueName            string
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
@@ -139,7 +138,6 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 		&i.EndsAt,
 		&i.Timezone,
 		&i.Venue,
-		&i.VenueNorm,
 		&i.VenueID,
 		&i.LevelMin,
 		&i.LevelMax,
@@ -166,7 +164,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 }
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
-SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name FROM plays
+SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name FROM plays
 WHERE starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND listing_type = 'play'
 ORDER BY starts_at ASC
@@ -193,7 +191,6 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.EndsAt,
 			&i.Timezone,
 			&i.Venue,
-			&i.VenueNorm,
 			&i.LevelMin,
 			&i.LevelMax,
 			&i.LevelMinOrd,
@@ -233,12 +230,12 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_norm, p.venue_id,
+    p.venue, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
-    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
@@ -276,7 +273,6 @@ type ListUpcomingPlaysRow struct {
 	EndsAt               time.Time
 	Timezone             string
 	Venue                string
-	VenueNorm            string
 	VenueID              *int64
 	LevelMin             *string
 	LevelMax             *string
@@ -294,7 +290,7 @@ type ListUpcomingPlaysRow struct {
 	SourceSenderUsername *string
 	SourceMessageID      *string
 	SourceGroup          *string
-	VenueName            *string
+	VenueName            string
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
@@ -332,7 +328,6 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.EndsAt,
 			&i.Timezone,
 			&i.Venue,
-			&i.VenueNorm,
 			&i.VenueID,
 			&i.LevelMin,
 			&i.LevelMax,
@@ -373,12 +368,12 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_norm, p.venue_id,
+    p.venue, p.venue_id,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
-    v.name AS venue_name, v.postal_code AS venue_postal_code,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude,
     CAST(2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
@@ -431,7 +426,6 @@ type ListUpcomingPlaysByDistanceRow struct {
 	EndsAt               time.Time
 	Timezone             string
 	Venue                string
-	VenueNorm            string
 	VenueID              *int64
 	LevelMin             *string
 	LevelMax             *string
@@ -490,7 +484,6 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 			&i.EndsAt,
 			&i.Timezone,
 			&i.Venue,
-			&i.VenueNorm,
 			&i.VenueID,
 			&i.LevelMin,
 			&i.LevelMax,
@@ -531,7 +524,7 @@ const upsertPlay = `-- name: UpsertPlay :one
 INSERT INTO plays (
     listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
-    venue, venue_norm, venue_id,
+    venue, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
@@ -540,7 +533,7 @@ INSERT INTO plays (
 ) VALUES (
     ?, ?, ?, ?,
     ?, ?, ?,
-    ?, ?, ?,
+    ?, ?,
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
@@ -550,7 +543,6 @@ INSERT INTO plays (
 ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
-    venue_norm            = excluded.venue_norm,
     venue_id              = excluded.venue_id,
     level_min             = excluded.level_min,
     level_max             = excluded.level_max,
@@ -571,7 +563,7 @@ ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id
     source_message_id     = excluded.source_message_id,
     source_group          = excluded.source_group,
     updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, venue_norm, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name
 `
 
 type UpsertPlayParams struct {
@@ -583,7 +575,6 @@ type UpsertPlayParams struct {
 	EndsAt               time.Time
 	Timezone             string
 	Venue                string
-	VenueNorm            string
 	VenueID              *int64
 	LevelMin             *string
 	LevelMax             *string
@@ -616,7 +607,6 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		arg.EndsAt,
 		arg.Timezone,
 		arg.Venue,
-		arg.VenueNorm,
 		arg.VenueID,
 		arg.LevelMin,
 		arg.LevelMax,
@@ -651,7 +641,6 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		&i.EndsAt,
 		&i.Timezone,
 		&i.Venue,
-		&i.VenueNorm,
 		&i.LevelMin,
 		&i.LevelMax,
 		&i.LevelMinOrd,

@@ -157,7 +157,7 @@
 			<tbody>
 				{#each data.plays.items as play (play.id)}
 					<tr class="border-b border-neutral-700 *:p-2 hover:bg-stone-800 *:whitespace-nowrap">
-						<td>{play.venue_name || play.venue}</td>
+						<td>{play.venue_name}</td>
 						<td>{formatDate(play.starts_at, play.timezone)}</td>
 						<td
 							>{formatTime(play.starts_at, play.timezone)} - {formatTime(
@@ -182,7 +182,7 @@
 								</Dialog.Trigger>
 								<Dialog.Content variant="right">
 									<Dialog.Header>
-										<Dialog.Title class="text-xl pe-6">{play.venue_name || play.venue}</Dialog.Title
+										<Dialog.Title class="text-xl pe-6">{play.venue_name}</Dialog.Title
 										>
 										<p class="text-lg mb-4">
 											{formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(

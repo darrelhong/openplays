@@ -22,7 +22,6 @@ type Play struct {
 	EndsAt               time.Time
 	Timezone             string
 	Venue                string
-	VenueNorm            string
 	LevelMin             *string
 	LevelMax             *string
 	LevelMinOrd          *int64

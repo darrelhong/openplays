@@ -54,70 +54,6 @@ type ResolvedVenue struct {
 	Name string // canonical venue name, used as venue_norm
 }
 
-// ToPlay converts a ParsedPlayCandidate into a db.Play record.
-// Times are converted from the candidate's local date/time strings to UTC
-// using the timezone from MessageInput.
-func ToPlay(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue) db.Play {
-	currency := "SGD"
-	if c.Currency != nil {
-		currency = *c.Currency
-	}
-
-	hostName := input.SenderName
-	if c.HostName != nil && *c.HostName != "" {
-		hostName = *c.HostName
-	}
-
-	listingType := model.ListingPlay
-	if c.ListingType != nil && *c.ListingType == string(model.ListingSellBooking) {
-		listingType = model.ListingSellBooking
-	}
-
-	tz := input.Timezone
-	if tz == "" {
-		tz = "Asia/Singapore"
-	}
-
-	source := input.Source
-
-	play := db.Play{
-		ListingType:          listingType,
-		Sport:                model.SportBadminton,
-		GameType:             toGameType(c.GameType),
-		HostName:             hostName,
-		StartsAt:             derefTimeOrZero(model.ToUTC(c.Date, c.StartTime, tz)),
-		EndsAt:               derefTimeOrZero(model.ToUTC(c.Date, c.EndTime, tz)),
-		Timezone:             tz,
-		Venue:                derefStringOrEmpty(c.Venue),
-		LevelMin:             c.LevelMin,
-		LevelMax:             c.LevelMax,
-		LevelMinOrd:          intToInt64(levelToOrd(c.LevelMin)),
-		LevelMaxOrd:          intToInt64(levelToOrd(c.LevelMax)),
-		Fee:                  intToInt64(c.FeeCents),
-		Currency:             currency,
-		MaxPlayers:           intToInt64(c.MaxPlayers),
-		SlotsLeft:            intToInt64(c.SlotsLeft),
-		Courts:               floatToInt64(c.Courts),
-		Contacts:             model.Contacts(c.Contacts),
-		GenderPref:           toGenderPref(c.GenderPref),
-		Meta:                 buildMeta(c),
-		Source:               &source,
-		SourceSenderUsername: nilIfEmpty(input.SenderUsername),
-		SourceSenderName:     nilIfEmpty(input.SenderName),
-		SourceRawMessage:     &input.Text,
-		SourceMessageTime:    &input.Timestamp,
-		SourceMessageID:      input.SourceMessageID,
-		SourceGroup:          input.SourceGroup,
-	}
-
-	if rv != nil {
-		play.VenueNorm = rv.Name
-		play.VenueID = &rv.ID
-	}
-
-	return play
-}
-
 // ToUpsertPlayParams converts a ParsedPlayCandidate directly into db.UpsertPlayParams
 // for database insertion. This avoids going through db.Play which has different
 // nullability for some fields.
@@ -175,7 +111,6 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *Re
 	}
 
 	if rv != nil {
-		params.VenueNorm = rv.Name
 		params.VenueID = &rv.ID
 	}
 

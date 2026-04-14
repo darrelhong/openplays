@@ -182,7 +182,7 @@ func mapDistanceRow(r db.ListUpcomingPlaysByDistanceRow) PlayPublic {
 		EndsAt:           r.EndsAt.Format(time.RFC3339),
 		Timezone:         r.Timezone,
 		Venue:            r.Venue,
-		VenueName:        &r.VenueName, // INNER JOIN guarantees non-null
+		VenueName:        r.VenueName,
 		VenueID:          r.VenueID,
 		VenuePostalCode:  r.VenuePostalCode,
 		VenueLatitude:    &r.VenueLatitude,
