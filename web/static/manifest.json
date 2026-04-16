@@ -1,7 +1,7 @@
 {
 	"name": "OpenPlays",
 	"short_name": "OpenPlays",
-	"description": "The best way to discover and organise sports sessions",
+	"description": "The best way to discover and organise sports sessions.",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#1c1917",

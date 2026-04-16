@@ -1,10 +1,12 @@
 <script lang="ts">
 	import 'virtual:uno.css';
 	import favicon from '$lib/assets/favicon.svg';
+	import opengraphimage from '$lib/assets/opengraph-image.png';
 	import { resolve } from '$app/paths';
 	import Button from '$lib/components/ui/button.svelte';
 	import { Info } from '@lucide/svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index';
+	import { DESCRIPTION } from '$lib/consts';
 
 	let { children } = $props();
 </script>
@@ -12,7 +14,19 @@
 <svelte:head>
 	<link rel="icon" type="image/svg+xml" href={favicon} />
 	<title>OpenPlays</title>
-	<meta name="description" content="The best way to discover and organise sports sessions" />
+	<meta name="description" content={DESCRIPTION} />
+	<meta property="og:url" content="https://openplays.app/" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="OpenPlays" />
+	<meta property="og:description" content={DESCRIPTION} />
+	<meta property="og:image" content={opengraphimage} />
+
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta property="twitter:domain" content="openplays.app" />
+	<meta property="twitter:url" content="https://openplays.app/" />
+	<meta name="twitter:title" content="OpenPlays" />
+	<meta name="twitter:description" content={DESCRIPTION} />
+	<meta name="twitter:image" content={opengraphimage} />
 </svelte:head>
 
 <div class="text-stone-50 bg-stone-900 flex flex-col min-h-screen">
@@ -32,9 +46,7 @@
 			<Dialog.Content class="border border-stone-700 shadow-lg shadow-stone-800/30">
 				<Dialog.Header>
 					<Dialog.Title>OpenPlays</Dialog.Title>
-					<Dialog.Description
-						>The best way to discover and organise sports sessions</Dialog.Description
-					>
+					<Dialog.Description>{DESCRIPTION}</Dialog.Description>
 				</Dialog.Header>
 				<Dialog.Footer class="mt-4">
 					<Button
