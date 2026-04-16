@@ -18,9 +18,10 @@ INSERT INTO plays (
     ?, ?, ?, ?, ?,
     ?, ?
 )
-ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id) DO UPDATE SET
+ON CONFLICT(host_name, starts_at, sport, COALESCE(level_min, ''), COALESCE(level_max, ''), COALESCE(venue_id, 0)) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
+    ends_at               = excluded.ends_at,
     venue_id              = excluded.venue_id,
     level_min             = excluded.level_min,
     level_max             = excluded.level_max,
@@ -45,12 +46,13 @@ RETURNING *;
 
 -- name: GetUpcomingPlays :many
 SELECT * FROM plays
-WHERE starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND listing_type = 'play'
 ORDER BY starts_at ASC;
 
 -- name: ListUpcomingPlays :many
 -- Paginated upcoming listings with optional filters and venue data.
+-- Includes games still in progress (ends_at > now) not just future games.
 -- Forward-only cursor pagination using composite (starts_at, id) cursor
 -- to match the sort order. Both cursor params must be provided together.
 SELECT
@@ -66,7 +68,7 @@ SELECT
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
@@ -82,7 +84,7 @@ LIMIT sqlc.arg('page_size');
 -- name: CountUpcomingPlays :one
 -- Total count of upcoming listings matching the same filters.
 SELECT COUNT(*) FROM plays p
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
@@ -112,7 +114,7 @@ SELECT
     )) AS REAL) AS distance_km
 FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
@@ -137,7 +139,7 @@ LIMIT sqlc.arg('page_size');
 -- Total count of upcoming listings with a resolved venue, matching the same filters.
 SELECT COUNT(*) FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))

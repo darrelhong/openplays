@@ -14,7 +14,7 @@ import (
 
 const countUpcomingPlays = `-- name: CountUpcomingPlays :one
 SELECT COUNT(*) FROM plays p
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?1 IS NULL OR p.starts_at >= ?1)
   AND (?2 IS NULL OR p.listing_type = ?2)
   AND (?3 IS NULL OR p.sport = ?3)
@@ -50,7 +50,7 @@ func (q *Queries) CountUpcomingPlays(ctx context.Context, arg CountUpcomingPlays
 const countUpcomingPlaysByDistance = `-- name: CountUpcomingPlaysByDistance :one
 SELECT COUNT(*) FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?1 IS NULL OR p.starts_at >= ?1)
   AND (?2 IS NULL OR p.listing_type = ?2)
   AND (?3 IS NULL OR p.sport = ?3)
@@ -177,7 +177,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
 SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name FROM plays
-WHERE starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND listing_type = 'play'
 ORDER BY starts_at ASC
 `
@@ -251,7 +251,7 @@ SELECT
     v.latitude AS venue_latitude, v.longitude AS venue_longitude
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?1 IS NULL OR p.starts_at >= ?1)
   AND (?2 IS NULL OR p.listing_type = ?2)
   AND (?3 IS NULL OR p.sport = ?3)
@@ -313,6 +313,7 @@ type ListUpcomingPlaysRow struct {
 }
 
 // Paginated upcoming listings with optional filters and venue data.
+// Includes games still in progress (ends_at > now) not just future games.
 // Forward-only cursor pagination using composite (starts_at, id) cursor
 // to match the sort order. Both cursor params must be provided together.
 func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysParams) ([]ListUpcomingPlaysRow, error) {
@@ -400,7 +401,7 @@ SELECT
     )) AS REAL) AS distance_km
 FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
-WHERE p.starts_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?3 IS NULL OR p.starts_at >= ?3)
   AND (?4 IS NULL OR p.listing_type = ?4)
   AND (?5 IS NULL OR p.sport = ?5)
@@ -564,9 +565,10 @@ INSERT INTO plays (
     ?, ?, ?, ?, ?,
     ?, ?
 )
-ON CONFLICT(host_name, starts_at, ends_at, sport, level_min, level_max, venue_id) DO UPDATE SET
+ON CONFLICT(host_name, starts_at, sport, COALESCE(level_min, ''), COALESCE(level_max, ''), COALESCE(venue_id, 0)) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
+    ends_at               = excluded.ends_at,
     venue_id              = excluded.venue_id,
     level_min             = excluded.level_min,
     level_max             = excluded.level_max,
