@@ -167,8 +167,8 @@
 				minValue={today}
 			/>
 		</div>
-		<div class="flex flex-1 gap-2">
-			<div class="flex-1 max-w-44 min-w-30 sm:min-w-44">
+		<div class="flex flex-[0_1_22rem] flex-wrap gap-2">
+			<div class="flex-1">
 				<Select
 					type="single"
 					items={levelMinItems}
@@ -179,7 +179,7 @@
 					allowDeselect
 				/>
 			</div>
-			<div class="flex-1 max-w-44 min-w-30 sm:min-w-44">
+			<div class="flex-1">
 				<Select
 					type="single"
 					items={levelMaxItems}
