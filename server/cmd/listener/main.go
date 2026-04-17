@@ -11,7 +11,7 @@ import (
 	"openplays/server/internal/geo"
 	"openplays/server/internal/google"
 	"openplays/server/internal/listener"
-	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/listener/pipeline"
 	"openplays/server/internal/telegramutils"
 	"openplays/server/internal/venue"
 
@@ -38,7 +38,6 @@ func main() {
 	defer sqlDb.Close()
 
 	queries := db.New(sqlDb)
-	pipeline := parser.NewPipeline(cfg.LLM)
 
 	// --- Geocoder: uncomment ONE provider or leave both commented to disable ---
 
@@ -64,7 +63,11 @@ func main() {
 	_ = google.Config{}
 
 	resolver := venue.NewResolver(queries, geocoder)
-	worker := listener.NewWorker(queries, pipeline, resolver, cfg.TelegramGroupTimezone)
+
+	// Build the unified pipeline: LLM extraction → convert → validate → resolve venue → upsert
+	proc := pipeline.DefaultPipeline(cfg.LLM, resolver, queries)
+
+	worker := listener.NewWorker(queries, proc, cfg.TelegramGroupTimezone)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go worker.Run(ctx)

@@ -8,9 +8,7 @@ import (
 	"time"
 
 	"openplays/server/internal/db"
-	"openplays/server/internal/listener/parser"
-	"openplays/server/internal/model"
-	"openplays/server/internal/venue"
+	"openplays/server/internal/listener/pipeline"
 )
 
 // backoff schedule for retries (capped at 15 minutes)
@@ -32,29 +30,21 @@ type WorkerStore interface {
 	MarkProcessing(ctx context.Context, id int64) error
 	MarkDone(ctx context.Context, arg db.MarkDoneParams) error
 	MarkFailed(ctx context.Context, arg db.MarkFailedParams) error
-	UpsertPlay(ctx context.Context, arg db.UpsertPlayParams) (db.Play, error)
-}
-
-// Parser is the subset of parser.Pipeline that the Worker needs.
-type Parser interface {
-	Parse(ctx context.Context, input parser.MessageInput) ([]model.ParsedPlayCandidate, error)
 }
 
 // Worker processes raw messages from the job queue asynchronously.
 type Worker struct {
 	store    WorkerStore
-	parser   Parser
-	venue    *venue.Resolver // nil if venue resolution is disabled
+	pipeline *pipeline.Pipeline
 	notify   chan struct{}
 	timezone string
 }
 
-// NewWorker creates a new worker.
-func NewWorker(store WorkerStore, parser Parser, venue *venue.Resolver, timezone string) *Worker {
+// NewWorker creates a new worker with a unified pipeline for processing candidates.
+func NewWorker(store WorkerStore, p *pipeline.Pipeline, timezone string) *Worker {
 	return &Worker{
 		store:    store,
-		parser:   parser,
-		venue:    venue,
+		pipeline: p,
 		notify:   make(chan struct{}, 1),
 		timezone: timezone,
 	}
@@ -140,8 +130,8 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 		return
 	}
 
-	// Build parser input
-	input := parser.MessageInput{
+	// Build pipeline input
+	input := pipeline.MessageInput{
 		Text:            job.MessageText,
 		SenderUsername:  job.SenderUsername,
 		SenderName:      job.SenderName,
@@ -152,11 +142,8 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 		SourceGroup:     job.SourceGroup,
 	}
 
-	// Call LLM
-	parseCtx, cancel := context.WithTimeout(ctx, 500*time.Second)
-	candidates, err := w.parser.Parse(parseCtx, input)
-	cancel()
-
+	// Run the unified pipeline: extract → convert → validate → resolve → upsert
+	candidates, inserted, err := w.pipeline.Process(ctx, input, job.ID)
 	if err != nil {
 		w.handleFailure(ctx, job, err)
 		return
@@ -173,26 +160,7 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 		return
 	}
 
-	// Convert candidates to plays and insert
-	for i, c := range candidates {
-		var rv *parser.ResolvedVenue
-		if w.venue != nil {
-			if resolved := w.venue.Resolve(ctx, c.Venue); resolved != nil {
-				rv = &parser.ResolvedVenue{
-					ID:   resolved.ID,
-					Name: resolved.Name,
-				}
-			}
-		}
-		params := parser.ToUpsertPlayParams(&c, input, rv)
-		_, err := w.store.UpsertPlay(ctx, params)
-		if err != nil {
-			log.Printf("worker: error inserting play %d/%d for message #%d: %v",
-				i+1, len(candidates), job.ID, err)
-		}
-	}
-
-	log.Printf("worker: message #%d done — %d play(s) extracted", job.ID, len(candidates))
+	log.Printf("worker: message #%d done — %d play(s) extracted", job.ID, inserted)
 }
 
 func (w *Worker) handleFailure(ctx context.Context, job db.RawMessage, err error) {

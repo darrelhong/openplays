@@ -1,7 +1,6 @@
-package parser
+package pipeline
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"time"
@@ -10,54 +9,10 @@ import (
 	"openplays/server/internal/model"
 )
 
-// MessageInput holds the raw message data from a source (Telegram, etc.).
-type MessageInput struct {
-	Text            string    // full raw message text
-	SenderUsername  string    // Telegram @username (empty if user has none)
-	SenderName      string    // display name (first+last or username fallback)
-	Timestamp       time.Time // when the message was sent
-	Timezone        string    // IANA timezone of the source, e.g. "Asia/Singapore"
-	Source          string    // source of the message, e.g. "telegram"
-	SourceMessageID *string   // platform message ID, e.g. Telegram message ID
-	SourceGroup     *string   // platform group/channel, e.g. "sgbadmintontelecom"
-}
-
-// Pipeline orchestrates message splitting and LLM-based extraction.
-type Pipeline struct {
-	extractor *LLMExtractor
-}
-
-// NewPipeline creates a parser pipeline with the given LLM config.
-func NewPipeline(cfg LLMConfig) *Pipeline {
-	return &Pipeline{
-		extractor: NewLLMExtractor(cfg),
-	}
-}
-
-// Parse takes a raw message and returns parsed play candidates.
-// The full message text is sent to the LLM, which extracts all plays from it.
-func (p *Pipeline) Parse(ctx context.Context, input MessageInput) ([]model.ParsedPlayCandidate, error) {
-	refDate := input.Timestamp.Format("2006-01-02")
-
-	candidates, err := p.extractor.Extract(ctx, input.Text, refDate, input.SenderName)
-	if err != nil {
-		return nil, err
-	}
-
-	return candidates, nil
-}
-
-// ResolvedVenue holds the normalized venue data from the venues table.
-// Nil means the venue could not be resolved.
-type ResolvedVenue struct {
-	ID   int64
-	Name string // canonical venue name, used as venue_norm
-}
-
 // ToUpsertPlayParams converts a ParsedPlayCandidate directly into db.UpsertPlayParams
-// for database insertion. This avoids going through db.Play which has different
-// nullability for some fields.
-func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *ResolvedVenue) db.UpsertPlayParams {
+// for database insertion. Venue resolution and validation are handled by the
+// pipeline steps, not here.
+func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.UpsertPlayParams {
 	currency := "SGD"
 	if c.Currency != nil {
 		currency = *c.Currency
@@ -108,10 +63,6 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput, rv *Re
 		SourceMessageTime:    &input.Timestamp,
 		SourceMessageID:      input.SourceMessageID,
 		SourceGroup:          input.SourceGroup,
-	}
-
-	if rv != nil {
-		params.VenueID = &rv.ID
 	}
 
 	return params

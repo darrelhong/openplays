@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"openplays/server/internal/db"
-	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/listener/pipeline"
 	"openplays/server/internal/model"
 )
 
@@ -28,13 +28,11 @@ type SpyWorkerStore struct {
 	ProcessingIDs []int64
 	DoneParams    []db.MarkDoneParams
 	FailedParams  []db.MarkFailedParams
-	UpsertedPlays []db.UpsertPlayParams
 
 	// Error injection
 	MarkProcessingErr error
 	MarkDoneErr       error
 	MarkFailedErr     error
-	UpsertPlayErr     error
 }
 
 func (s *SpyWorkerStore) GetPendingJob(ctx context.Context) (db.RawMessage, error) {
@@ -75,22 +73,28 @@ func (s *SpyWorkerStore) MarkFailed(ctx context.Context, arg db.MarkFailedParams
 	return s.MarkFailedErr
 }
 
-func (s *SpyWorkerStore) UpsertPlay(ctx context.Context, arg db.UpsertPlayParams) (db.Play, error) {
-	s.Calls = append(s.Calls, "UpsertPlay")
-	s.UpsertedPlays = append(s.UpsertedPlays, arg)
-	return db.Play{}, s.UpsertPlayErr
-}
-
-// SpyParser records calls and returns pre-configured results/errors.
-type SpyParser struct {
+// SpyExtractor is a fake Extractor that returns pre-configured results.
+type SpyExtractor struct {
 	Calls      []string
 	Candidates []model.ParsedPlayCandidate
 	Err        error
 }
 
-func (s *SpyParser) Parse(ctx context.Context, input parser.MessageInput) ([]model.ParsedPlayCandidate, error) {
-	s.Calls = append(s.Calls, "Parse")
+func (s *SpyExtractor) Extract(_ context.Context, _ string, _ string, _ string) ([]model.ParsedPlayCandidate, error) {
+	s.Calls = append(s.Calls, "Extract")
 	return s.Candidates, s.Err
+}
+
+// SpyUpsertStep records upserted plays for assertions.
+type SpyUpsertStep struct {
+	UpsertedPlays []db.UpsertPlayParams
+	Err           error
+}
+
+func (s *SpyUpsertStep) Name() string { return "spy-upsert" }
+func (s *SpyUpsertStep) Process(_ context.Context, pc *pipeline.PlayContext) error {
+	s.UpsertedPlays = append(s.UpsertedPlays, pc.Params)
+	return s.Err
 }
 
 // --- Helpers ---
@@ -106,6 +110,10 @@ func makeJob(id int64, text string, retryCount int64) db.RawMessage {
 		Status:         "pending",
 		RetryCount:     retryCount,
 	}
+}
+
+func makePipeline(extractor pipeline.Extractor, steps ...pipeline.Step) *pipeline.Pipeline {
+	return pipeline.New(extractor, steps...)
 }
 
 func assertWorkerCalls(t *testing.T, got, want []string) {
@@ -126,10 +134,11 @@ func TestProcessPending_HappyPath(t *testing.T) {
 	store := &SpyWorkerStore{
 		PendingJobs: []db.RawMessage{makeJob(1, "looking for players", 0)},
 	}
-	p := &SpyParser{
+	extractor := &SpyExtractor{
 		Candidates: []model.ParsedPlayCandidate{{}},
 	}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	upsertSpy := &SpyUpsertStep{}
+	w := NewWorker(store, makePipeline(extractor, upsertSpy), "Asia/Singapore")
 
 	w.processPending(context.Background())
 
@@ -137,10 +146,9 @@ func TestProcessPending_HappyPath(t *testing.T) {
 		"GetPendingJob",
 		"MarkProcessing",
 		"MarkDone",
-		"UpsertPlay",
 		"GetPendingJob", // second call returns ErrNoRows, loop exits
 	})
-	assertWorkerCalls(t, p.Calls, []string{"Parse"})
+	assertWorkerCalls(t, extractor.Calls, []string{"Extract"})
 
 	if len(store.ProcessingIDs) != 1 || store.ProcessingIDs[0] != 1 {
 		t.Errorf("expected MarkProcessing for job #1, got %v", store.ProcessingIDs)
@@ -148,17 +156,20 @@ func TestProcessPending_HappyPath(t *testing.T) {
 	if len(store.DoneParams) != 1 || store.DoneParams[0].ID != 1 {
 		t.Errorf("expected MarkDone for job #1, got %v", store.DoneParams)
 	}
+	if len(upsertSpy.UpsertedPlays) != 1 {
+		t.Errorf("expected 1 upserted play, got %d", len(upsertSpy.UpsertedPlays))
+	}
 }
 
 func TestProcessPending_NoPendingJobs(t *testing.T) {
 	store := &SpyWorkerStore{}
-	p := &SpyParser{}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{}
+	w := NewWorker(store, makePipeline(extractor), "Asia/Singapore")
 
 	w.processPending(context.Background())
 
 	assertWorkerCalls(t, store.Calls, []string{"GetPendingJob"})
-	assertWorkerCalls(t, p.Calls, nil)
+	assertWorkerCalls(t, extractor.Calls, nil)
 }
 
 func TestProcessRetries_PicksUpFailedJobs(t *testing.T) {
@@ -168,10 +179,11 @@ func TestProcessRetries_PicksUpFailedJobs(t *testing.T) {
 	store := &SpyWorkerStore{
 		RetryJobs: []db.RawMessage{retryJob},
 	}
-	p := &SpyParser{
+	extractor := &SpyExtractor{
 		Candidates: []model.ParsedPlayCandidate{{}},
 	}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	upsertSpy := &SpyUpsertStep{}
+	w := NewWorker(store, makePipeline(extractor, upsertSpy), "Asia/Singapore")
 
 	w.processRetries(context.Background())
 
@@ -179,32 +191,34 @@ func TestProcessRetries_PicksUpFailedJobs(t *testing.T) {
 		"GetRetryJob",
 		"MarkProcessing",
 		"MarkDone",
-		"UpsertPlay",
 		"GetRetryJob", // second call returns ErrNoRows, loop exits
 	})
-	assertWorkerCalls(t, p.Calls, []string{"Parse"})
+	assertWorkerCalls(t, extractor.Calls, []string{"Extract"})
 
 	if store.ProcessingIDs[0] != 42 {
 		t.Errorf("expected MarkProcessing for job #42, got %v", store.ProcessingIDs)
+	}
+	if len(upsertSpy.UpsertedPlays) != 1 {
+		t.Errorf("expected 1 upserted play, got %d", len(upsertSpy.UpsertedPlays))
 	}
 }
 
 func TestProcessRetries_NoRetryJobs(t *testing.T) {
 	store := &SpyWorkerStore{}
-	p := &SpyParser{}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{}
+	w := NewWorker(store, makePipeline(extractor), "Asia/Singapore")
 
 	w.processRetries(context.Background())
 
 	assertWorkerCalls(t, store.Calls, []string{"GetRetryJob"})
-	assertWorkerCalls(t, p.Calls, nil)
+	assertWorkerCalls(t, extractor.Calls, nil)
 }
 
 func TestProcessJob_ParseFailure_MarksFailedWithBackoff(t *testing.T) {
 	job := makeJob(10, "bad message", 0)
 	store := &SpyWorkerStore{}
-	p := &SpyParser{Err: fmt.Errorf("LLM returned status 429: rate limited")}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{Err: fmt.Errorf("LLM returned status 429: rate limited")}
+	w := NewWorker(store, makePipeline(extractor), "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
@@ -232,8 +246,8 @@ func TestProcessJob_ParseFailure_MarksFailedWithBackoff(t *testing.T) {
 func TestProcessJob_BackoffCapsAtMaxDuration(t *testing.T) {
 	job := makeJob(10, "bad message", 99) // retry_count well past backoff slice length
 	store := &SpyWorkerStore{}
-	p := &SpyParser{Err: fmt.Errorf("LLM error")}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{Err: fmt.Errorf("LLM error")}
+	w := NewWorker(store, makePipeline(extractor), "Asia/Singapore")
 
 	before := time.Now().UTC()
 	w.processJob(context.Background(), job)
@@ -251,8 +265,8 @@ func TestProcessJob_BackoffCapsAtMaxDuration(t *testing.T) {
 func TestProcessJob_NextRetryAt_IsUTC(t *testing.T) {
 	job := makeJob(10, "bad message", 0)
 	store := &SpyWorkerStore{}
-	p := &SpyParser{Err: fmt.Errorf("LLM error")}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{Err: fmt.Errorf("LLM error")}
+	w := NewWorker(store, makePipeline(extractor), "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
@@ -274,35 +288,35 @@ func TestProcessJob_NextRetryAt_IsUTC(t *testing.T) {
 func TestProcessJob_MultipleCandidates_InsertsAll(t *testing.T) {
 	job := makeJob(5, "two plays", 0)
 	store := &SpyWorkerStore{}
-	p := &SpyParser{
+	extractor := &SpyExtractor{
 		Candidates: []model.ParsedPlayCandidate{{}, {}},
 	}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	upsertSpy := &SpyUpsertStep{}
+	w := NewWorker(store, makePipeline(extractor, upsertSpy), "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
 	assertWorkerCalls(t, store.Calls, []string{
 		"MarkProcessing",
 		"MarkDone",
-		"UpsertPlay",
-		"UpsertPlay",
 	})
-	if len(store.UpsertedPlays) != 2 {
-		t.Errorf("expected 2 UpsertPlay calls, got %d", len(store.UpsertedPlays))
+	if len(upsertSpy.UpsertedPlays) != 2 {
+		t.Errorf("expected 2 upserted plays, got %d", len(upsertSpy.UpsertedPlays))
 	}
 }
 
 func TestProcessJob_ZeroCandidates_StillMarksDone(t *testing.T) {
 	job := makeJob(7, "no plays here", 0)
 	store := &SpyWorkerStore{}
-	p := &SpyParser{Candidates: nil}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{Candidates: nil}
+	upsertSpy := &SpyUpsertStep{}
+	w := NewWorker(store, makePipeline(extractor, upsertSpy), "Asia/Singapore")
 
 	w.processJob(context.Background(), job)
 
 	assertWorkerCalls(t, store.Calls, []string{"MarkProcessing", "MarkDone"})
-	if len(store.UpsertedPlays) != 0 {
-		t.Errorf("expected 0 UpsertPlay calls, got %d", len(store.UpsertedPlays))
+	if len(upsertSpy.UpsertedPlays) != 0 {
+		t.Errorf("expected 0 upserted plays, got %d", len(upsertSpy.UpsertedPlays))
 	}
 }
 
@@ -315,8 +329,8 @@ func TestPendingAndRetry_AreIndependent(t *testing.T) {
 		PendingJobs: []db.RawMessage{pendingJob},
 		RetryJobs:   []db.RawMessage{retryJob},
 	}
-	p := &SpyParser{Candidates: []model.ParsedPlayCandidate{{}}}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{Candidates: []model.ParsedPlayCandidate{{}}}
+	w := NewWorker(store, makePipeline(extractor, &SpyUpsertStep{}), "Asia/Singapore")
 
 	// Process pending — should only touch pending queue
 	w.processPending(context.Background())
@@ -348,8 +362,8 @@ func TestRunStartup_ProcessesBothQueues(t *testing.T) {
 		PendingJobs: []db.RawMessage{pendingJob},
 		RetryJobs:   []db.RawMessage{retryJob},
 	}
-	p := &SpyParser{Candidates: []model.ParsedPlayCandidate{{}}}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{Candidates: []model.ParsedPlayCandidate{{}}}
+	w := NewWorker(store, makePipeline(extractor, &SpyUpsertStep{}), "Asia/Singapore")
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -389,8 +403,8 @@ func TestRunStartup_ProcessesBothQueues(t *testing.T) {
 
 func TestNotify_TriggersPendingProcessing(t *testing.T) {
 	store := &SpyWorkerStore{}
-	p := &SpyParser{Candidates: []model.ParsedPlayCandidate{{}}}
-	w := NewWorker(store, p, nil, "Asia/Singapore")
+	extractor := &SpyExtractor{Candidates: []model.ParsedPlayCandidate{{}}}
+	w := NewWorker(store, makePipeline(extractor, &SpyUpsertStep{}), "Asia/Singapore")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})

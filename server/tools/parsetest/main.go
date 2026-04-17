@@ -11,22 +11,23 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/listener/pipeline"
 )
 
 // Quick test tool: pipe a message in, see parsed plays out.
 //
 // Usage:
-//   echo "Looking for HB players..." | go run ./tools/parsetest/
-//   SENDER_NAME="Daniel" go run ./tools/parsetest/ < example_messages.txt
+//
+//	echo "Looking for HB players..." | go run ./tools/parsetest/
+//	SENDER_NAME="Daniel" go run ./tools/parsetest/ < example_messages.txt
 //
 // Env vars:
-//   LLM_BASE_URL  (default: http://localhost:1234/v1)
-//   LLM_MODEL     (default: empty — uses whatever LM Studio has loaded)
-//   LLM_API_KEY   (default: empty — for cloud providers)
-//   SENDER_NAME   (default: test_user)
-//   TIMEZONE      (default: Asia/Singapore)
-
+//
+//	LLM_BASE_URL  (default: http://localhost:1234/v1)
+//	LLM_MODEL     (default: empty — uses whatever LM Studio has loaded)
+//	LLM_API_KEY   (default: empty — for cloud providers)
+//	SENDER_NAME   (default: test_user)
+//	TIMEZONE      (default: Asia/Singapore)
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
@@ -47,7 +48,7 @@ func main() {
 	model := envOr("LLM_MODEL", "")
 	apiKey := os.Getenv("LLM_API_KEY")
 
-	cfg := parser.LLMConfig{
+	cfg := pipeline.LLMConfig{
 		BaseURL: baseURL,
 		Model:   model,
 		APIKey:  apiKey,
@@ -67,8 +68,8 @@ func main() {
 	fmt.Printf("sender:   %s\n", senderName)
 	fmt.Println()
 
-	pipeline := parser.NewPipeline(cfg)
-	msgInput := parser.MessageInput{
+	extractor := pipeline.NewLLMExtractor(cfg)
+	msgInput := pipeline.MessageInput{
 		Text:       text,
 		SenderName: senderName,
 		Timestamp:  time.Now(),
@@ -78,12 +79,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
+	refDate := msgInput.Timestamp.Format("2006-01-02")
 	start := time.Now()
-	candidates, err := pipeline.Parse(ctx, msgInput)
+	candidates, err := extractor.Extract(ctx, msgInput.Text, refDate, msgInput.SenderName)
 	elapsed := time.Since(start)
 
 	if err != nil {
-		log.Fatalf("parse failed: %v", err)
+		log.Fatalf("extract failed: %v", err)
 	}
 
 	fmt.Printf("=== RESULT (%s) ===\n", elapsed.Round(time.Millisecond))

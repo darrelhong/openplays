@@ -9,7 +9,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"openplays/server/internal/google"
-	"openplays/server/internal/listener/parser"
+	"openplays/server/internal/listener/pipeline"
 	"openplays/server/internal/onemap"
 )
 
@@ -22,7 +22,7 @@ type Config struct {
 	TelegramGroupUsername string
 	TelegramGroupTimezone string
 	DBURL                 string
-	LLM                   parser.LLMConfig
+	LLM                   pipeline.LLMConfig
 	OneMap                onemap.Config
 	Google                google.Config
 }
@@ -69,7 +69,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	// LLM config with defaults
-	llmCfg := parser.DefaultLLMConfig()
+	llmCfg := pipeline.DefaultLLMConfig()
 	if baseURL := os.Getenv("LLM_BASE_URL"); baseURL != "" {
 		llmCfg.BaseURL = baseURL
 	}
