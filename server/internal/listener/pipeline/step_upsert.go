@@ -2,7 +2,7 @@ package pipeline
 
 import (
 	"context"
-	"log"
+	"log/slog"
 
 	"openplays/server/internal/db"
 )
@@ -26,8 +26,7 @@ func (s *UpsertStep) Name() string { return "upsert" }
 func (s *UpsertStep) Process(ctx context.Context, pc *PlayContext) error {
 	_, err := s.store.UpsertPlay(ctx, pc.Params)
 	if err != nil {
-		log.Printf("worker: error inserting play %d/%d for message #%d: %v",
-			pc.Index+1, pc.Total, pc.MessageID, err)
+		slog.Error("error inserting play", "play_index", pc.Index+1, "play_total", pc.Total, "message_id", pc.MessageID, "error", err)
 		return err
 	}
 	return nil

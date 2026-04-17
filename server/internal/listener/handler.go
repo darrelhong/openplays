@@ -2,7 +2,7 @@ package listener
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"openplays/server/internal/db"
@@ -32,12 +32,12 @@ func HandleMessage(ctx context.Context, store MessageStore, source, senderUserna
 	cutoff := time.Now().UTC().Add(-24 * time.Hour)
 	recent, err := store.GetRecentMessageTexts(ctx, cutoff)
 	if err != nil {
-		log.Printf("error fetching recent messages for dedup: %v", err)
+		slog.Error("error fetching recent messages for dedup", "error", err)
 		// Continue anyway — better to have a duplicate than to lose a message
 	} else {
 		for _, r := range recent {
 			if dedupe.IsSimilar(msgText, r.MessageText) {
-				log.Printf("skipping duplicate message from %s (similar to message #%d)", senderName, r.ID)
+				slog.Info("skipping duplicate message", "sender", senderName, "similar_to_message_id", r.ID)
 				return HandleSkipped, nil
 			}
 		}

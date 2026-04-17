@@ -2,8 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -17,11 +16,14 @@ import (
 
 	apiRouter "openplays/server/internal/api/routes/api"
 	"openplays/server/internal/db"
+	"openplays/server/internal/logging"
 )
 
 func main() {
+	logging.Init()
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		slog.Info("no .env file found, using system environment variables")
 	}
 
 	dbURL := os.Getenv("DB_URL")
@@ -36,7 +38,8 @@ func main() {
 
 	sqlDb, err := sql.Open("sqlite", dbURL)
 	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
+		slog.Error("failed to open database", "error", err)
+		os.Exit(1)
 	}
 	defer sqlDb.Close()
 
@@ -49,11 +52,13 @@ func main() {
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
 	apiRouter.Register(humaAPI, queries)
 
-	fmt.Printf("OpenPlays API server on :%s\n", port)
-	fmt.Printf("Docs: http://localhost:%s/docs\n", port)
-	fmt.Printf("Spec: http://localhost:%s/openapi.json\n", port)
+	slog.Info("api server starting", "port", port,
+		"docs", "http://localhost:"+port+"/docs",
+		"spec", "http://localhost:"+port+"/openapi.json",
+	)
 
 	if err := http.ListenAndServe(":"+port, router); err != nil {
-		log.Fatalf("server error: %v", err)
+		slog.Error("server error", "error", err)
+		os.Exit(1)
 	}
 }

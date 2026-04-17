@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"time"
 
 	"openplays/server/internal/db"
@@ -12,6 +13,7 @@ import (
 	"openplays/server/internal/google"
 	"openplays/server/internal/listener"
 	"openplays/server/internal/listener/pipeline"
+	"openplays/server/internal/logging"
 	"openplays/server/internal/telegramutils"
 	"openplays/server/internal/venue"
 
@@ -26,14 +28,18 @@ import (
 )
 
 func main() {
+	logging.Init()
+
 	cfg, err := listener.LoadConfig()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("failed to load config", "error", err)
+		os.Exit(1)
 	}
 
 	sqlDb, err := sql.Open("sqlite", cfg.DBURL)
 	if err != nil {
-		log.Fatalf("failed to open database: %v", err)
+		slog.Error("failed to open database", "error", err)
+		os.Exit(1)
 	}
 	defer sqlDb.Close()
 
@@ -46,17 +52,17 @@ func main() {
 	// Option A: Google Places (5,000 free requests/month, requires API key)
 	if cfg.Google.APIKey != "" {
 		geocoder = google.NewClient(cfg.Google)
-		log.Println("Geocoder: Google Places enabled")
+		slog.Info("geocoder enabled", "provider", "google_places")
 	}
 
 	// Option B: OneMap (Singapore government API, free, requires email/password)
 	// if cfg.OneMap.Email != "" && cfg.OneMap.Password != "" {
 	// 	geocoder = onemap.NewClient(cfg.OneMap)
-	// 	log.Println("Geocoder: OneMap enabled")
+	// 	slog.Info("geocoder enabled", "provider", "onemap")
 	// }
 
 	if geocoder == nil {
-		log.Println("Geocoder: disabled (no credentials configured)")
+		slog.Info("geocoder disabled, no credentials configured")
 	}
 
 	// Suppress unused import when OneMap is commented out.
@@ -81,7 +87,8 @@ func main() {
 		},
 	)
 	if err != nil {
-		log.Fatalf("failed to create client: %v", err)
+		slog.Error("failed to create telegram client", "error", err)
+		os.Exit(1)
 	}
 
 	handleMessage := func(ctx *ext.Context, update *ext.Update) error {
@@ -129,7 +136,7 @@ func main() {
 
 		result, err := listener.HandleMessage(ctx, queries, "telegram", senderUsername, senderName, msg.Message.Message, msgTime, &msgID, &group)
 		if err != nil {
-			log.Printf("failed to handle message: %v", err)
+			slog.Error("failed to handle message", "error", err)
 			return nil
 		}
 		if result == listener.HandleSkipped {
@@ -144,8 +151,11 @@ func main() {
 	client.Dispatcher.AddHandler(handlers.NewMessage(filters.Message.Text,
 		handleMessage))
 
-	fmt.Println("Listening for messages...")
-	fmt.Printf("LLM: %s (model: %s)\n", cfg.LLM.BaseURL, cfg.LLM.Model)
-	fmt.Printf("Group: %s (%s)\n", cfg.TelegramGroupUsername, cfg.TelegramGroupTimezone)
+	slog.Info("listening for messages",
+		"llm_url", cfg.LLM.BaseURL,
+		"model", cfg.LLM.Model,
+		"group", cfg.TelegramGroupUsername,
+		"timezone", cfg.TelegramGroupTimezone,
+	)
 	client.Idle()
 }

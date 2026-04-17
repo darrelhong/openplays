@@ -3,7 +3,7 @@ package venue
 import (
 	"context"
 	"database/sql"
-	"log"
+	"log/slog"
 	"strings"
 
 	"openplays/server/internal/db"
@@ -52,7 +52,7 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 	if v, err := r.store.GetVenueByAlias(ctx, alias); err == nil {
 		return &Resolved{ID: v.ID, Name: v.Name}
 	} else if err != sql.ErrNoRows {
-		log.Printf("venue: alias lookup error: %v", err)
+		slog.Error("alias lookup error", "error", err)
 	}
 
 	// 2. Expanded alias lookup
@@ -67,8 +67,7 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 	// 3. Fuzzy match against all venue names
 	if candidates := r.loadCandidates(ctx); len(candidates) > 0 {
 		if m := FuzzyMatch(*rawVenue, candidates); m != nil {
-			log.Printf("venue: fuzzy matched %q → %s (id=%d) [score=%.0f%%]",
-				*rawVenue, m.Name, m.ID, m.Score*100)
+			slog.Info("venue fuzzy matched", "raw", *rawVenue, "matched", m.Name, "venue_id", m.ID, "score_pct", m.Score*100)
 			r.upsertAlias(ctx, alias, m.ID)
 			return &Resolved{ID: m.ID, Name: m.Name}
 		}
@@ -81,11 +80,11 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 
 	result, err := r.geocoder.Geocode(ctx, *rawVenue)
 	if err != nil {
-		log.Printf("venue: geocode error for %q: %v", *rawVenue, err)
+		slog.Error("geocode error", "venue", *rawVenue, "error", err)
 		return nil
 	}
 	if result == nil {
-		log.Printf("venue: geocode no results for %q", *rawVenue)
+		slog.Warn("geocode no results", "venue", *rawVenue)
 		return nil
 	}
 
@@ -105,12 +104,12 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 		SearchTerm: &searchTerm,
 	})
 	if err != nil {
-		log.Printf("venue: error upserting venue: %v", err)
+		slog.Error("error upserting venue", "error", err)
 		return nil
 	}
 
 	r.upsertAlias(ctx, alias, v.ID)
-	log.Printf("venue: geocoded %q → %s (id=%d)", *rawVenue, v.Name, v.ID)
+	slog.Info("venue geocoded", "raw", *rawVenue, "name", v.Name, "venue_id", v.ID)
 
 	return &Resolved{ID: v.ID, Name: v.Name}
 }
@@ -118,7 +117,7 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 func (r *Resolver) loadCandidates(ctx context.Context) []Candidate {
 	rows, err := r.store.ListVenueNames(ctx)
 	if err != nil {
-		log.Printf("venue: error listing venue names: %v", err)
+		slog.Error("error listing venue names", "error", err)
 		return nil
 	}
 	candidates := make([]Candidate, len(rows))
@@ -133,6 +132,6 @@ func (r *Resolver) upsertAlias(ctx context.Context, alias string, venueID int64)
 		Alias:   alias,
 		VenueID: venueID,
 	}); err != nil {
-		log.Printf("venue: error upserting alias %q: %v", alias, err)
+		slog.Error("error upserting alias", "alias", alias, "error", err)
 	}
 }

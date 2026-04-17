@@ -5,7 +5,7 @@ package pipeline
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"openplays/server/internal/db"
@@ -98,8 +98,7 @@ func (p *Pipeline) Process(ctx context.Context, input MessageInput, messageID in
 		}
 		if err := p.runSteps(ctx, pc); err != nil {
 			if !errors.Is(err, ErrSkip) {
-				log.Printf("pipeline: error processing play %d/%d for message #%d: %v",
-					i+1, len(candidates), messageID, err)
+				slog.Error("error processing play", "play_index", i+1, "play_total", len(candidates), "message_id", messageID, "error", err)
 			}
 			continue
 		}
@@ -114,12 +113,10 @@ func (p *Pipeline) runSteps(ctx context.Context, pc *PlayContext) error {
 	for _, step := range p.steps {
 		if err := step.Process(ctx, pc); err != nil {
 			if errors.Is(err, ErrSkip) {
-				log.Printf("WARN: message #%d play %d/%d skipped at %s",
-					pc.MessageID, pc.Index+1, pc.Total, step.Name())
+				slog.Warn("play skipped", "message_id", pc.MessageID, "play_index", pc.Index+1, "play_total", pc.Total, "step", step.Name())
 				return ErrSkip
 			}
-			log.Printf("WARN: message #%d play %d/%d failed at %s: %v",
-				pc.MessageID, pc.Index+1, pc.Total, step.Name(), err)
+			slog.Warn("play failed", "message_id", pc.MessageID, "play_index", pc.Index+1, "play_total", pc.Total, "step", step.Name(), "error", err)
 			return err
 		}
 	}

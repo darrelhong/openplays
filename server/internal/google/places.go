@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -98,14 +98,14 @@ func (c *Client) Geocode(ctx context.Context, query string) (*geo.Result, error)
 	}
 
 	raw, _ := json.MarshalIndent(sr, "", "  ")
-	log.Printf("google places search %q: %d result(s)\n%s", query, len(sr.Places), raw)
+	slog.Info("google places search", "query", query, "results", len(sr.Places), "raw", string(raw))
 
 	if len(sr.Places) == 0 {
 		return nil, nil
 	}
 
 	p := sr.Places[0]
-	log.Printf("google places search %q → %s %s", query, p.DisplayName.Text, p.FormattedAddress)
+	slog.Info("google places resolved", "query", query, "name", p.DisplayName.Text, "address", p.FormattedAddress)
 
 	return &geo.Result{
 		Name:      p.DisplayName.Text,

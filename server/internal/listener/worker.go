@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"openplays/server/internal/db"
@@ -61,7 +61,7 @@ func (w *Worker) Notify() {
 // Run starts the worker loop. Blocks until ctx is cancelled.
 // Call this in a goroutine.
 func (w *Worker) Run(ctx context.Context) {
-	log.Println("worker: started")
+	slog.Info("worker started")
 
 	retryTicker := time.NewTicker(retryInterval)
 	defer retryTicker.Stop()
@@ -73,7 +73,7 @@ func (w *Worker) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("worker: shutting down")
+			slog.Info("worker shutting down")
 			return
 		case <-w.notify:
 			w.processPending(ctx)
@@ -94,7 +94,7 @@ func (w *Worker) processPending(ctx context.Context) {
 			return
 		}
 		if err != nil {
-			log.Printf("worker: error getting pending job: %v", err)
+			slog.Error("error getting pending job", "error", err)
 			return
 		}
 		w.processJob(ctx, job)
@@ -103,18 +103,18 @@ func (w *Worker) processPending(ctx context.Context) {
 
 // processRetries picks up failed jobs whose next_retry_at has passed.
 func (w *Worker) processRetries(ctx context.Context) {
-	log.Println("worker: checking for retry jobs")
+	slog.Info("checking for retry jobs")
 	for {
 		if ctx.Err() != nil {
 			return
 		}
 		job, err := w.store.GetRetryJob(ctx)
 		if err == sql.ErrNoRows {
-			log.Println("worker: no retry jobs found")
+			slog.Info("no retry jobs found")
 			return
 		}
 		if err != nil {
-			log.Printf("worker: error getting retry job: %v", err)
+			slog.Error("error getting retry job", "error", err)
 			return
 		}
 		w.processJob(ctx, job)
@@ -122,11 +122,10 @@ func (w *Worker) processRetries(ctx context.Context) {
 }
 
 func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
-	log.Printf("worker: processing message #%d from %s (attempt %d)",
-		job.ID, job.SenderUsername, job.RetryCount+1)
+	slog.Info("processing message", "message_id", job.ID, "sender", job.SenderUsername, "attempt", job.RetryCount+1)
 
 	if err := w.store.MarkProcessing(ctx, job.ID); err != nil {
-		log.Printf("worker: error marking processing: %v", err)
+		slog.Error("error marking processing", "message_id", job.ID, "error", err)
 		return
 	}
 
@@ -156,11 +155,11 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 		LlmResponse: &llmStr,
 		ID:          job.ID,
 	}); err != nil {
-		log.Printf("worker: error marking done: %v", err)
+		slog.Error("error marking done", "message_id", job.ID, "error", err)
 		return
 	}
 
-	log.Printf("worker: message #%d done — %d play(s) extracted", job.ID, inserted)
+	slog.Info("message done", "message_id", job.ID, "plays_inserted", inserted)
 }
 
 func (w *Worker) handleFailure(ctx context.Context, job db.RawMessage, err error) {
@@ -171,14 +170,13 @@ func (w *Worker) handleFailure(ctx context.Context, job db.RawMessage, err error
 	}
 	nextRetry := time.Now().UTC().Add(backoffDurations[retryIdx])
 
-	log.Printf("worker: message #%d failed (attempt %d): %v — next retry at %s",
-		job.ID, job.RetryCount+1, err, nextRetry.Format("15:04:05"))
+	slog.Error("message failed", "message_id", job.ID, "attempt", job.RetryCount+1, "error", err, "next_retry_at", nextRetry.Format("15:04:05"))
 
 	if markErr := w.store.MarkFailed(ctx, db.MarkFailedParams{
 		NextRetryAt: &nextRetry,
 		LastError:   &errStr,
 		ID:          job.ID,
 	}); markErr != nil {
-		log.Printf("worker: error marking failed: %v", markErr)
+		slog.Error("error marking failed", "message_id", job.ID, "error", markErr)
 	}
 }

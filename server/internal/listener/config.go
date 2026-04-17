@@ -2,7 +2,7 @@ package listener
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"strconv"
 
@@ -30,7 +30,7 @@ type Config struct {
 // LoadConfig reads environment variables.
 func LoadConfig() (*Config, error) {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		slog.Info("no .env file found, using system environment variables")
 	}
 
 	apiID, err := strconv.Atoi(os.Getenv("TELEGRAM_API_ID"))

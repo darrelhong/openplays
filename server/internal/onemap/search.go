@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -71,16 +71,16 @@ func (c *Client) Search(ctx context.Context, query string) (*GeoResult, error) {
 		return nil, err
 	}
 
-	log.Printf("onemap search %q: %d result(s)", query, sr.Found)
+	slog.Info("onemap search", "query", query, "results", sr.Found)
 	if raw, err := json.MarshalIndent(sr, "", "  "); err == nil {
-		log.Printf("onemap response:\n%s", raw)
+		slog.Info("onemap response", "raw", string(raw))
 	}
 	if sr.Found == 0 || len(sr.Results) == 0 {
 		return nil, nil
 	}
 
 	r := sr.Results[0]
-	log.Printf("onemap search %q → %s (%s) %s", query, r.Building, r.Postal, r.Address)
+	slog.Info("onemap resolved", "query", query, "building", r.Building, "postal", r.Postal, "address", r.Address)
 	lat, err := strconv.ParseFloat(r.Latitude, 64)
 	if err != nil {
 		return nil, fmt.Errorf("onemap: bad latitude %q: %w", r.Latitude, err)

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -49,7 +49,7 @@ func NewLLMExtractor(cfg LLMConfig) *LLMExtractor {
 	if cfg.RateLimit > 0 {
 		interval := time.Minute / time.Duration(cfg.RateLimit)
 		limiter = rate.NewLimiter(rate.Every(interval), 1)
-		log.Printf("LLM rate limiter: %d req/min (1 every %s)", cfg.RateLimit, interval)
+		slog.Info("llm rate limiter configured", "requests_per_min", cfg.RateLimit, "interval", interval)
 	}
 
 	return &LLMExtractor{
@@ -228,9 +228,9 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 	content := chatResp.Choices[0].Message.Content
 	elapsed := time.Since(start)
 	if chatResp.Usage != nil {
-		log.Printf("LLM: %s, %d tokens (%d in, %d out)", elapsed.Round(time.Millisecond), chatResp.Usage.TotalTokens, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens)
+		slog.Info("llm response", "latency", elapsed.Round(time.Millisecond), "tokens_total", chatResp.Usage.TotalTokens, "tokens_in", chatResp.Usage.PromptTokens, "tokens_out", chatResp.Usage.CompletionTokens)
 	} else {
-		log.Printf("LLM: %s", elapsed.Round(time.Millisecond))
+		slog.Info("llm response", "latency", elapsed.Round(time.Millisecond))
 	}
 	if strings.TrimSpace(content) == "" {
 		return nil, fmt.Errorf("LLM returned empty content (body: %.500s)", string(respBody))

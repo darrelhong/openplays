@@ -2,7 +2,7 @@ package pipeline
 
 import (
 	"context"
-	"log"
+	"log/slog"
 )
 
 // VenueResolved is the result of a venue resolution.
@@ -41,7 +41,7 @@ func (s *ResolveVenueStep) Process(ctx context.Context, pc *PlayContext) error {
 	if resolved != nil {
 		pc.Params.VenueID = &resolved.ID
 	} else {
-		log.Printf("venue: unresolved %q (message #%d)", venueName, pc.MessageID)
+		slog.Warn("venue unresolved", "venue", venueName, "message_id", pc.MessageID)
 	}
 
 	return nil
