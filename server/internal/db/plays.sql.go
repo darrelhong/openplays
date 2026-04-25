@@ -176,7 +176,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 }
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
-SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name FROM plays
+SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by FROM plays
 WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND listing_type = 'play'
 ORDER BY starts_at ASC
@@ -223,6 +223,7 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.SourceMessageID,
 			&i.SourceGroup,
 			&i.SourceSenderName,
+			&i.CreatedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -589,7 +590,7 @@ ON CONFLICT(host_name, starts_at, sport, COALESCE(level_min, ''), COALESCE(level
     source_message_id     = excluded.source_message_id,
     source_group          = excluded.source_group,
     updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by
 `
 
 type UpsertPlayParams struct {
@@ -687,6 +688,7 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		&i.SourceMessageID,
 		&i.SourceGroup,
 		&i.SourceSenderName,
+		&i.CreatedBy,
 	)
 	return i, err
 }

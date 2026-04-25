@@ -42,6 +42,7 @@ type Play struct {
 	SourceMessageID      *string
 	SourceGroup          *string
 	SourceSenderName     *string
+	CreatedBy            *string
 }
 
 type RawMessage struct {
@@ -61,6 +62,34 @@ type RawMessage struct {
 	SourceMessageID *string
 	SourceGroup     *string
 	SenderName      string
+}
+
+type Session struct {
+	Token     string
+	UserID    string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+type User struct {
+	ID            string
+	Email         string
+	Username      *string
+	DisplayName   string
+	PhotoUrl      *string
+	GoogleID      *string
+	FacebookID    *string
+	Status        string
+	SportsProfile *string
+	ContactInfo   *string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+type UserBlock struct {
+	BlockerID string
+	BlockedID string
+	CreatedAt time.Time
 }
 
 type Venue struct {
