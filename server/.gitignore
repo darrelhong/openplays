@@ -6,3 +6,4 @@ openplays*.db
 plans/
 
 test_messages/
+tmp/
