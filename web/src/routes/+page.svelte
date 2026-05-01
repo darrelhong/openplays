@@ -209,7 +209,7 @@
 		<table class="w-full border-collapse">
 			<thead>
 				<tr
-					class="text-muted border-b border-neutral-500 *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
+					class="text-muted border-b border-border *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
 				>
 					<th>Venue</th>
 					<th>Date</th>
@@ -224,7 +224,7 @@
 			</thead>
 			<tbody>
 				{#each data.plays.items as play (play.id)}
-					<tr class="border-b border-neutral-700 *:p-2 hover:bg-card *:whitespace-nowrap">
+					<tr class="border-b border-border *:p-2 hover:bg-card *:whitespace-nowrap">
 						<td>{play.venue_name}</td>
 						<td>{formatDate(play.starts_at, play.timezone)}</td>
 						<td
