@@ -38,9 +38,25 @@ func RegisterUpdate(api huma.API, store ProfileStore) {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
 
+		// Validate display_name not empty
+		displayName := strings.TrimSpace(input.Body.DisplayName)
+		if displayName == "" {
+			return nil, huma.Error422UnprocessableEntity("display_name cannot be empty")
+		}
+
+		// Username: if provided, trim and validate non-empty
+		username := user.Username
+		if input.Body.Username != nil {
+			trimmed := strings.TrimSpace(*input.Body.Username)
+			if trimmed == "" {
+				return nil, huma.Error422UnprocessableEntity("username cannot be empty")
+			}
+			username = &trimmed
+		}
+
 		updated, err := store.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
-			DisplayName:   input.Body.DisplayName,
-			Username:      input.Body.Username,
+			DisplayName:   displayName,
+			Username:      username,
 			PhotoUrl:      user.PhotoURL,
 			SportsProfile: user.SportsProfile,
 			ContactInfo:   user.ContactInfo,

@@ -44,7 +44,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/auth/me": {
+    "/api/me/": {
         parameters: {
             query?: never;
             header?: never;
@@ -53,15 +53,19 @@ export interface paths {
         };
         /**
          * Get current user
-         * @description Returns the authenticated user from the session cookie.
+         * @description Returns the authenticated user. Requires session cookie.
          */
-        get: operations["auth-me"];
+        get: operations["get-me"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update profile
+         * @description Update the current user's display name and username. Requires session cookie.
+         */
+        patch: operations["update-me"];
         trace?: never;
     };
     "/api/plays/": {
@@ -277,6 +281,18 @@ export interface components {
             venue_name: string;
             venue_postal_code?: string;
         };
+        UpdateInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdateInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description User's display name */
+            display_name: string;
+            /** @description Optional unique handle */
+            username?: string;
+        };
         User: {
             /**
              * Format: uri
@@ -378,16 +394,47 @@ export interface operations {
             };
         };
     };
-    "auth-me": {
+    "get-me": {
         parameters: {
             query?: never;
-            header?: {
-                Cookie?: string;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInputBody"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {

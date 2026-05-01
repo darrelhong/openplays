@@ -5,7 +5,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const sessionToken = event.cookies.get('session');
 
 	if (sessionToken) {
-		const { data, response } = await api.GET('/api/auth/me', {
+		const { data, response } = await api.GET('/api/me/', {
 			headers: { Cookie: `session=${sessionToken}` }
 		});
 

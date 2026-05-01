@@ -151,3 +151,100 @@ func TestUpdateProfile_NoAuth_Returns401(t *testing.T) {
 
 // Compile-time check: *db.Queries satisfies ProfileStore
 var _ me.ProfileStore = (*db.Queries)(nil)
+
+func TestUpdateProfile_EmptyDisplayName_Returns422(t *testing.T) {
+	ts := setup(activeSession(), &fakeProfileStore{})
+	defer ts.Close()
+
+	body := `{"display_name":"","username":"valid"}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
+	}
+}
+
+func TestUpdateProfile_WhitespaceDisplayName_Returns422(t *testing.T) {
+	ts := setup(activeSession(), &fakeProfileStore{})
+	defer ts.Close()
+
+	body := `{"display_name":"   ","username":"valid"}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
+	}
+}
+
+func TestUpdateProfile_EmptyUsername_Returns422(t *testing.T) {
+	ts := setup(activeSession(), &fakeProfileStore{})
+	defer ts.Close()
+
+	body := `{"display_name":"Valid Name","username":""}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
+	}
+}
+
+func TestUpdateProfile_NullUsername_PreservesExisting(t *testing.T) {
+	now := time.Now()
+	existingUsername := "existing"
+	authStore := &fakeAuthStore{
+		sessionRow: db.GetSessionWithUserRow{
+			Token: "tok", UserID: "user-1", ExpiresAt: now.Add(time.Hour),
+			UserID2: "user-1", Email: "test@test.com", DisplayName: "Test",
+			Username: &existingUsername, Status: "active",
+			CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	profileStore := &fakeProfileStore{
+		updated: db.User{
+			ID: "user-1", Email: "test@test.com", Username: &existingUsername,
+			Status: "active", CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setup(authStore, profileStore)
+	defer ts.Close()
+
+	// No username field in body — should keep existing
+	body := `{"display_name":"Updated Name"}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}

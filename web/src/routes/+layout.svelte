@@ -10,6 +10,7 @@
 	import { DESCRIPTION } from '$lib/consts';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
+	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
 </script>
@@ -37,7 +38,16 @@
 		<a href={resolve('/')} class="text-2xl text-white font-bold">OpenPlays</a>
 		<div class="flex gap-3 items-center">
 			{#if data.user}
-				<span class="text-sm text-stone-300">{data.user.username ?? data.user.display_name}</span>
+				<a
+					href={resolve('/profile')}
+					class="text-stone-300 flex gap-2 items-center hover:text-stone-200"
+				>
+					<UserAvatar
+						src={data.user.photo_url}
+						nameForFallback={data.user.username ?? data.user.display_name}
+					/>
+					<span class="text-sm">{data.user.username ?? data.user.display_name}</span>
+				</a>
 				<form method="POST" action="/logout">
 					<button type="submit" class="text-sm text-stone-400 hover:text-stone-200">Logout</button>
 				</form>
