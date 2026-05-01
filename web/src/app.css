@@ -1,0 +1,44 @@
+@layer base {
+	:root {
+		/* Light mode */
+		--color-background: oklch(0.985 0.001 106.423); /* stone-50 */
+		--color-foreground: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-muted: oklch(0.553 0.013 58.071); /* stone-500 */
+		--color-muted-foreground: oklch(0.444 0.011 73.639); /* stone-600 */
+		--color-card: oklch(1 0 0); /* white */
+		--color-card-foreground: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-border: oklch(0.923 0.003 48.717); /* stone-200 */
+		--color-input: oklch(0.985 0.001 106.423); /* stone-50 */
+		--color-input-border: oklch(0.869 0.005 56.366); /* stone-300 */
+		--color-primary: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-primary-foreground: oklch(0.985 0.001 106.423); /* stone-50 */
+		--color-secondary: oklch(0.97 0.001 106.424); /* stone-100 */
+		--color-secondary-foreground: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-accent: oklch(0.97 0.001 106.424); /* stone-100 */
+		--color-accent-foreground: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-destructive: oklch(0.577 0.245 27.325); /* red-600 */
+		--color-success: oklch(0.627 0.194 149.214); /* green-600 */
+		--color-ring: oklch(0.553 0.013 58.071); /* stone-500 */
+	}
+
+	.dark {
+		--color-background: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-foreground: oklch(0.985 0.001 106.423); /* stone-50 */
+		--color-muted: oklch(0.709 0.01 56.259); /* stone-400 */
+		--color-muted-foreground: oklch(0.553 0.013 58.071); /* stone-500 */
+		--color-card: oklch(0.268 0.007 34.298); /* stone-800 */
+		--color-card-foreground: oklch(0.985 0.001 106.423); /* stone-50 */
+		--color-border: oklch(0.374 0.01 67.558); /* stone-700 */
+		--color-input: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-input-border: oklch(0.444 0.011 73.639); /* stone-600 */
+		--color-primary: oklch(0.97 0.001 106.424); /* stone-100 */
+		--color-primary-foreground: oklch(0.147 0.004 49.25); /* stone-950 */
+		--color-secondary: oklch(0.374 0.01 67.558); /* stone-700 */
+		--color-secondary-foreground: oklch(0.97 0.001 106.424); /* stone-100 */
+		--color-accent: oklch(0.374 0.01 67.558); /* stone-700 */
+		--color-accent-foreground: oklch(0.97 0.001 106.424); /* stone-100 */
+		--color-destructive: oklch(0.704 0.191 22.216); /* red-400 */
+		--color-success: oklch(0.792 0.209 151.711); /* green-400 */
+		--color-ring: oklch(0.709 0.01 56.259); /* stone-400 */
+	}
+}

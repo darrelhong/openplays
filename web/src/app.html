@@ -6,9 +6,17 @@
 		<meta name="text-scale" content="scale" />
 		<meta name="theme-color" content="#1c1917" />
 		<link rel="manifest" href="%sveltekit.assets%/manifest.json" />
+		<script>
+			(function () {
+				const stored = localStorage.getItem('theme');
+				const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				const dark = stored === 'dark' || (stored !== 'light' && prefersDark);
+				if (dark) document.documentElement.classList.add('dark');
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover" class="bg-stone-900 text-stone-50">
+	<body data-sveltekit-preload-data="hover" class="bg-background text-foreground">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

@@ -1,18 +1,33 @@
 <script lang="ts">
 	import 'virtual:uno.css';
+	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import opengraphimage from '$lib/assets/opengraph-image.png';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Button from '$lib/components/ui/button.svelte';
-	import { Info } from '@lucide/svelte';
+	import { Info, Sun, Moon, Palette } from '@lucide/svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import { DESCRIPTION } from '$lib/consts';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
+	import { getTheme, setTheme, type Theme } from '$lib/theme.svelte';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
+
+	const themes: { value: Theme; icon: typeof Sun }[] = [
+		{ value: 'light', icon: Sun },
+		{ value: 'dark', icon: Moon },
+		{ value: 'system', icon: Palette }
+	];
+
+	function cycleTheme() {
+		const order: Theme[] = ['light', 'dark', 'system'];
+		const idx = order.indexOf(getTheme());
+		const next = order[(idx + 1) % order.length]!;
+		setTheme(next);
+	}
 </script>
 
 <svelte:head>
@@ -33,10 +48,22 @@
 	<meta name="twitter:image" content={opengraphimage} />
 </svelte:head>
 
-<div class="text-stone-50 bg-stone-900 flex flex-col min-h-screen">
+<div class="text-foreground bg-background flex flex-col min-h-screen">
 	<header class="p-4 flex items-center justify-between">
 		<a href={resolve('/')} class="text-2xl text-white font-bold">OpenPlays</a>
 		<div class="flex gap-3 items-center">
+			<button
+				onclick={cycleTheme}
+				class="text-muted hover:text-foreground p-1 transition-colors"
+				title="Theme: {getTheme()}"
+			>
+				{#each themes as { value, icon: Icon } (value)}
+					{#if getTheme() === value}
+						<Icon class="size-4" />
+					{/if}
+				{/each}
+			</button>
+
 			{#if data.user}
 				<a
 					href={resolve('/profile')}
