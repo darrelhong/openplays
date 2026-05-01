@@ -118,7 +118,7 @@ func (s *Service) Login(ctx context.Context, id Identity) (*LoginResult, error) 
 	)
 
 	return &LoginResult{
-		User:         mapUser(user),
+		User:         MapUser(user),
 		SessionToken: token,
 	}, nil
 }
@@ -181,7 +181,7 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return s.store.DeleteSession(ctx, token)
 }
 
-func mapUser(u db.User) User {
+func MapUser(u db.User) User {
 	return User{
 		ID:            u.ID,
 		Email:         u.Email,

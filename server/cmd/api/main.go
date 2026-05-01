@@ -53,13 +53,14 @@ func main() {
 	defer sqlDb.Close()
 
 	queries := db.New(sqlDb)
+	svc := auth.NewService(queries)
 
 	router := chi.NewMux()
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries, googleVerifier, cookieSecure)
+	apiRouter.Register(humaAPI, queries, svc, googleVerifier, cookieSecure)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",
