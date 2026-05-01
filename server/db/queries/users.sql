@@ -8,6 +8,26 @@ ON CONFLICT(google_id) DO UPDATE SET
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 RETURNING *;
 
+-- name: UpsertUserByFacebookID :one
+INSERT INTO users (id, email, display_name, photo_url, facebook_id, updated_at)
+VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+ON CONFLICT(facebook_id) DO UPDATE SET
+    email = excluded.email,
+    display_name = excluded.display_name,
+    photo_url = excluded.photo_url,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+RETURNING *;
+
+-- name: LinkGoogleID :one
+UPDATE users SET google_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE email = ? AND google_id IS NULL
+RETURNING *;
+
+-- name: LinkFacebookID :one
+UPDATE users SET facebook_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE email = ? AND facebook_id IS NULL
+RETURNING *;
+
 -- name: GetUserByID :one
 SELECT * FROM users WHERE id = ?;
 

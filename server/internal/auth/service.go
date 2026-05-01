@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,7 +46,9 @@ type Identity struct {
 // Store is the database boundary for auth operations.
 type Store interface {
 	UpsertUserByGoogleID(ctx context.Context, arg db.UpsertUserByGoogleIDParams) (db.User, error)
-	// UpsertUserByFacebookID will be added here when Facebook is implemented
+	UpsertUserByFacebookID(ctx context.Context, arg db.UpsertUserByFacebookIDParams) (db.User, error)
+	LinkGoogleID(ctx context.Context, arg db.LinkGoogleIDParams) (db.User, error)
+	LinkFacebookID(ctx context.Context, arg db.LinkFacebookIDParams) (db.User, error)
 	GetSessionWithUser(ctx context.Context, token string) (db.GetSessionWithUserRow, error)
 	CreateSession(ctx context.Context, arg db.CreateSessionParams) error
 	DeleteSession(ctx context.Context, token string) error
@@ -124,24 +127,56 @@ func (s *Service) Login(ctx context.Context, id Identity) (*LoginResult, error) 
 }
 
 // upsertUser dispatches to the correct provider-specific upsert.
+// If the email already exists under a different provider, links the new provider to the existing account.
 func (s *Service) upsertUser(ctx context.Context, id Identity) (db.User, error) {
 	photoURL := ptrOrNil(id.PhotoURL)
+	email := normalizeEmail(id.Email)
+
+	var user db.User
+	var err error
 
 	switch id.Provider {
 	case ProviderGoogle:
 		providerID := id.ProviderID
-		return s.store.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		user, err = s.store.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
 			ID:          uuid.New().String(),
-			Email:       id.Email,
+			Email:       email,
 			DisplayName: id.DisplayName,
 			PhotoUrl:    photoURL,
 			GoogleID:    &providerID,
 		})
-	// case ProviderFacebook:
-	//     return s.store.UpsertUserByFacebookID(ctx, ...)
+		// Email conflict → user exists via Facebook, link Google to that account
+		if err != nil && isEmailConflict(err) {
+			user, err = s.store.LinkGoogleID(ctx, db.LinkGoogleIDParams{
+				GoogleID: &providerID,
+				Email:    email,
+			})
+		}
+	case ProviderFacebook:
+		providerID := id.ProviderID
+		user, err = s.store.UpsertUserByFacebookID(ctx, db.UpsertUserByFacebookIDParams{
+			ID:          uuid.New().String(),
+			Email:       email,
+			DisplayName: id.DisplayName,
+			PhotoUrl:    photoURL,
+			FacebookID:  &providerID,
+		})
+		// Email conflict → user exists via Google, link Facebook to that account
+		if err != nil && isEmailConflict(err) {
+			user, err = s.store.LinkFacebookID(ctx, db.LinkFacebookIDParams{
+				FacebookID: &providerID,
+				Email:      email,
+			})
+		}
 	default:
 		return db.User{}, fmt.Errorf("unsupported provider: %s", id.Provider)
 	}
+
+	return user, err
+}
+
+func isEmailConflict(err error) bool {
+	return strings.Contains(err.Error(), "UNIQUE constraint failed: users.email")
 }
 
 // GetSession validates a session token and returns the user.
@@ -224,4 +259,20 @@ func ptrOrNil(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// normalizeEmail strips plus addressing (user+tag@domain → user@domain)
+// and lowercases the entire address.
+func normalizeEmail(email string) string {
+	email = strings.ToLower(strings.TrimSpace(email))
+	at := strings.LastIndex(email, "@")
+	if at == -1 {
+		return email
+	}
+	local := email[:at]
+	domain := email[at:]
+	if plus := strings.Index(local, "+"); plus != -1 {
+		local = local[:plus]
+	}
+	return local + domain
 }

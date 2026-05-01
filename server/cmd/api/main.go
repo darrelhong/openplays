@@ -43,6 +43,11 @@ func main() {
 	}
 	googleVerifier := auth.NewGoogleVerifier(googleClientID)
 
+	facebookVerifier := auth.NewFacebookVerifier(auth.FacebookConfig{
+		AppID:     os.Getenv("FACEBOOK_APP_ID"),
+		AppSecret: os.Getenv("FACEBOOK_APP_SECRET"),
+	})
+
 	cookieSecure := os.Getenv("COOKIE_SECURE") != "false" // default true, set COOKIE_SECURE=false for local dev
 
 	sqlDb, err := sql.Open("sqlite", dbURL)
@@ -60,7 +65,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries, svc, googleVerifier, cookieSecure)
+	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, cookieSecure)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",

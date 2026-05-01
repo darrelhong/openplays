@@ -17,6 +17,10 @@ type fakeStore struct {
 	upsertUser db.User
 	upsertErr  error
 
+	// For link testing: user returned when linking
+	linkUser db.User
+	linkErr  error
+
 	createSessionCalled bool
 	createSessionParams db.CreateSessionParams
 	createSessionErr    error
@@ -46,6 +50,41 @@ func (f *fakeStore) UpsertUserByGoogleID(_ context.Context, arg db.UpsertUserByG
 	if arg.GoogleID != nil {
 		u.GoogleID = arg.GoogleID
 	}
+	return u, nil
+}
+
+func (f *fakeStore) UpsertUserByFacebookID(_ context.Context, arg db.UpsertUserByFacebookIDParams) (db.User, error) {
+	if f.upsertErr != nil {
+		return db.User{}, f.upsertErr
+	}
+	u := f.upsertUser
+	if u.ID == "" {
+		u.ID = arg.ID
+	}
+	u.Email = arg.Email
+	u.DisplayName = arg.DisplayName
+	u.PhotoUrl = arg.PhotoUrl
+	if arg.FacebookID != nil {
+		u.FacebookID = arg.FacebookID
+	}
+	return u, nil
+}
+
+func (f *fakeStore) LinkGoogleID(_ context.Context, arg db.LinkGoogleIDParams) (db.User, error) {
+	if f.linkErr != nil {
+		return db.User{}, f.linkErr
+	}
+	u := f.linkUser
+	u.GoogleID = arg.GoogleID
+	return u, nil
+}
+
+func (f *fakeStore) LinkFacebookID(_ context.Context, arg db.LinkFacebookIDParams) (db.User, error) {
+	if f.linkErr != nil {
+		return db.User{}, f.linkErr
+	}
+	u := f.linkUser
+	u.FacebookID = arg.FacebookID
 	return u, nil
 }
 
@@ -231,5 +270,59 @@ func TestLogout_EmptyToken_NoOp(t *testing.T) {
 	}
 	if store.deleteSessionCalled {
 		t.Error("should not call DeleteSession for empty token")
+	}
+}
+
+// --- Account linking tests ---
+
+func TestLogin_SameEmailDifferentProvider_LinksAccount(t *testing.T) {
+	// User already exists with Google. Now logs in with Facebook using same email.
+	// The upsert fails (email conflict), then LinkFacebookID succeeds.
+	existingUser := db.User{
+		ID: "existing-user", Email: "test@gmail.com", Status: "active",
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	googleID := "google-123"
+	existingUser.GoogleID = &googleID
+
+	store := &fakeStore{
+		upsertErr: errors.New("UNIQUE constraint failed: users.email"),
+		linkUser:  existingUser,
+	}
+	svc := auth.NewService(store)
+
+	result, err := svc.Login(context.Background(), auth.Identity{
+		Provider:    auth.ProviderFacebook,
+		ProviderID:  "fb-456",
+		Email:       "test@gmail.com",
+		DisplayName: "Test User",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.User.ID != "existing-user" {
+		t.Errorf("user ID = %q, want existing-user (should link, not create new)", result.User.ID)
+	}
+}
+
+func TestLogin_PlusAddressing_NormalizedBeforeMerge(t *testing.T) {
+	store := &fakeStore{
+		upsertUser: db.User{Status: "active", CreatedAt: time.Now(), UpdatedAt: time.Now()},
+	}
+	svc := auth.NewService(store)
+
+	result, err := svc.Login(context.Background(), auth.Identity{
+		Provider:    auth.ProviderGoogle,
+		ProviderID:  "g-1",
+		Email:       "Test+Spam@Gmail.COM",
+		DisplayName: "Test",
+	})
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.User.Email != "test@gmail.com" {
+		t.Errorf("email = %q, want test@gmail.com (normalized)", result.User.Email)
 	}
 }

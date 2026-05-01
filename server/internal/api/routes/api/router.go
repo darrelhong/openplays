@@ -13,11 +13,11 @@ import (
 )
 
 // Register registers all routes under /api.
-func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifier *auth.GoogleVerifier, cookieSecure bool) {
+func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifier *auth.GoogleVerifier, facebookVerifier *auth.FacebookVerifier, cookieSecure bool) {
 	grp := huma.NewGroup(api, "/api")
 
 	// Public routes
-	authRouter.Register(grp, svc, googleVerifier, authRouter.CookieConfig{Secure: cookieSecure})
+	authRouter.Register(grp, svc, googleVerifier, facebookVerifier, authRouter.CookieConfig{Secure: cookieSecure})
 	playsRouter.Register(grp, queries)
 	venuesRouter.Register(grp, queries)
 

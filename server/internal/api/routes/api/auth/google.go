@@ -13,7 +13,7 @@ import (
 
 type GoogleInput struct {
 	Body struct {
-		Credential string `json:"credential" doc:"Google ID token from GIS Sign-In" required:"true"`
+		Credential string `json:"credential" required:"true" doc:"Google ID token from GIS Sign-In"`
 	}
 }
 
@@ -26,6 +26,7 @@ type GoogleOutput struct {
 }
 
 // RegisterGoogle registers POST /auth/google.
+// Verifies Google ID token → produces Identity → calls service.Login.
 func RegisterGoogle(api huma.API, svc *authpkg.Service, verifier *authpkg.GoogleVerifier, cookieCfg CookieConfig) {
 	huma.Register(api, huma.Operation{
 		OperationID: "auth-google",

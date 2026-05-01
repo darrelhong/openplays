@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/auth/facebook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authenticate with Facebook
+         * @description Exchange a Facebook OAuth code for a session.
+         */
+        post: operations["auth-facebook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/google": {
         parameters: {
             query?: never;
@@ -177,6 +197,28 @@ export interface components {
              */
             type: string;
         };
+        FacebookInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/FacebookInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description OAuth authorization code from Facebook callback */
+            code: string;
+            /** @description The redirect_uri used in the OAuth flow (must match) */
+            redirect_uri: string;
+        };
+        FacebookOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/FacebookOutputBody.json
+             */
+            readonly $schema?: string;
+            session_token: string;
+            user: components["schemas"]["User"];
+        };
         GoogleInputBody: {
             /**
              * Format: uri
@@ -330,6 +372,40 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "auth-facebook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FacebookInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacebookOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "auth-google": {
         parameters: {
             query?: never;

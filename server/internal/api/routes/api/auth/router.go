@@ -6,9 +6,10 @@ import (
 	authpkg "openplays/server/internal/auth"
 )
 
-// Register registers auth routes under /auth (login + logout only).
-func Register(api huma.API, svc *authpkg.Service, verifier *authpkg.GoogleVerifier, cookieCfg CookieConfig) {
+// Register registers auth routes under /auth (login + logout).
+func Register(api huma.API, svc *authpkg.Service, googleVerifier *authpkg.GoogleVerifier, facebookVerifier *authpkg.FacebookVerifier, cookieCfg CookieConfig) {
 	grp := huma.NewGroup(api, "/auth")
-	RegisterGoogle(grp, svc, verifier, cookieCfg)
+	RegisterGoogle(grp, svc, googleVerifier, cookieCfg)
+	RegisterFacebook(grp, svc, facebookVerifier, cookieCfg)
 	RegisterLogout(grp, svc, cookieCfg)
 }

@@ -26,6 +26,15 @@ type fakeStore struct {
 func (f *fakeStore) UpsertUserByGoogleID(_ context.Context, _ db.UpsertUserByGoogleIDParams) (db.User, error) {
 	return db.User{}, nil
 }
+func (f *fakeStore) UpsertUserByFacebookID(_ context.Context, _ db.UpsertUserByFacebookIDParams) (db.User, error) {
+	return db.User{}, nil
+}
+func (f *fakeStore) LinkGoogleID(_ context.Context, _ db.LinkGoogleIDParams) (db.User, error) {
+	return db.User{}, nil
+}
+func (f *fakeStore) LinkFacebookID(_ context.Context, _ db.LinkFacebookIDParams) (db.User, error) {
+	return db.User{}, nil
+}
 func (f *fakeStore) GetSessionWithUser(_ context.Context, _ string) (db.GetSessionWithUserRow, error) {
 	return f.sessionRow, f.sessionErr
 }

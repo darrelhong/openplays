@@ -220,6 +220,68 @@ func (q *Queries) IsBlocked(ctx context.Context, arg IsBlockedParams) (int64, er
 	return is_blocked, err
 }
 
+const linkFacebookID = `-- name: LinkFacebookID :one
+UPDATE users SET facebook_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE email = ? AND facebook_id IS NULL
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+`
+
+type LinkFacebookIDParams struct {
+	FacebookID *string
+	Email      string
+}
+
+func (q *Queries) LinkFacebookID(ctx context.Context, arg LinkFacebookIDParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, linkFacebookID, arg.FacebookID, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.GoogleID,
+		&i.FacebookID,
+		&i.Status,
+		&i.SportsProfile,
+		&i.ContactInfo,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const linkGoogleID = `-- name: LinkGoogleID :one
+UPDATE users SET google_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE email = ? AND google_id IS NULL
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+`
+
+type LinkGoogleIDParams struct {
+	GoogleID *string
+	Email    string
+}
+
+func (q *Queries) LinkGoogleID(ctx context.Context, arg LinkGoogleIDParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, linkGoogleID, arg.GoogleID, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.GoogleID,
+		&i.FacebookID,
+		&i.Status,
+		&i.SportsProfile,
+		&i.ContactInfo,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listBlockedUserIDs = `-- name: ListBlockedUserIDs :many
 SELECT blocked_id FROM user_blocks WHERE blocker_id = ?
 `
@@ -324,6 +386,51 @@ type UpdateUserStatusParams struct {
 func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error {
 	_, err := q.db.ExecContext(ctx, updateUserStatus, arg.Status, arg.ID)
 	return err
+}
+
+const upsertUserByFacebookID = `-- name: UpsertUserByFacebookID :one
+INSERT INTO users (id, email, display_name, photo_url, facebook_id, updated_at)
+VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+ON CONFLICT(facebook_id) DO UPDATE SET
+    email = excluded.email,
+    display_name = excluded.display_name,
+    photo_url = excluded.photo_url,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+`
+
+type UpsertUserByFacebookIDParams struct {
+	ID          string
+	Email       string
+	DisplayName string
+	PhotoUrl    *string
+	FacebookID  *string
+}
+
+func (q *Queries) UpsertUserByFacebookID(ctx context.Context, arg UpsertUserByFacebookIDParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, upsertUserByFacebookID,
+		arg.ID,
+		arg.Email,
+		arg.DisplayName,
+		arg.PhotoUrl,
+		arg.FacebookID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.GoogleID,
+		&i.FacebookID,
+		&i.Status,
+		&i.SportsProfile,
+		&i.ContactInfo,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const upsertUserByGoogleID = `-- name: UpsertUserByGoogleID :one
