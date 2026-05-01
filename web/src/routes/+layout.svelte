@@ -3,12 +3,15 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import opengraphimage from '$lib/assets/opengraph-image.png';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import Button from '$lib/components/ui/button.svelte';
 	import { Info } from '@lucide/svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import { DESCRIPTION } from '$lib/consts';
+	import type { LayoutData } from './$types';
+	import type { Snippet } from 'svelte';
 
-	let { children } = $props();
+	let { children, data }: { children: Snippet; data: LayoutData } = $props();
 </script>
 
 <svelte:head>
@@ -30,10 +33,24 @@
 </svelte:head>
 
 <div class="text-stone-50 bg-stone-900 flex flex-col min-h-screen">
-	<header class="p-4">
+	<header class="p-4 flex items-center justify-between">
 		<a href={resolve('/')} class="text-2xl text-white font-bold">OpenPlays</a>
+		<div class="flex gap-3 items-center">
+			{#if data.user}
+				<span class="text-sm text-stone-300">{data.user.username ?? data.user.display_name}</span>
+				<form method="POST" action="/logout">
+					<button type="submit" class="text-sm text-stone-400 hover:text-stone-200">Logout</button>
+				</form>
+			{:else}
+				<!-- Don't show sign in button on login page -->
+				{#if page.url.pathname !== '/login'}
+					<a href={resolve('/login')} class="text-sm text-stone-300 hover:text-stone-100">Sign in</a
+					>
+				{/if}
+			{/if}
+		</div>
 	</header>
-	<main class="px-4 flex-1">
+	<main class="px-4 flex flex-1 flex-col">
 		{@render children()}
 	</main>
 	<footer class="p-4 flex gap-2 items-center">

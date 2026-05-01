@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import posthog from 'posthog-js';
 import { PUBLIC_POSTHOG_PROJECT_TOKEN } from '$env/static/public';
 
-export const load = async () => {
+export const load = async ({ data }) => {
 	if (browser) {
 		posthog.init(PUBLIC_POSTHOG_PROJECT_TOKEN, {
 			api_host: 'https://us.i.posthog.com',
@@ -10,5 +10,7 @@ export const load = async () => {
 		});
 	}
 
-	return;
+	return {
+		...data
+	};
 };
