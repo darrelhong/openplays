@@ -2,6 +2,7 @@
 	:root {
 		/* Light mode */
 		--color-background: oklch(0.985 0.001 106.423); /* stone-50 */
+		--color-surface: oklch(0.97 0.001 106.424); /* stone-100 — 1 shade darker than bg */
 		--color-foreground: oklch(0.216 0.006 56.043); /* stone-900 */
 		--color-muted: oklch(0.553 0.013 58.071); /* stone-500 */
 		--color-muted-foreground: oklch(0.444 0.011 73.639); /* stone-600 */
@@ -19,10 +20,12 @@
 		--color-destructive: oklch(0.577 0.245 27.325); /* red-600 */
 		--color-success: oklch(0.627 0.194 149.214); /* green-600 */
 		--color-ring: oklch(0.553 0.013 58.071); /* stone-500 */
+		--shadow-color: oklch(0.216 0.006 56.043 / 0.08); /* subtle dark shadow */
 	}
 
 	.dark {
 		--color-background: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-surface: oklch(0.268 0.007 34.298); /* stone-800 — 1 shade lighter than bg */
 		--color-foreground: oklch(0.985 0.001 106.423); /* stone-50 */
 		--color-muted: oklch(0.709 0.01 56.259); /* stone-400 */
 		--color-muted-foreground: oklch(0.553 0.013 58.071); /* stone-500 */
@@ -40,5 +43,6 @@
 		--color-destructive: oklch(0.704 0.191 22.216); /* red-400 */
 		--color-success: oklch(0.792 0.209 151.711); /* green-400 */
 		--color-ring: oklch(0.709 0.01 56.259); /* stone-400 */
+		--shadow-color: oklch(0 0 0 / 0.3); /* stronger shadow on dark bg */
 	}
 }

@@ -16,14 +16,14 @@
 	bind:ref
 	data-slot="select-trigger"
 	class={cn(
-		'text-sm text-stone-100 px-3 border border-stone-500 rounded-lg bg-stone-800 h-9 w-full',
+		'text-sm text-foreground px-3 border border-border rounded-lg bg-card h-9 w-full',
 		'flex gap-2 items-center',
-		'placeholder:text-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-400',
+		'placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring',
 		'disabled:opacity-50 disabled:cursor-not-allowed',
 		className
 	)}
 	{...restProps}
 >
 	{@render children?.()}
-	<ChevronsUpDown size={16} class="text-stone-400 ml-auto shrink-0" />
+	<ChevronsUpDown size={16} class="text-muted ml-auto shrink-0" />
 </SelectPrimitive.Trigger>

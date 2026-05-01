@@ -13,7 +13,7 @@
 <ComboboxPrimitive.Trigger
 	bind:ref
 	data-slot="combobox-trigger"
-	class={cn('text-stone-400 end-2 top-1/2 absolute -translate-y-1/2', className)}
+	class={cn('text-muted end-2 top-1/2 absolute -translate-y-1/2', className)}
 	{...restProps}
 >
 	<ChevronsUpDown size={16} />

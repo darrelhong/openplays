@@ -11,15 +11,15 @@
 </script>
 
 <div class="mx-auto mt-8 max-w-lg">
-	<div class="p-6 border border-stone-700 rounded-xl bg-stone-800">
-		<h1 class="text-xl text-stone-50 font-bold mb-6">Edit Profile</h1>
+	<div class="p-6 border border-border rounded-xl bg-card">
+		<h1 class="text-xl text-foreground font-bold mb-6">Edit Profile</h1>
 
 		{#if page.form?.success}
-			<p class="text-sm text-green-400 mb-4">Profile updated successfully.</p>
+			<p class="text-sm text-success mb-4">Profile updated successfully.</p>
 		{/if}
 
 		{#if page.form?.error}
-			<p class="text-sm text-red-400 mb-4">{page.form.error}</p>
+			<p class="text-sm text-destructive mb-4">{page.form.error}</p>
 		{/if}
 
 		<form method="POST" action="?/update" use:enhance class="flex flex-col gap-4">
@@ -52,7 +52,7 @@
 
 			<button
 				type="submit"
-				class="text-stone-950 font-medium mt-4 py-2 rounded-lg bg-stone-100 w-full transition-colors hover:bg-stone-100/85"
+				class="text-primary-foreground font-medium mt-4 py-2 rounded-lg bg-primary w-full transition-colors hover:bg-primary/85"
 			>
 				Save
 			</button>

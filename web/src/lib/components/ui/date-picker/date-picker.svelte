@@ -56,7 +56,7 @@
 >
 	<div class={className}>
 		{#if label}
-			<DatePickerPrimitive.Label class="text-sm text-stone-400 mb-1 block">
+			<DatePickerPrimitive.Label class="text-sm text-muted mb-1 block">
 				{label}
 			</DatePickerPrimitive.Label>
 		{/if}

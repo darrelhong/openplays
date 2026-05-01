@@ -13,7 +13,7 @@
 <ComboboxPrimitive.ScrollDownButton
 	bind:ref
 	data-slot="combobox-scroll-down-button"
-	class={cn('text-stone-400 py-1 flex w-full items-center justify-center', className)}
+	class={cn('text-muted py-1 flex w-full items-center justify-center', className)}
 	{...restProps}
 >
 	<ChevronsDown size={14} />

@@ -148,7 +148,7 @@
 {#if data.plays.items && data.plays.items.length > 0}
 	<div class="mb-4 flex flex-wrap gap-2 items-end">
 		<div class="w-70">
-			<label for="venue-filter" class="text-sm text-stone-400 mb-1 block">Sort by distance</label>
+			<label for="venue-filter" class="text-sm text-muted mb-1 block">Sort by distance</label>
 			<Combobox
 				type="single"
 				items={venueItems}
@@ -203,13 +203,13 @@
 		{/if}
 	</div>
 
-	<p class="text-stone-300 mb-1">Showing {data.plays.total} plays</p>
+	<p class="text-muted mb-1">Showing {data.plays.total} plays</p>
 
 	<ScrollArea orientation="horizontal" viewportClasses="pb-2.5">
 		<table class="w-full border-collapse">
 			<thead>
 				<tr
-					class="text-stone-400 border-b border-neutral-500 *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
+					class="text-muted border-b border-neutral-500 *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
 				>
 					<th>Venue</th>
 					<th>Date</th>
@@ -224,7 +224,7 @@
 			</thead>
 			<tbody>
 				{#each data.plays.items as play (play.id)}
-					<tr class="border-b border-neutral-700 *:p-2 hover:bg-stone-800 *:whitespace-nowrap">
+					<tr class="border-b border-neutral-700 *:p-2 hover:bg-card *:whitespace-nowrap">
 						<td>{play.venue_name}</td>
 						<td>{formatDate(play.starts_at, play.timezone)}</td>
 						<td
@@ -260,11 +260,11 @@
 									</Dialog.Header>
 									<dl class="text-sm space-y-2">
 										<div class="flex gap-4">
-											<dt class="text-stone-400 w-24">Host</dt>
+											<dt class="text-muted w-24">Host</dt>
 											<dd>{play.host_name}</dd>
 										</div>
 										<div class="flex gap-4">
-											<dt class="text-stone-400 w-24">Sport</dt>
+											<dt class="text-muted w-24">Sport</dt>
 											<dd>
 												{capitalize(play.sport)}{play.game_type
 													? ` · ${capitalize(play.game_type)}`
@@ -272,30 +272,30 @@
 											</dd>
 										</div>
 										<div class="flex gap-4">
-											<dt class="text-stone-400 w-24">Level</dt>
+											<dt class="text-muted w-24">Level</dt>
 											<dd>{formatLevel(play.level_min, play.level_max)}</dd>
 										</div>
 										<div class="flex gap-4">
-											<dt class="text-stone-400 w-24">Fee</dt>
+											<dt class="text-muted w-24">Fee</dt>
 											<dd>{formatPlayFee(play)}</dd>
 										</div>
 										<div class="flex gap-4">
-											<dt class="text-stone-400 w-24">Slots</dt>
+											<dt class="text-muted w-24">Slots</dt>
 											<dd>{play.slots_left ?? '-'} / {play.max_players ?? '-'}</dd>
 										</div>
 										{#if play.courts != null}
 											<div class="flex gap-4">
-												<dt class="text-stone-400 w-24">Courts</dt>
+												<dt class="text-muted w-24">Courts</dt>
 												<dd>{play.courts}</dd>
 											</div>
 										{/if}
 									</dl>
 									{#if play.contacts?.length}
-										<div class="mt-3 pt-3 border-t border-stone-700">
-											<p class="text-stone-300 mb-2">Contacts</p>
+										<div class="mt-3 pt-3 border-t border-border">
+											<p class="text-muted mb-2">Contacts</p>
 											{#each play.contacts as contact (`${contact.type}:${contact.value}`)}
 												<div class="text-sm flex gap-4">
-													<dt class="text-stone-400 shrink-0 w-24">{contact.type}</dt>
+													<dt class="text-muted shrink-0 w-24">{contact.type}</dt>
 													<dd>{contact.value}</dd>
 												</div>
 											{/each}
@@ -313,30 +313,30 @@
 										([key]) => !knownMetaKeys.includes(key)
 									)}
 									{#if meta.shuttle || meta.air_con != null || meta.details || extraEntries.length > 0}
-										<div class="mt-3 pt-3 border-t border-stone-700">
-											<p class="text-stone-300 mb-2">Info</p>
+										<div class="mt-3 pt-3 border-t border-border">
+											<p class="text-muted mb-2">Info</p>
 											<dl class="text-sm space-y-2">
 												{#if meta.shuttle}
 													<div class="flex gap-4">
-														<dt class="text-stone-400 w-24">Shuttle</dt>
+														<dt class="text-muted w-24">Shuttle</dt>
 														<dd>{meta.shuttle}</dd>
 													</div>
 												{/if}
 												{#if meta.air_con != null}
 													<div class="flex gap-4">
-														<dt class="text-stone-400 w-24">Air Con</dt>
+														<dt class="text-muted w-24">Air Con</dt>
 														<dd>{meta.air_con ? 'Yes' : 'No'}</dd>
 													</div>
 												{/if}
 												{#if meta.details}
 													<div class="flex gap-4">
-														<dt class="text-stone-400 w-24">Details</dt>
+														<dt class="text-muted w-24">Details</dt>
 														<dd>{meta.details}</dd>
 													</div>
 												{/if}
 												{#each extraEntries as [key, value] (key)}
 													<div class="flex gap-4">
-														<dt class="text-stone-400 w-24">
+														<dt class="text-muted w-24">
 															{capitalize(key.replace(/_/g, ' '))}
 														</dt>
 														<dd>{value}</dd>
@@ -346,7 +346,7 @@
 										</div>
 									{/if}
 									{#if play.source === 'telegram' && (play.source_link || play.source_sender_link)}
-										<div class="mt-3 pt-3 border-t border-stone-700 flex flex-col gap-1">
+										<div class="mt-3 pt-3 border-t border-border flex flex-col gap-1">
 											{#if play.source_link}
 												<a
 													rel="external noopener noreferrer"
@@ -369,8 +369,8 @@
 											{/if}
 										</div>
 									{/if}
-									<div class="mt-3 pt-3 border-t border-stone-700">
-										<dl class="text-xs text-stone-500 space-y-1">
+									<div class="mt-3 pt-3 border-t border-border">
+										<dl class="text-xs text-muted-foreground space-y-1">
 											<div class="flex gap-4">
 												<dt class="w-24">Created</dt>
 												<dd>{formatDateTime(play.created_at)}</dd>

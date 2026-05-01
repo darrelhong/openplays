@@ -12,6 +12,6 @@
 </script>
 
 <div class={className} {...rest}>
-	<label for={id} class="text-sm text-stone-400 mb-1 block">{label}</label>
+	<label for={id} class="text-sm text-muted mb-1 block">{label}</label>
 	{@render children()}
 </div>

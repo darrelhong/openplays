@@ -15,10 +15,10 @@
 	let { variant = 'default', size = 'md', children, class: className, ...rest }: Props = $props();
 
 	const variantClasses: Record<Variant, string> = {
-		default: 'text-stone-950 bg-stone-100 hover:bg-stone-100/85',
-		secondary: 'text-stone-100 bg-stone-700 hover:bg-stone-700/80',
-		outline: 'text-stone-100 border border-stone-500 bg-stone-800 shadow-xl hover:bg-stone-700/70',
-		ghost: 'text-stone-100 hover:bg-stone-800'
+		default: 'text-primary-foreground bg-primary hover:bg-primary/85',
+		secondary: 'text-foreground bg-accent hover:bg-accent/70',
+		outline: 'text-foreground border border-border bg-card shadow-sm hover:bg-accent/70',
+		ghost: 'text-foreground hover:bg-card'
 	};
 
 	const sizeClasses: Record<Size, string> = {
@@ -32,7 +32,7 @@
 <Button.Root
 	class={cn(
 		'font-medium rounded-lg inline-flex cursor-pointer transition-colors items-center justify-center',
-		'focus-visible:outline-2 focus-visible:outline-stone-400 focus-visible:outline-offset-1',
+		'focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-1',
 		'disabled:opacity-50 disabled:pointer-events-none',
 		variantClasses[variant],
 		sizeClasses[size],

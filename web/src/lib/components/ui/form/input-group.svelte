@@ -11,10 +11,10 @@
 </script>
 
 <div
-	class="border border-stone-600 rounded-lg bg-stone-900 flex items-center focus-within:border-stone-400 {className ??
+	class="border border-input-border rounded-lg bg-input flex items-center focus-within:border-ring {className ??
 		''}"
 	{...rest}
 >
-	<span class="text-stone-500 pl-3 select-none">{prefix}</span>
+	<span class="text-muted-foreground pl-3 select-none">{prefix}</span>
 	{@render children()}
 </div>

@@ -50,11 +50,11 @@
 
 <div class="text-foreground bg-background flex flex-col min-h-screen">
 	<header class="p-4 flex items-center justify-between">
-		<a href={resolve('/')} class="text-2xl text-white font-bold">OpenPlays</a>
+		<a href={resolve('/')} class="text-2xl text-foreground font-bold">OpenPlays</a>
 		<div class="flex gap-3 items-center">
 			<button
 				onclick={cycleTheme}
-				class="text-muted hover:text-foreground p-1 transition-colors"
+				class="text-muted p-1 transition-colors hover:text-foreground"
 				title="Theme: {getTheme()}"
 			>
 				{#each themes as { value, icon: Icon } (value)}
@@ -67,7 +67,7 @@
 			{#if data.user}
 				<a
 					href={resolve('/profile')}
-					class="text-stone-300 flex gap-2 items-center hover:text-stone-200"
+					class="text-foreground flex gap-2 items-center hover:text-foreground/80"
 				>
 					<UserAvatar
 						src={data.user.photo_url}
@@ -76,12 +76,12 @@
 					<span class="text-sm">{data.user.username ?? data.user.display_name}</span>
 				</a>
 				<form method="POST" action="/logout">
-					<button type="submit" class="text-sm text-stone-400 hover:text-stone-200">Logout</button>
+					<button type="submit" class="text-sm text-muted hover:text-foreground">Logout</button>
 				</form>
 			{:else}
 				<!-- Don't show sign in button on login page -->
 				{#if page.url.pathname !== '/login'}
-					<a href={resolve('/login')} class="text-sm text-stone-300 hover:text-stone-100">Sign in</a
+					<a href={resolve('/login')} class="text-sm text-muted hover:text-foreground">Sign in</a
 					>
 				{/if}
 			{/if}
@@ -91,13 +91,13 @@
 		{@render children()}
 	</main>
 	<footer class="p-4 flex gap-2 items-center">
-		<p class="text-sm text-stone-500">© {new Date().getFullYear()}</p>
+		<p class="text-sm text-muted-foreground">© {new Date().getFullYear()}</p>
 
 		<Dialog.Root>
 			<Dialog.Trigger class="ms-auto">
-				<Info class="text-stone-500 size-4" />
+				<Info class="text-muted-foreground size-4" />
 			</Dialog.Trigger>
-			<Dialog.Content class="border border-stone-700 shadow-lg shadow-stone-800/30">
+			<Dialog.Content class="border border-border shadow-card/30 shadow-lg">
 				<Dialog.Header>
 					<Dialog.Title>OpenPlays</Dialog.Title>
 					<Dialog.Description>{DESCRIPTION}</Dialog.Description>

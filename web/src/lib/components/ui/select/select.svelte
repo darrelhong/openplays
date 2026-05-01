@@ -30,11 +30,11 @@
 	{#if label}
 		<Label.Root
 			for={triggerId}
-			class="text-sm text-stone-400 mb-1 block"
+			class="text-sm text-muted mb-1 block"
 		>{label}</Label.Root>
 	{/if}
 	<SelectTrigger id={triggerId}>
-		<span class="truncate" class:text-stone-500={!selectedLabel}>
+		<span class="truncate" class:text-muted-foreground={!selectedLabel}>
 			{selectedLabel ?? placeholder}
 		</span>
 	</SelectTrigger>

@@ -12,7 +12,7 @@
 	bind:ref
 	data-slot="dialog-description"
 	class={cn(
-		'*:[a]:hover:text-stone-100 *:[a]:underline *:[a]:underline-offset-3 text-sm text-stone-400',
+		'*:[a]:hover:text-foreground *:[a]:underline *:[a]:underline-offset-3 text-sm text-muted',
 		className
 	)}
 	{...restProps}

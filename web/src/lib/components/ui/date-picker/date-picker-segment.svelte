@@ -15,8 +15,8 @@
 	data-slot="date-picker-segment"
 	class={cn(
 		part === 'literal'
-			? 'text-stone-500 px-0.5'
-			: 'px-1 py-0.5 rounded aria-[valuetext=Empty]:text-stone-500 focus:text-stone-100 focus-visible:outline-none focus:bg-stone-700 hover:bg-stone-700 focus-visible:ring-0',
+			? 'text-muted-foreground px-0.5'
+			: 'px-1 py-0.5 rounded aria-[valuetext=Empty]:text-muted-foreground focus:text-foreground focus-visible:outline-none focus:bg-accent hover:bg-accent focus-visible:ring-0',
 		className
 	)}
 	{part}
