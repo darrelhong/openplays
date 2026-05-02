@@ -45,8 +45,12 @@ type PlayPublic struct {
 	SourceGroup      *string `json:"source_group,omitempty"`
 	SourceLink       *string `json:"source_link,omitempty" doc:"Deep link to original message, e.g. t.me/group/123"`
 
-	// distanceKm is an internal field used for cursor encoding when sorting
-	// by distance. Not serialized to JSON (lowercase unexported in json tag).
+	// Creator info (null for telegram-scraped plays)
+	CreatedBy           *string `json:"created_by,omitempty"`
+	CreatorDisplayName  *string `json:"creator_display_name,omitempty"`
+	CreatorUsername     *string `json:"creator_username,omitempty"`
+	CreatorPhotoURL     *string `json:"creator_photo_url,omitempty"`
+
 	distanceKm float64 `json:"-"`
 }
 

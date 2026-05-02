@@ -3,12 +3,20 @@ package plays
 import (
 	"github.com/danielgtaylor/huma/v2"
 
+	"openplays/server/internal/api/authmw"
+	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 )
 
 // Register registers all /api/plays endpoints.
-func Register(api huma.API, queries *db.Queries) {
+// Public: list, get. Protected: create.
+func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 	grp := huma.NewGroup(api, "/plays")
+
+	// Public
 	RegisterList(grp, queries)
 	RegisterGet(grp, queries)
+
+	// Protected (auth middleware on this operation only)
+	RegisterCreate(grp, queries, authmw.RequireAuth(api, svc))
 }

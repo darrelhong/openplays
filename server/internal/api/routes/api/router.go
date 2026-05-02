@@ -18,7 +18,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifi
 
 	// Public routes
 	authRouter.Register(grp, svc, googleVerifier, facebookVerifier, authRouter.CookieConfig{Secure: cookieSecure})
-	playsRouter.Register(grp, queries)
+	playsRouter.Register(grp, queries, svc)
 	venuesRouter.Register(grp, queries)
 
 	// Protected routes (auth middleware applied via huma.UseMiddleware)

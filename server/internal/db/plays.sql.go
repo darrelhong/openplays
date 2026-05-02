@@ -83,20 +83,131 @@ func (q *Queries) CountUpcomingPlaysByDistance(ctx context.Context, arg CountUpc
 	return count, err
 }
 
+const createPlay = `-- name: CreatePlay :one
+INSERT INTO plays (
+    listing_type, sport, game_type, host_name,
+    starts_at, ends_at, timezone,
+    venue, venue_id,
+    level_min, level_max, level_min_ord, level_max_ord,
+    fee, currency, max_players, slots_left, courts,
+    contacts, gender_pref, meta,
+    source, created_by
+) VALUES (
+    ?, ?, ?, ?,
+    ?, ?, ?,
+    ?, ?,
+    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
+    ?, ?, ?,
+    'user', ?
+)
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by
+`
+
+type CreatePlayParams struct {
+	ListingType model.ListingType
+	Sport       model.Sport
+	GameType    *model.GameType
+	HostName    string
+	StartsAt    time.Time
+	EndsAt      time.Time
+	Timezone    string
+	Venue       string
+	VenueID     *int64
+	LevelMin    *string
+	LevelMax    *string
+	LevelMinOrd *int64
+	LevelMaxOrd *int64
+	Fee         *int64
+	Currency    string
+	MaxPlayers  *int64
+	SlotsLeft   *int64
+	Courts      *int64
+	Contacts    model.Contacts
+	GenderPref  *model.GenderPref
+	Meta        model.Meta
+	CreatedBy   *string
+}
+
+func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, error) {
+	row := q.db.QueryRowContext(ctx, createPlay,
+		arg.ListingType,
+		arg.Sport,
+		arg.GameType,
+		arg.HostName,
+		arg.StartsAt,
+		arg.EndsAt,
+		arg.Timezone,
+		arg.Venue,
+		arg.VenueID,
+		arg.LevelMin,
+		arg.LevelMax,
+		arg.LevelMinOrd,
+		arg.LevelMaxOrd,
+		arg.Fee,
+		arg.Currency,
+		arg.MaxPlayers,
+		arg.SlotsLeft,
+		arg.Courts,
+		arg.Contacts,
+		arg.GenderPref,
+		arg.Meta,
+		arg.CreatedBy,
+	)
+	var i Play
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ListingType,
+		&i.Sport,
+		&i.GameType,
+		&i.HostName,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.Timezone,
+		&i.Venue,
+		&i.LevelMin,
+		&i.LevelMax,
+		&i.LevelMinOrd,
+		&i.LevelMaxOrd,
+		&i.Fee,
+		&i.Currency,
+		&i.MaxPlayers,
+		&i.SlotsLeft,
+		&i.Courts,
+		&i.Contacts,
+		&i.GenderPref,
+		&i.Meta,
+		&i.Source,
+		&i.SourceSenderUsername,
+		&i.SourceRawMessage,
+		&i.SourceMessageTime,
+		&i.VenueID,
+		&i.SourceMessageID,
+		&i.SourceGroup,
+		&i.SourceSenderName,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
 const getPlayByID = `-- name: GetPlayByID :one
 SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id,
+    p.venue, p.venue_id, p.created_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
 WHERE p.id = ?
 `
 
@@ -113,6 +224,7 @@ type GetPlayByIDRow struct {
 	Timezone             string
 	Venue                string
 	VenueID              *int64
+	CreatedBy            *string
 	LevelMin             *string
 	LevelMax             *string
 	LevelMinOrd          *int64
@@ -133,6 +245,9 @@ type GetPlayByIDRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
+	CreatorDisplayName   *string
+	CreatorUsername      *string
+	CreatorPhotoUrl      *string
 }
 
 func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, error) {
@@ -151,6 +266,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 		&i.Timezone,
 		&i.Venue,
 		&i.VenueID,
+		&i.CreatedBy,
 		&i.LevelMin,
 		&i.LevelMax,
 		&i.LevelMinOrd,
@@ -171,6 +287,9 @@ func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, er
 		&i.VenuePostalCode,
 		&i.VenueLatitude,
 		&i.VenueLongitude,
+		&i.CreatorDisplayName,
+		&i.CreatorUsername,
+		&i.CreatorPhotoUrl,
 	)
 	return i, err
 }
@@ -243,15 +362,17 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id,
+    p.venue, p.venue_id, p.created_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?1 IS NULL OR p.starts_at >= ?1)
   AND (?2 IS NULL OR p.listing_type = ?2)
@@ -291,6 +412,7 @@ type ListUpcomingPlaysRow struct {
 	Timezone             string
 	Venue                string
 	VenueID              *int64
+	CreatedBy            *string
 	LevelMin             *string
 	LevelMax             *string
 	LevelMinOrd          *int64
@@ -311,6 +433,9 @@ type ListUpcomingPlaysRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
+	CreatorDisplayName   *string
+	CreatorUsername      *string
+	CreatorPhotoUrl      *string
 }
 
 // Paginated upcoming listings with optional filters and venue data.
@@ -349,6 +474,7 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.Timezone,
 			&i.Venue,
 			&i.VenueID,
+			&i.CreatedBy,
 			&i.LevelMin,
 			&i.LevelMax,
 			&i.LevelMinOrd,
@@ -369,6 +495,9 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
 			&i.VenueLongitude,
+			&i.CreatorDisplayName,
+			&i.CreatorUsername,
+			&i.CreatorPhotoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -388,13 +517,14 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id,
+    p.venue, p.venue_id, p.created_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
     CAST(2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
         cos(radians(?1)) * cos(radians(v.latitude)) *
@@ -402,6 +532,7 @@ SELECT
     )) AS REAL) AS distance_km
 FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?3 IS NULL OR p.starts_at >= ?3)
   AND (?4 IS NULL OR p.listing_type = ?4)
@@ -451,6 +582,7 @@ type ListUpcomingPlaysByDistanceRow struct {
 	Timezone             string
 	Venue                string
 	VenueID              *int64
+	CreatedBy            *string
 	LevelMin             *string
 	LevelMax             *string
 	LevelMinOrd          *int64
@@ -471,6 +603,9 @@ type ListUpcomingPlaysByDistanceRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        float64
 	VenueLongitude       float64
+	CreatorDisplayName   *string
+	CreatorUsername      *string
+	CreatorPhotoUrl      *string
 	DistanceKm           float64
 }
 
@@ -511,6 +646,7 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 			&i.Timezone,
 			&i.Venue,
 			&i.VenueID,
+			&i.CreatedBy,
 			&i.LevelMin,
 			&i.LevelMax,
 			&i.LevelMinOrd,
@@ -531,6 +667,9 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
 			&i.VenueLongitude,
+			&i.CreatorDisplayName,
+			&i.CreatorUsername,
+			&i.CreatorPhotoUrl,
 			&i.DistanceKm,
 		); err != nil {
 			return nil, err
