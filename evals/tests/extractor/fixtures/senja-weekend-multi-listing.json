@@ -1,0 +1,150 @@
+[
+  {
+    "listing_type": "play",
+    "host_name": "Test Sender 1",
+    "game_type": "doubles",
+    "date": "2026-04-09",
+    "start_time": "19:00",
+    "end_time": "21:00",
+    "venue": "Senja-Cashew Sports Hall",
+    "level_min": "HB",
+    "level_max": "MI",
+    "level_raw": "HB - MI",
+    "level_male_min": null,
+    "level_male_max": null,
+    "level_female_min": null,
+    "level_female_max": null,
+    "fee_cents": null,
+    "fee_male_cents": null,
+    "fee_female_cents": null,
+    "currency": "SGD",
+    "max_players": null,
+    "slots_left": null,
+    "courts": 4,
+    "gender_pref": null,
+    "shuttle": "RSL Ultimate",
+    "air_con": null,
+    "details": "5 mins walk from Bukit Panjang MRT Station",
+    "contacts": [
+      {
+        "type": "phone",
+        "value": "90058266"
+      },
+      {
+        "type": "whatsapp",
+        "value": "90058266"
+      }
+    ]
+  },
+  {
+    "listing_type": "play",
+    "host_name": "Test Sender 1",
+    "game_type": "doubles",
+    "date": "2026-04-11",
+    "start_time": "15:00",
+    "end_time": "17:00",
+    "venue": "Senja-Cashew Sports Hall",
+    "level_min": "HB",
+    "level_max": "MI",
+    "level_raw": "HB - MI",
+    "level_male_min": null,
+    "level_male_max": null,
+    "level_female_min": null,
+    "level_female_max": null,
+    "fee_cents": null,
+    "fee_male_cents": null,
+    "fee_female_cents": null,
+    "currency": "SGD",
+    "max_players": null,
+    "slots_left": null,
+    "courts": 3,
+    "gender_pref": null,
+    "shuttle": "RSL Ultimate",
+    "air_con": null,
+    "details": "5 mins walk from Bukit Panjang MRT Station, Female $2 less on weekends",
+    "contacts": [
+      {
+        "type": "phone",
+        "value": "90058266"
+      },
+      {
+        "type": "whatsapp",
+        "value": "90058266"
+      }
+    ]
+  },
+  {
+    "listing_type": "play",
+    "host_name": "Test Sender 1",
+    "game_type": "doubles",
+    "date": "2026-04-12",
+    "start_time": "13:00",
+    "end_time": "15:00",
+    "venue": "Senja-Cashew Sports Hall",
+    "level_min": "HB",
+    "level_max": "MI",
+    "level_raw": "HB - MI",
+    "level_male_min": null,
+    "level_male_max": null,
+    "level_female_min": null,
+    "level_female_max": null,
+    "fee_cents": null,
+    "fee_male_cents": null,
+    "fee_female_cents": null,
+    "currency": "SGD",
+    "max_players": null,
+    "slots_left": null,
+    "courts": 3,
+    "gender_pref": null,
+    "shuttle": "RSL Ultimate",
+    "air_con": null,
+    "details": "5 mins walk from Bukit Panjang MRT Station, Female $2 less on weekends",
+    "contacts": [
+      {
+        "type": "phone",
+        "value": "90058266"
+      },
+      {
+        "type": "whatsapp",
+        "value": "90058266"
+      }
+    ]
+  },
+  {
+    "listing_type": "play",
+    "host_name": "Test Sender 1",
+    "game_type": "doubles",
+    "date": "2026-04-12",
+    "start_time": "15:00",
+    "end_time": "17:00",
+    "venue": "Senja-Cashew Sports Hall",
+    "level_min": "LI",
+    "level_max": "HI",
+    "level_raw": "LI - HI",
+    "level_male_min": null,
+    "level_male_max": null,
+    "level_female_min": null,
+    "level_female_max": null,
+    "fee_cents": null,
+    "fee_male_cents": null,
+    "fee_female_cents": null,
+    "currency": "SGD",
+    "max_players": null,
+    "slots_left": null,
+    "courts": 4.5,
+    "gender_pref": null,
+    "shuttle": "RSL Ultimate",
+    "air_con": null,
+    "details": "5 mins walk from Bukit Panjang MRT Station, Female $2 less on weekends",
+    "contacts": [
+      {
+        "type": "phone",
+        "value": "90058266"
+      },
+      {
+        "type": "whatsapp",
+        "value": "90058266"
+      }
+    ]
+  }
+]

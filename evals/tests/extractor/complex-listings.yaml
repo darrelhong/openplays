@@ -1,0 +1,152 @@
+- description: Senja weekend multi-listing expansion
+  vars:
+    senderName: Test Sender 1
+    referenceDate: '2026-04-08'
+    expected: file://tests/extractor/fixtures/senja-weekend-multi-listing.json
+    block: |
+      Hi, looking for doubles players on:
+
+      1) 09/04 Thursday 7pm-9pm - 4 courts (HB - MI)
+
+      2) 11/04 Saturday 3pm-5pm - 3 courts (HB - MI)
+
+      3) 12/04 Sunday 1pm-3pm - 3 courts (HB - MI)
+
+      4) 12/04 Sunday 3pm-5pm - 4.5 courts (LI - HI)
+
+      !Game fee for 👸🏼(F) is $2 lower for weekend games
+
+      Venue
+      Senja-Cashew Sports Hall (5 mins walk from Bukit Panjang MRT Station)
+
+      Shuttlecock
+      RSL Ultimate Shuttlecock
+
+      Pm or Whatsapp 90058266 if keen 🙏
+
+      Thank you
+  threshold: 0.8
+  assertScoringFunction: file://configs/assertions/extractor-scoring.js:extractorScoring
+  assert:
+    - type: javascript
+      metric: count
+      value: file://configs/assertions/extractor-assertions.js:listingCountMatches
+    - type: javascript
+      metric: structure
+      value: file://configs/assertions/extractor-assertions.js:structureMatches
+    - type: javascript
+      metric: courts
+      value: file://configs/assertions/extractor-assertions.js:courtsMatch
+    - type: javascript
+      metric: fees
+      value: file://configs/assertions/extractor-assertions.js:feesMatch
+    - type: javascript
+      metric: contacts
+      value: file://configs/assertions/extractor-assertions.js:contactsMatch
+    - type: javascript
+      metric: normalization
+      value: file://configs/assertions/extractor-assertions.js:normalizationMatches
+
+- description: Multi-venue friendly players expansion
+  vars:
+    senderName: Test Sender 2
+    referenceDate: '2026-03-30'
+    expected: file://tests/extractor/fixtures/multi-venue-friendly-players.json
+    block: |
+      Message: Looking for friendly players 👨‍⚖️👩‍⚖️
+      Try to arrange similar level play tgt 🏆
+
+      🎯Tue 31 Mar
+      🍟Sengkang Sports Hall
+      📌6-8pm(2 Courts)~$13 Low Intermediate & above
+      📌6-8pm~$13 High Beginners-LI
+      🍟Kovan Paya Lebar CC
+      📌730-930pm~$13 Low Intermediate & above
+      🍟Hwi Yoh CC
+      📌730-930pm(2 Courts)~$10 Mid-high beginners & above/$12 High Beginners-LI/$13 Low Intermediate & above
+      🍟Our Tampines Hub
+      📌8-10pm~$13 Low Intermediate & above
+
+      🎯Wed 1st April
+      🍟Fernvale CC
+      📌730-930pm(2 Courts)~$13 High Beginners-LI/Low Intermediate & above
+      🍟Our Tampines Hub
+      📌8-10pm~$13 Low Intermediate & above
+
+      🎯Fri 3rd April
+      🍟Sengkang Sports Hall
+      📌10am-12pm/1-3pm(2 Courts)/3-5pm/5-7pm(2 Courts)/6-8pm/7-9pm~$13 Low Intermediate & above
+      📌1-3pm/5-7pm/6-8pm~$12 High Beginners-LI
+      🍟Pek Kio CC
+      📌7-9pm~$10 Mid-high beginners & above/$13 Low Intermediate & above
+      🍟St.Gabriel's Secondary School
+      📌7-9pm~$13 Low Intermediate & above
+
+      Pm 94380473 if interested 🙏
+  threshold: 0.8
+  assertScoringFunction: file://configs/assertions/extractor-scoring.js:extractorScoring
+  assert:
+    - type: javascript
+      metric: count
+      value: file://configs/assertions/extractor-assertions.js:listingCountMatches
+    - type: javascript
+      metric: structure
+      value: file://configs/assertions/extractor-assertions.js:structureMatches
+    - type: javascript
+      metric: courts
+      value: file://configs/assertions/extractor-assertions.js:courtsMatch
+    - type: javascript
+      metric: fees
+      value: file://configs/assertions/extractor-assertions.js:feesMatch
+    - type: javascript
+      metric: contacts
+      value: file://configs/assertions/extractor-assertions.js:contactsMatch
+    - type: javascript
+      metric: normalization
+      value: file://configs/assertions/extractor-assertions.js:normalizationMatches
+
+- description: Dated recurring games with organizer override
+  vars:
+    senderName: Cintya
+    referenceDate: '2026-04-12'
+    expected: file://tests/extractor/fixtures/dated-recurring-games.json
+    block: |
+      Daily Games @ Sengkang
+      Max 6-7 players per court
+      Mixed doubles game
+      🏸 MB-MI (separate courts)
+      ⛳️ Each day 6-7 courts
+
+      @ SENGKANG S/HALL❗️
+      🗓️ Mon 13 / Wed 15 / Thurs 16
+      🕰️ 11am-1pm $7
+
+      @ FERNVALE VILLAGE❗️
+      🗓️ Tues 14 / 11am-1pm $10
+
+      RSL Sup/Ulti
+      Advance payment needed
+      Please pm for further details
+      Thanks!
+      -nanobits/Cintya-
+  threshold: 0.8
+  assertScoringFunction: file://configs/assertions/extractor-scoring.js:extractorScoring
+  assert:
+    - type: javascript
+      metric: count
+      value: file://configs/assertions/extractor-assertions.js:listingCountMatches
+    - type: javascript
+      metric: structure
+      value: file://configs/assertions/extractor-assertions.js:structureMatches
+    - type: javascript
+      metric: courts
+      value: file://configs/assertions/extractor-assertions.js:courtsMatch
+    - type: javascript
+      metric: fees
+      value: file://configs/assertions/extractor-assertions.js:feesMatch
+    - type: javascript
+      metric: contacts
+      value: file://configs/assertions/extractor-assertions.js:contactsMatch
+    - type: javascript
+      metric: normalization
+      value: file://configs/assertions/extractor-assertions.js:normalizationMatches

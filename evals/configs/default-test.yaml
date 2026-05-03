@@ -1,0 +1,3 @@
+options:
+  transform: file://configs/transforms/canonicalize-extractor-output.js:canonicalizeExtractorOutput
+assertScoringFunction: file://configs/assertions/extractor-scoring.js:extractorScoring

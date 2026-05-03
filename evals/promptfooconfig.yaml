@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: 'Extractor prompt eval'
+prompts:
+  - file://extractor_prompt.yaml
+
+providers:
+  - file://configs/providers/google.yaml
+
+defaultTest: file://configs/default-test.yaml
+
+tests:
+  - file://tests/extractor/complex-listings.yaml
+  - file://tests/extractor/filtering.yaml
+  - file://tests/extractor/smoke.yaml

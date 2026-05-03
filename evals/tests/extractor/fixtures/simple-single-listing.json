@@ -1,0 +1,30 @@
+[
+  {
+    "listing_type": "play",
+    "host_name": "Test Sender 6",
+    "game_type": "doubles",
+    "date": "2026-05-09",
+    "start_time": "15:00",
+    "end_time": "17:00",
+    "venue": "Beatty Sec",
+    "level_min": "HB",
+    "level_max": "LI",
+    "level_raw": "HB-LI",
+    "level_male_min": null,
+    "level_male_max": null,
+    "level_female_min": null,
+    "level_female_max": null,
+    "fee_cents": 800,
+    "fee_male_cents": null,
+    "fee_female_cents": null,
+    "currency": "SGD",
+    "max_players": 6,
+    "slots_left": 5,
+    "courts": null,
+    "gender_pref": null,
+    "shuttle": "RSL Supreme",
+    "air_con": null,
+    "details": null,
+    "contacts": []
+  }
+]
