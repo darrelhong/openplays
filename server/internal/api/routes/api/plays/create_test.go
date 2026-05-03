@@ -98,7 +98,7 @@ func TestCreatePlay_Success(t *testing.T) {
 	ts := setupCreateTest(activeSession(), playStore)
 	defer ts.Close()
 
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-05-02T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -118,7 +118,7 @@ func TestCreatePlay_NoAuth_Returns401(t *testing.T) {
 	ts := setupCreateTest(&fakeAuthStore{sessionErr: sql.ErrNoRows}, &fakeCreatePlayStore{})
 	defer ts.Close()
 
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-05-02T10:00:00+08:00","duration_minutes":60}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":60}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -137,7 +137,7 @@ func TestCreatePlay_DurationNot15MinIncrement_Returns422(t *testing.T) {
 	ts := setupCreateTest(activeSession(), &fakeCreatePlayStore{})
 	defer ts.Close()
 
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-05-02T10:00:00+08:00","duration_minutes":50,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":50,"timezone":"Asia/Singapore","currency":"SGD"}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -158,7 +158,7 @@ func TestCreatePlay_DurationTooLong_Returns422(t *testing.T) {
 	defer ts.Close()
 
 	// 315 minutes > 300 max — huma validates maximum:"300" on the field
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-05-02T10:00:00+08:00","duration_minutes":315,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":315,"timezone":"Asia/Singapore","currency":"SGD"}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -179,7 +179,7 @@ func TestCreatePlay_DurationTooShort_Returns422(t *testing.T) {
 	defer ts.Close()
 
 	// 10 minutes < 15 min — huma validates minimum:"15" on the field
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-05-02T10:00:00+08:00","duration_minutes":10,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":10,"timezone":"Asia/Singapore","currency":"SGD"}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -207,7 +207,7 @@ func TestCreatePlay_StartsAtStoredAsUTC(t *testing.T) {
 	defer ts.Close()
 
 	// Send time with +08:00 offset
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-05-02T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -226,7 +226,7 @@ func TestCreatePlay_StartsAtStoredAsUTC(t *testing.T) {
 	if playStore.lastArgs.StartsAt.Location() != time.UTC {
 		t.Errorf("starts_at location = %v, want UTC", playStore.lastArgs.StartsAt.Location())
 	}
-	expected := time.Date(2026, 5, 2, 2, 0, 0, 0, time.UTC)
+	expected := time.Date(2026, 6, 1, 2, 0, 0, 0, time.UTC)
 	if !playStore.lastArgs.StartsAt.Equal(expected) {
 		t.Errorf("starts_at = %v, want %v", playStore.lastArgs.StartsAt, expected)
 	}
@@ -244,7 +244,7 @@ func TestCreatePlay_EndsAtComputedFromDuration(t *testing.T) {
 	defer ts.Close()
 
 	// 90 minutes duration
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-05-02T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD"}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -260,8 +260,29 @@ func TestCreatePlay_EndsAtComputedFromDuration(t *testing.T) {
 	}
 
 	// starts_at: 02:00 UTC, duration: 90 min → ends_at: 03:30 UTC
-	expectedEnd := time.Date(2026, 5, 2, 3, 30, 0, 0, time.UTC)
+	expectedEnd := time.Date(2026, 6, 1, 3, 30, 0, 0, time.UTC)
 	if !playStore.lastArgs.EndsAt.Equal(expectedEnd) {
 		t.Errorf("ends_at = %v, want %v", playStore.lastArgs.EndsAt, expectedEnd)
+	}
+}
+
+func TestCreatePlay_PastStartTime_Returns422(t *testing.T) {
+	ts := setupCreateTest(activeSession(), &fakeCreatePlayStore{})
+	defer ts.Close()
+
+	// Use a date clearly in the past
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2020-01-01T10:00:00+08:00","duration_minutes":60,"timezone":"Asia/Singapore","currency":"SGD"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
 	}
 }

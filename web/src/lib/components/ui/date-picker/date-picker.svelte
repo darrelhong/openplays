@@ -20,6 +20,7 @@
 		locale?: string;
 		closeOnDateSelect?: boolean;
 		label?: string;
+		required?: boolean;
 		class?: string;
 	};
 
@@ -36,6 +37,7 @@
 		locale = 'en',
 		closeOnDateSelect = true,
 		label,
+		required = false,
 		class: className
 	}: Props = $props();
 </script>
@@ -57,7 +59,7 @@
 	<div class={className}>
 		{#if label}
 			<DatePickerPrimitive.Label class="text-sm text-muted mb-1 block">
-				{label}
+				{label}{#if required}<span class="text-destructive/70 ml-0.5">*</span>{/if}
 			</DatePickerPrimitive.Label>
 		{/if}
 		<DatePickerInput>

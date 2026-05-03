@@ -98,7 +98,11 @@ export interface paths {
         /** List upcoming plays */
         get: operations["list-plays"];
         put?: never;
-        post?: never;
+        /**
+         * Create a play
+         * @description Create a new play session. Requires authentication.
+         */
+        post: operations["create-play"];
         delete?: never;
         options?: never;
         head?: never;
@@ -149,6 +153,74 @@ export interface components {
         ContactMethod: {
             type: string;
             value: string;
+        };
+        CreateInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Contact methods */
+            contacts?: components["schemas"]["ContactMethod"][] | null;
+            /**
+             * Format: int64
+             * @description Number of courts
+             */
+            courts?: number;
+            /**
+             * @description Currency code
+             * @default SGD
+             */
+            currency: string;
+            /**
+             * Format: int64
+             * @description Duration in minutes (must be multiple of 15, max 300)
+             */
+            duration_minutes: number;
+            /**
+             * Format: int64
+             * @description Fee in cents
+             */
+            fee?: number;
+            /**
+             * @description Game type
+             * @enum {string}
+             */
+            game_type?: "doubles" | "singles" | "mixed_doubles" | "";
+            /**
+             * @description Gender preference
+             * @enum {string}
+             */
+            gender_pref?: "all" | "male_only" | "female_only" | "";
+            /** @description Maximum level code */
+            level_max?: string;
+            /** @description Minimum level code */
+            level_min?: string;
+            /**
+             * Format: int64
+             * @description Maximum number of players
+             */
+            max_players?: number;
+            /**
+             * Format: int64
+             * @description Available slots
+             */
+            slots_left?: number;
+            /**
+             * @description Sport type
+             * @enum {string}
+             */
+            sport: "badminton" | "tennis" | "football" | "pickleball";
+            /** @description Start time in RFC3339 format */
+            starts_at: string;
+            /**
+             * @description IANA timezone, e.g. Asia/Singapore
+             * @default Asia/Singapore
+             */
+            timezone: string;
+            /** @description Venue name (free text) */
+            venue: string;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -277,6 +349,10 @@ export interface components {
             /** Format: int64 */
             courts?: number;
             created_at: string;
+            created_by?: string;
+            creator_display_name?: string;
+            creator_photo_url?: string;
+            creator_username?: string;
             currency: string;
             ends_at: string;
             /** Format: int64 */
@@ -569,6 +645,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PagePlayPublic"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayPublic"];
                 };
             };
             /** @description Error */

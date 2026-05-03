@@ -14,7 +14,7 @@
 	bind:value
 	{disabled}
 	class={cn(
-		'text-foreground px-3 py-2 border border-input-border rounded-lg bg-input w-full placeholder:text-muted-foreground focus:outline-none focus:border-ring',
+		'text-sm text-foreground px-3 border border-input-border rounded-lg bg-input h-9 w-full placeholder:text-muted-foreground focus:outline-none focus:border-ring',
 		disabled && 'opacity-60 cursor-not-allowed',
 		className
 	)}

@@ -21,7 +21,7 @@
 
 <Avatar.Root
 	class={cn(
-		'text-muted font-medium border rounded-full bg-card h-8 w-8 uppercase data-[status=loaded]:border-border data-[status=loading]:border-transparent',
+		'text-muted font-medium border rounded-full bg-card shrink-0 h-8 w-8 uppercase data-[status=loaded]:border-border data-[status=loading]:border-transparent',
 		className
 	)}
 	bind:ref

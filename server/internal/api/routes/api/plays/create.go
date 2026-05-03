@@ -58,6 +58,11 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		}
 		startsAt = startsAt.UTC() // store in UTC for consistent comparison
 
+		// Validate: starts_at must be in the future
+		if startsAt.Before(time.Now().UTC()) {
+			return nil, huma.Error422UnprocessableEntity("starts_at must be in the future")
+		}
+
 		// Validate duration: must be multiple of 15 minutes
 		if input.Body.DurationMinutes%15 != 0 {
 			return nil, huma.Error422UnprocessableEntity("duration_minutes must be a multiple of 15")

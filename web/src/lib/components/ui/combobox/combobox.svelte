@@ -9,6 +9,7 @@
 	type Props = Combobox.RootProps & {
 		placeholder?: string;
 		openOnClick?: boolean;
+		allowCustom?: boolean;
 		inputProps?: WithoutChildrenOrChild<Combobox.InputProps>;
 		contentProps?: WithoutChildrenOrChild<Combobox.ContentProps>;
 	};
@@ -19,6 +20,7 @@
 		open = $bindable(false),
 		placeholder = 'Search…',
 		openOnClick = false,
+		allowCustom = false,
 		inputProps,
 		contentProps,
 		type,
@@ -36,11 +38,14 @@
 
 	// Sync input text with the selected value's label.
 	// When open, show nothing so the user can type to search.
-	// When closed, show the selected item's label.
+	// When closed, show the selected item's label (or custom value if allowCustom).
 	const inputValue = $derived.by(() => {
 		if (open) return undefined;
 		const selected = items?.find((item) => item.value === value);
-		return selected?.label ?? '';
+		if (selected) return selected.label;
+		// If allowCustom, show the raw value as typed
+		if (allowCustom && value) return value as string;
+		return '';
 	});
 
 	function handleInput(e: Event & { currentTarget: HTMLInputElement }) {
@@ -48,7 +53,13 @@
 	}
 
 	function handleOpenChange(newOpen: boolean) {
-		if (!newOpen) searchValue = '';
+		if (!newOpen) {
+			// When closing: if allowCustom and nothing was selected from list, use typed text
+			if (allowCustom && searchValue && !items?.find((item) => item.value === value)) {
+				value = searchValue as typeof value;
+			}
+			searchValue = '';
+		}
 	}
 
 	const mergedRootProps = $derived(mergeProps(restProps, { onOpenChange: handleOpenChange }));

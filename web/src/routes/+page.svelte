@@ -19,7 +19,7 @@
 		formatLevel
 	} from '$lib/utils/formatting';
 	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
-	import { badmintonLevels, levelIndex } from '$lib/utils/levels';
+	import { BADMINTON_LEVELS, levelIndex } from '$lib/consts/index';
 
 	let { data }: { data: PageData } = $props();
 
@@ -35,15 +35,15 @@
 
 	// Disable levels above selected max for min, and below selected min for max
 	const levelMinItems = $derived(
-		badmintonLevels.map((item, idx) => {
-			const maxIdx = levelIndex(badmintonLevels, selectedLevelMax);
+		BADMINTON_LEVELS.map((item, idx) => {
+			const maxIdx = levelIndex(BADMINTON_LEVELS, selectedLevelMax);
 			return { ...item, disabled: maxIdx !== -1 && idx > maxIdx };
 		})
 	);
 
 	const levelMaxItems = $derived(
-		badmintonLevels.map((item, idx) => {
-			const minIdx = levelIndex(badmintonLevels, selectedLevel);
+		BADMINTON_LEVELS.map((item, idx) => {
+			const minIdx = levelIndex(BADMINTON_LEVELS, selectedLevel);
 			return { ...item, disabled: minIdx !== -1 && idx < minIdx };
 		})
 	);

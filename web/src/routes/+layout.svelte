@@ -8,7 +8,7 @@
 	import Button from '$lib/components/ui/button.svelte';
 	import { Info, Sun, Moon, Palette } from '@lucide/svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index';
-	import { DESCRIPTION } from '$lib/consts';
+	import { DESCRIPTION } from '$lib/consts/index';
 	import type { LayoutData } from './$types';
 	import type { Snippet } from 'svelte';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
@@ -65,6 +65,10 @@
 			</button>
 
 			{#if data.user}
+				<a
+					href={resolve('/create')}
+					class="text-sm text-muted hover:text-foreground"
+				>Create Game</a>
 				<a
 					href={resolve('/profile')}
 					class="text-foreground flex gap-2 items-center hover:text-foreground/80"
