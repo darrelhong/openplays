@@ -12,6 +12,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	const lat = url.searchParams.get('lat');
 	const lng = url.searchParams.get('lng');
 	const startsAfter = url.searchParams.get('starts_after');
+	const startsBefore = url.searchParams.get('starts_before');
+	const timezone = url.searchParams.get('timezone');
 	const levelMin = url.searchParams.get('level_min');
 	const levelMax = url.searchParams.get('level_max');
 
@@ -26,6 +28,8 @@ export const load: PageServerLoad = async ({ url }) => {
 						lat: lat ? Number(lat) : undefined,
 						lng: lng ? Number(lng) : undefined,
 						starts_after: startsAfter || undefined,
+						starts_before: startsBefore || undefined,
+						timezone: timezone || undefined,
 						level_min: levelMin || undefined,
 						level_max: levelMax || undefined
 					}
