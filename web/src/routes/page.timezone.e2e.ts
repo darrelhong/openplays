@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 const mockApiPort = 8080;
 const ianaTimezonePattern = /^(UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/;
 let mockApi: ReturnType<typeof createServer>;
-let lastPlaysRequestTimezone: string | null = null;
+let playsRequestTimezones: Array<string | null> = [];
 
 function respondJSON(res: ServerResponse, payload: unknown) {
 	res.statusCode = 200;
@@ -15,8 +15,9 @@ function respondJSON(res: ServerResponse, payload: unknown) {
 function handleMockApi(req: IncomingMessage, res: ServerResponse) {
 	const path = req.url ? new URL(req.url, `http://localhost:${mockApiPort}`).pathname : '';
 	if (req.method === 'GET' && path === '/api/plays/') {
-		lastPlaysRequestTimezone = new URL(req.url ?? '', `http://localhost:${mockApiPort}`)
-			.searchParams.get('timezone');
+		playsRequestTimezones.push(
+			new URL(req.url ?? '', `http://localhost:${mockApiPort}`).searchParams.get('timezone')
+		);
 		respondJSON(res, {
 			items: [],
 			total: 0,
@@ -62,7 +63,7 @@ test.afterAll(async () => {
 });
 
 test('clear filters preserves timezone and removes date bounds', async ({ page }) => {
-	lastPlaysRequestTimezone = null;
+	playsRequestTimezones = [];
 	await page.goto('/?starts_after=2026-04-10&starts_before=2026-04-11');
 	await expect(page.getByRole('button', { name: 'Clear filters' })).toBeVisible();
 
@@ -70,9 +71,9 @@ test('clear filters preserves timezone and removes date bounds', async ({ page }
 
 	await page.getByRole('button', { name: 'Clear filters' }).click();
 	await expect(page).toHaveURL(/timezone=/);
-	await expect.poll(() => lastPlaysRequestTimezone).toBe(browserTimezone);
+	await expect.poll(() => playsRequestTimezones.at(-1) ?? null).toBe(browserTimezone);
 
-	const timezone = lastPlaysRequestTimezone;
+	const timezone = playsRequestTimezones.at(-1);
 	if (!timezone) {
 		throw new Error('expected plays request timezone to be captured');
 	}
@@ -80,7 +81,6 @@ test('clear filters preserves timezone and removes date bounds', async ({ page }
 	const nextURL = new URL(page.url());
 	expect(nextURL.searchParams.get('starts_after')).toBeNull();
 	expect(nextURL.searchParams.get('starts_before')).toBeNull();
-	expect(timezone).toBeTruthy();
 	expect(timezone).toBe(browserTimezone);
 	expect(timezone).toMatch(ianaTimezonePattern);
 	expect(nextURL.searchParams.get('timezone')).toBe(timezone);
