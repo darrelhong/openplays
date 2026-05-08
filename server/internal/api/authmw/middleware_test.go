@@ -38,8 +38,8 @@ func (f *fakeStore) LinkFacebookID(_ context.Context, _ db.LinkFacebookIDParams)
 func (f *fakeStore) GetSessionWithUser(_ context.Context, _ string) (db.GetSessionWithUserRow, error) {
 	return f.sessionRow, f.sessionErr
 }
-func (f *fakeStore) CreateSession(_ context.Context, _ db.CreateSessionParams) error  { return nil }
-func (f *fakeStore) DeleteSession(_ context.Context, _ string) error                  { return nil }
+func (f *fakeStore) CreateSession(_ context.Context, _ db.CreateSessionParams) error   { return nil }
+func (f *fakeStore) DeleteSession(_ context.Context, _ string) error                   { return nil }
 func (f *fakeStore) RefreshSession(_ context.Context, _ db.RefreshSessionParams) error { return nil }
 
 // setupTestAPI creates a test server with auth middleware on a /test endpoint.
@@ -54,12 +54,20 @@ func setupTestAPI(store *fakeStore) *httptest.Server {
 		OperationID: "test-authed",
 		Method:      http.MethodGet,
 		Path:        "/test",
-	}, func(ctx context.Context, _ *struct{}) (*struct{ Body struct{ UserID string `json:"user_id"` } }, error) {
+	}, func(ctx context.Context, _ *struct{}) (*struct {
+		Body struct {
+			UserID string `json:"user_id"`
+		}
+	}, error) {
 		user := authmw.UserFromContext(ctx)
 		if user == nil {
 			return nil, huma.Error401Unauthorized("no user")
 		}
-		out := &struct{ Body struct{ UserID string `json:"user_id"` } }{}
+		out := &struct {
+			Body struct {
+				UserID string `json:"user_id"`
+			}
+		}{}
 		out.Body.UserID = user.ID
 		return out, nil
 	})

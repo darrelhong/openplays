@@ -56,9 +56,11 @@ func (f *fakeAuthStore) LinkFacebookID(_ context.Context, _ db.LinkFacebookIDPar
 func (f *fakeAuthStore) GetSessionWithUser(_ context.Context, _ string) (db.GetSessionWithUserRow, error) {
 	return f.sessionRow, f.sessionErr
 }
-func (f *fakeAuthStore) CreateSession(_ context.Context, _ db.CreateSessionParams) error  { return nil }
-func (f *fakeAuthStore) DeleteSession(_ context.Context, _ string) error                  { return nil }
-func (f *fakeAuthStore) RefreshSession(_ context.Context, _ db.RefreshSessionParams) error { return nil }
+func (f *fakeAuthStore) CreateSession(_ context.Context, _ db.CreateSessionParams) error { return nil }
+func (f *fakeAuthStore) DeleteSession(_ context.Context, _ string) error                 { return nil }
+func (f *fakeAuthStore) RefreshSession(_ context.Context, _ db.RefreshSessionParams) error {
+	return nil
+}
 
 func setup(authStore *fakeAuthStore, profileStore *fakeProfileStore) *httptest.Server {
 	svc := auth.NewService(authStore)

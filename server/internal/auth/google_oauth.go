@@ -16,8 +16,8 @@ type GoogleOAuthConfig struct {
 
 // GoogleOAuthVerifier exchanges an authorization code for user info via Google's OAuth 2.0 flow.
 type GoogleOAuthVerifier struct {
-	cfg     GoogleOAuthConfig
-	httpDo  func(req *http.Request) (*http.Response, error)
+	cfg    GoogleOAuthConfig
+	httpDo func(req *http.Request) (*http.Response, error)
 }
 
 func NewGoogleOAuthVerifier(cfg GoogleOAuthConfig) *GoogleOAuthVerifier {

@@ -623,6 +623,10 @@ export interface operations {
                 level_max?: string;
                 /** @description Only include plays starting on or after this date (YYYY-MM-DD) */
                 starts_after?: string;
+                /** @description Only include plays starting on or before this date (YYYY-MM-DD) */
+                starts_before?: string;
+                /** @description IANA timezone for date filters, e.g. Asia/Singapore. Defaults to UTC. */
+                timezone?: string;
                 /** @description Reference latitude for distance sorting */
                 lat?: number;
                 /** @description Reference longitude for distance sorting */

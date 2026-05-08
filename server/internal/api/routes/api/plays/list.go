@@ -19,16 +19,18 @@ import (
 )
 
 type ListInput struct {
-	ListingType string                  `query:"listing_type" doc:"Filter by listing type" enum:"play,sell_booking,"`
-	Sport       string                  `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
-	VenueID     int64                   `query:"venue_id" doc:"Filter by venue ID"`
-	LevelMin    string                  `query:"level_min" doc:"Minimum level code (e.g. HB). Shows plays overlapping this range."`
-	LevelMax    string                  `query:"level_max" doc:"Maximum level code (e.g. LI). Defaults to level_min if only level_min is set."`
-	StartsAfter string                  `query:"starts_after" doc:"Only include plays starting on or after this date (YYYY-MM-DD)"`
-	Lat         param.Optional[float64] `query:"lat" doc:"Reference latitude for distance sorting"`
-	Lng         param.Optional[float64] `query:"lng" doc:"Reference longitude for distance sorting"`
-	Cursor      string                  `query:"cursor" doc:"Opaque cursor from previous page"`
-	Limit       int64                   `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Number of results per page"`
+	ListingType  string                  `query:"listing_type" doc:"Filter by listing type" enum:"play,sell_booking,"`
+	Sport        string                  `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
+	VenueID      int64                   `query:"venue_id" doc:"Filter by venue ID"`
+	LevelMin     string                  `query:"level_min" doc:"Minimum level code (e.g. HB). Shows plays overlapping this range."`
+	LevelMax     string                  `query:"level_max" doc:"Maximum level code (e.g. LI). Defaults to level_min if only level_min is set."`
+	StartsAfter  string                  `query:"starts_after" doc:"Only include plays starting on or after this date (YYYY-MM-DD)"`
+	StartsBefore string                  `query:"starts_before" doc:"Only include plays starting on or before this date (YYYY-MM-DD)"`
+	Timezone     string                  `query:"timezone" doc:"IANA timezone for date filters, e.g. Asia/Singapore. Defaults to UTC."`
+	Lat          param.Optional[float64] `query:"lat" doc:"Reference latitude for distance sorting"`
+	Lng          param.Optional[float64] `query:"lng" doc:"Reference longitude for distance sorting"`
+	Cursor       string                  `query:"cursor" doc:"Opaque cursor from previous page"`
+	Limit        int64                   `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Number of results per page"`
 }
 
 type ListOutput struct {
@@ -105,12 +107,33 @@ type filters struct {
 	sport             interface{}
 	venueID           interface{}
 	startsAfter       interface{}
+	startsBefore      interface{}
 	filterLevelMinOrd interface{}
 	filterLevelMaxOrd interface{}
 }
 
+func dateToUTCBound(dateStr string, loc *time.Location, isExclusiveEnd bool) (string, bool) {
+	t, err := time.ParseInLocation("2006-01-02", dateStr, loc)
+	if err != nil {
+		return "", false
+	}
+	if isExclusiveEnd {
+		t = t.AddDate(0, 0, 1)
+	}
+	return t.UTC().Format(sqliteutils.DateTimeFormat), true
+}
+
 func buildFilters(input *ListInput) filters {
 	var f filters
+	tz := strings.TrimSpace(input.Timezone)
+	if tz == "" {
+		tz = "UTC"
+	}
+	loc, err := time.LoadLocation(tz)
+	if err != nil {
+		loc = time.UTC
+	}
+
 	if input.ListingType != "" {
 		f.listingType = input.ListingType
 	}
@@ -121,9 +144,13 @@ func buildFilters(input *ListInput) filters {
 		f.venueID = input.VenueID
 	}
 	if input.StartsAfter != "" {
-		t, err := time.Parse("2006-01-02", input.StartsAfter)
-		if err == nil {
-			f.startsAfter = t.UTC().Format(sqliteutils.DateTimeFormat)
+		if bound, ok := dateToUTCBound(input.StartsAfter, loc, false); ok {
+			f.startsAfter = bound
+		}
+	}
+	if input.StartsBefore != "" {
+		if bound, ok := dateToUTCBound(input.StartsBefore, loc, true); ok {
+			f.startsBefore = bound
 		}
 	}
 	if input.LevelMin != "" {
@@ -156,82 +183,82 @@ func (input *ListInput) sortByDistance() bool {
 
 func mapTimeRow(r db.ListUpcomingPlaysRow) PlayPublic {
 	return PlayPublic{
-		ID:                  r.ID,
-		CreatedAt:           r.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:           r.UpdatedAt.Format(time.RFC3339),
-		ListingType:         r.ListingType,
-		Sport:               r.Sport,
-		GameType:            r.GameType,
-		HostName:            r.HostName,
-		StartsAt:            r.StartsAt.Format(time.RFC3339),
-		EndsAt:           r.EndsAt.Format(time.RFC3339),
-		Timezone:         r.Timezone,
-		Venue:            r.Venue,
-		VenueName:        r.VenueName,
-		VenueID:          r.VenueID,
-		VenuePostalCode:  r.VenuePostalCode,
-		VenueLatitude:    r.VenueLatitude,
-		VenueLongitude:   r.VenueLongitude,
-		LevelMin:         r.LevelMin,
-		LevelMax:         r.LevelMax,
-		Fee:              r.Fee,
-		Currency:         r.Currency,
-		MaxPlayers:       r.MaxPlayers,
-		SlotsLeft:        r.SlotsLeft,
-		Courts:           r.Courts,
-		Contacts:         r.Contacts,
-		GenderPref:       r.GenderPref,
-		Meta:             r.Meta,
-		Source:              r.Source,
-		SourceSenderLink:    buildSenderLink(r.Source, r.SourceSenderUsername),
-		SourceMessageID:     r.SourceMessageID,
-		SourceGroup:         r.SourceGroup,
-		SourceLink:          buildSourceLink(r.Source, r.SourceGroup, r.SourceMessageID),
-		CreatedBy:           r.CreatedBy,
-		CreatorDisplayName:  r.CreatorDisplayName,
-		CreatorUsername:     r.CreatorUsername,
-		CreatorPhotoURL:     r.CreatorPhotoUrl,
+		ID:                 r.ID,
+		CreatedAt:          r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          r.UpdatedAt.Format(time.RFC3339),
+		ListingType:        r.ListingType,
+		Sport:              r.Sport,
+		GameType:           r.GameType,
+		HostName:           r.HostName,
+		StartsAt:           r.StartsAt.Format(time.RFC3339),
+		EndsAt:             r.EndsAt.Format(time.RFC3339),
+		Timezone:           r.Timezone,
+		Venue:              r.Venue,
+		VenueName:          r.VenueName,
+		VenueID:            r.VenueID,
+		VenuePostalCode:    r.VenuePostalCode,
+		VenueLatitude:      r.VenueLatitude,
+		VenueLongitude:     r.VenueLongitude,
+		LevelMin:           r.LevelMin,
+		LevelMax:           r.LevelMax,
+		Fee:                r.Fee,
+		Currency:           r.Currency,
+		MaxPlayers:         r.MaxPlayers,
+		SlotsLeft:          r.SlotsLeft,
+		Courts:             r.Courts,
+		Contacts:           r.Contacts,
+		GenderPref:         r.GenderPref,
+		Meta:               r.Meta,
+		Source:             r.Source,
+		SourceSenderLink:   buildSenderLink(r.Source, r.SourceSenderUsername),
+		SourceMessageID:    r.SourceMessageID,
+		SourceGroup:        r.SourceGroup,
+		SourceLink:         buildSourceLink(r.Source, r.SourceGroup, r.SourceMessageID),
+		CreatedBy:          r.CreatedBy,
+		CreatorDisplayName: r.CreatorDisplayName,
+		CreatorUsername:    r.CreatorUsername,
+		CreatorPhotoURL:    r.CreatorPhotoUrl,
 	}
 }
 
 func mapDistanceRow(r db.ListUpcomingPlaysByDistanceRow) PlayPublic {
 	return PlayPublic{
-		ID:                  r.ID,
-		CreatedAt:           r.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:           r.UpdatedAt.Format(time.RFC3339),
-		ListingType:         r.ListingType,
-		Sport:               r.Sport,
-		GameType:            r.GameType,
-		HostName:            r.HostName,
-		StartsAt:            r.StartsAt.Format(time.RFC3339),
-		EndsAt:              r.EndsAt.Format(time.RFC3339),
-		Timezone:            r.Timezone,
-		Venue:               r.Venue,
-		VenueName:           r.VenueName,
-		VenueID:             r.VenueID,
-		VenuePostalCode:     r.VenuePostalCode,
-		VenueLatitude:       &r.VenueLatitude,
-		VenueLongitude:      &r.VenueLongitude,
-		LevelMin:            r.LevelMin,
-		LevelMax:            r.LevelMax,
-		Fee:                 r.Fee,
-		Currency:            r.Currency,
-		MaxPlayers:          r.MaxPlayers,
-		SlotsLeft:           r.SlotsLeft,
-		Courts:              r.Courts,
-		Contacts:            r.Contacts,
-		GenderPref:          r.GenderPref,
-		Meta:                r.Meta,
-		Source:              r.Source,
-		SourceSenderLink:    buildSenderLink(r.Source, r.SourceSenderUsername),
-		SourceMessageID:     r.SourceMessageID,
-		SourceGroup:         r.SourceGroup,
-		SourceLink:          buildSourceLink(r.Source, r.SourceGroup, r.SourceMessageID),
-		CreatedBy:           r.CreatedBy,
-		CreatorDisplayName:  r.CreatorDisplayName,
-		CreatorUsername:     r.CreatorUsername,
-		CreatorPhotoURL:     r.CreatorPhotoUrl,
-		distanceKm:          r.DistanceKm,
+		ID:                 r.ID,
+		CreatedAt:          r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          r.UpdatedAt.Format(time.RFC3339),
+		ListingType:        r.ListingType,
+		Sport:              r.Sport,
+		GameType:           r.GameType,
+		HostName:           r.HostName,
+		StartsAt:           r.StartsAt.Format(time.RFC3339),
+		EndsAt:             r.EndsAt.Format(time.RFC3339),
+		Timezone:           r.Timezone,
+		Venue:              r.Venue,
+		VenueName:          r.VenueName,
+		VenueID:            r.VenueID,
+		VenuePostalCode:    r.VenuePostalCode,
+		VenueLatitude:      &r.VenueLatitude,
+		VenueLongitude:     &r.VenueLongitude,
+		LevelMin:           r.LevelMin,
+		LevelMax:           r.LevelMax,
+		Fee:                r.Fee,
+		Currency:           r.Currency,
+		MaxPlayers:         r.MaxPlayers,
+		SlotsLeft:          r.SlotsLeft,
+		Courts:             r.Courts,
+		Contacts:           r.Contacts,
+		GenderPref:         r.GenderPref,
+		Meta:               r.Meta,
+		Source:             r.Source,
+		SourceSenderLink:   buildSenderLink(r.Source, r.SourceSenderUsername),
+		SourceMessageID:    r.SourceMessageID,
+		SourceGroup:        r.SourceGroup,
+		SourceLink:         buildSourceLink(r.Source, r.SourceGroup, r.SourceMessageID),
+		CreatedBy:          r.CreatedBy,
+		CreatorDisplayName: r.CreatorDisplayName,
+		CreatorUsername:    r.CreatorUsername,
+		CreatorPhotoURL:    r.CreatorPhotoUrl,
+		distanceKm:         r.DistanceKm,
 	}
 }
 
@@ -254,6 +281,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 		Sport:             f.sport,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
+		StartsBefore:      f.startsBefore,
 		FilterLevelMinOrd: f.filterLevelMinOrd,
 		FilterLevelMaxOrd: f.filterLevelMaxOrd,
 		CursorStartsAt:    cursorStartsAt,
@@ -269,6 +297,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 		Sport:             f.sport,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
+		StartsBefore:      f.startsBefore,
 		FilterLevelMinOrd: f.filterLevelMinOrd,
 		FilterLevelMaxOrd: f.filterLevelMaxOrd,
 	})
@@ -301,6 +330,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 		Sport:             f.sport,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
+		StartsBefore:      f.startsBefore,
 		FilterLevelMinOrd: f.filterLevelMinOrd,
 		FilterLevelMaxOrd: f.filterLevelMaxOrd,
 		CursorDistance:    cursorDistance,
@@ -316,6 +346,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 		Sport:             f.sport,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
+		StartsBefore:      f.startsBefore,
 		FilterLevelMinOrd: f.filterLevelMinOrd,
 		FilterLevelMaxOrd: f.filterLevelMaxOrd,
 	})
