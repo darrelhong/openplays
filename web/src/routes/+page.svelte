@@ -176,7 +176,7 @@
 <h1 class="text-xl font-semibold mb-2">Plays</h1>
 
 <div class="mb-4 flex flex-wrap gap-2 items-end">
-	<div class="w-70">
+	<div class="w-full sm:w-70">
 		<label for="venue-filter" class="text-sm text-muted mb-1 block">Sort near venue</label>
 		<Combobox
 			type="single"
@@ -188,7 +188,7 @@
 			inputProps={{ id: 'venue-filter' }}
 		/>
 	</div>
-	<div class="w-72">
+	<div class="w-full sm:w-72">
 		<DateRangePicker
 			label="Play dates"
 			bind:value={selectedDateRange}
@@ -196,7 +196,7 @@
 			minValue={today}
 		/>
 	</div>
-	<div class="flex flex-[0_1_22rem] flex-wrap gap-2">
+	<div class="flex flex-wrap gap-2 w-full sm:flex-[0_1_22rem] sm:w-auto">
 		<div class="flex-1">
 			<Select
 				type="single"
@@ -221,199 +221,388 @@
 		</div>
 	</div>
 	{#if selectedVenue || selectedDateRange.start || selectedDateRange.end || selectedLevel || selectedLevelMax}
-		<Button variant="outline" onclick={clearFilters}>Clear filters</Button>
+		<Button class="w-full sm:w-auto" variant="outline" onclick={clearFilters}>Clear filters</Button>
 	{/if}
 </div>
 
 <p class="text-muted mb-1">Showing {data.plays.total} upcoming plays</p>
 
 {#if data.plays.items && data.plays.items.length > 0}
-	<ScrollArea orientation="horizontal" viewportClasses="pb-2.5">
-		<table class="w-full border-collapse">
-			<thead>
-				<tr
-					class="text-muted border-b border-border *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
-				>
-					<th>Venue</th>
-					<th>Date</th>
-					<th>Time</th>
-					<th>Host</th>
-					<th>Sport</th>
-					<th>Level</th>
-					<th>Fee</th>
-					<th>Slots/Type</th>
-					<th>Details</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each data.plays.items as play (play.id)}
-					<tr class="border-b border-border *:p-2 hover:bg-card *:whitespace-nowrap">
-						<td>{play.venue_name}</td>
-						<td>{formatDate(play.starts_at, play.timezone)}</td>
-						<td
-							>{formatTime(play.starts_at, play.timezone)} - {formatTime(
-								play.ends_at,
-								play.timezone
-							)}</td
+	<div class="gap-2 grid lg:grid-cols-2 xl:hidden">
+		{#each data.plays.items as play (play.id)}
+			<Dialog.Root>
+				<Dialog.Trigger>
+					{#snippet child({ props })}
+						<div
+							{...props}
+							class="p-2.5 border border-border rounded-xl bg-card shadow-sm transition-colors hover:bg-card/80"
 						>
-						<td>{play.host_name}</td>
-						<td>{capitalize(play.sport)}</td>
-						<td>{formatLevel(play.level_min, play.level_max)}</td>
-						<td>{formatPlayFee(play)}</td>
-						<td
-							>{#if play.listing_type === 'sell_booking'}To let go{:else}{play.slots_left ?? '-'} / {play.max_players ??
-									'-'}{/if}</td
-						>
-						<td>
-							<Dialog.Root>
-								<Dialog.Trigger>
-									{#snippet child({ props })}
-										<Button {...props} size="xs" variant="outline">View</Button>
-									{/snippet}
-								</Dialog.Trigger>
-								<Dialog.Content variant="right">
-									<Dialog.Header>
-										<Dialog.Title class="text-xl pe-6">{play.venue_name}</Dialog.Title>
-										<p class="text-lg mb-4">
-											{formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(
-												play.starts_at,
-												play.timezone
-											)} - {formatTime(play.ends_at, play.timezone)}
-										</p>
-									</Dialog.Header>
+							<div class="flex gap-1.5 items-start justify-between">
+								<div class="min-w-0">
+									<p class="leading-tight font-semibold">{play.venue_name}</p>
+									<p class="text-sm text-muted mt-0.5">
+										{formatDate(play.starts_at, play.timezone)} · {formatTime(play.starts_at, play.timezone)} - {formatTime(
+											play.ends_at,
+											play.timezone
+										)}
+									</p>
+								</div>
+								<span class="text-xs text-muted px-2 py-0.5 border border-border rounded-full shrink-0">
+									{capitalize(play.sport)}
+								</span>
+							</div>
+
+							<dl class="text-sm mt-2 gap-x-2 gap-y-1 grid grid-cols-3">
+								<div>
+									<dt class="text-xs text-muted tracking-wide">Host</dt>
+									<dd class="mt-0.5 truncate">{play.host_name}</dd>
+								</div>
+								<div>
+									<dt class="text-xs text-muted tracking-wide">Level</dt>
+									<dd class="mt-0.5">{formatLevel(play.level_min, play.level_max)}</dd>
+								</div>
+								<div>
+									<dt class="text-xs text-muted tracking-wide">Fee</dt>
+									<dd class="mt-0.5">{formatPlayFee(play)}</dd>
+								</div>
+								<div>
+									<dt class="text-xs text-muted tracking-wide">Slots</dt>
+									<dd class="mt-0.5">
+										{#if play.listing_type === 'sell_booking'}
+											To let go
+										{:else}
+											{play.slots_left ?? '-'} / {play.max_players ?? '-'}
+										{/if}
+									</dd>
+								</div>
+								{#if play.game_type}
+									<div>
+										<dt class="text-xs text-muted tracking-wide">Type</dt>
+										<dd class="mt-0.5">{capitalize(play.game_type)}</dd>
+									</div>
+								{/if}
+							</dl>
+						</div>
+					{/snippet}
+				</Dialog.Trigger>
+						<Dialog.Content variant="right">
+							<Dialog.Header>
+								<Dialog.Title class="text-xl pe-6">{play.venue_name}</Dialog.Title>
+								<p class="text-lg mb-4">
+									{formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(
+										play.starts_at,
+										play.timezone
+									)} - {formatTime(play.ends_at, play.timezone)}
+								</p>
+							</Dialog.Header>
+							<dl class="text-sm space-y-2">
+								<div class="flex gap-4">
+									<dt class="text-muted w-24">Host</dt>
+									<dd>{play.host_name}</dd>
+								</div>
+								<div class="flex gap-4">
+									<dt class="text-muted w-24">Sport</dt>
+									<dd>
+										{capitalize(play.sport)}{play.game_type
+											? ` · ${capitalize(play.game_type)}`
+											: ''}
+									</dd>
+								</div>
+								<div class="flex gap-4">
+									<dt class="text-muted w-24">Level</dt>
+									<dd>{formatLevel(play.level_min, play.level_max)}</dd>
+								</div>
+								<div class="flex gap-4">
+									<dt class="text-muted w-24">Fee</dt>
+									<dd>{formatPlayFee(play)}</dd>
+								</div>
+								<div class="flex gap-4">
+									<dt class="text-muted w-24">Slots</dt>
+									<dd>{play.slots_left ?? '-'} / {play.max_players ?? '-'}</dd>
+								</div>
+								{#if play.courts != null}
+									<div class="flex gap-4">
+										<dt class="text-muted w-24">Courts</dt>
+										<dd>{play.courts}</dd>
+									</div>
+								{/if}
+							</dl>
+							{#if play.contacts?.length}
+								<div class="mt-3 pt-3 border-t border-border">
+									<p class="text-muted mb-2">Contacts</p>
+									{#each play.contacts as contact (`${contact.type}:${contact.value}`)}
+										<div class="text-sm flex gap-4">
+											<dt class="text-muted shrink-0 w-24">{contact.type}</dt>
+											<dd>{contact.value}</dd>
+										</div>
+									{/each}
+								</div>
+							{/if}
+							{@const meta = play.meta ?? {}}
+							{@const knownMetaKeys = ['fee_male', 'fee_female', 'shuttle', 'air_con', 'details']}
+							{@const extraEntries = Object.entries(meta).filter(([key]) => !knownMetaKeys.includes(key))}
+							{#if meta.shuttle || meta.air_con != null || meta.details || extraEntries.length > 0}
+								<div class="mt-3 pt-3 border-t border-border">
+									<p class="text-muted mb-2">Info</p>
 									<dl class="text-sm space-y-2">
-										<div class="flex gap-4">
-											<dt class="text-muted w-24">Host</dt>
-											<dd>{play.host_name}</dd>
-										</div>
-										<div class="flex gap-4">
-											<dt class="text-muted w-24">Sport</dt>
-											<dd>
-												{capitalize(play.sport)}{play.game_type
-													? ` · ${capitalize(play.game_type)}`
-													: ''}
-											</dd>
-										</div>
-										<div class="flex gap-4">
-											<dt class="text-muted w-24">Level</dt>
-											<dd>{formatLevel(play.level_min, play.level_max)}</dd>
-										</div>
-										<div class="flex gap-4">
-											<dt class="text-muted w-24">Fee</dt>
-											<dd>{formatPlayFee(play)}</dd>
-										</div>
-										<div class="flex gap-4">
-											<dt class="text-muted w-24">Slots</dt>
-											<dd>{play.slots_left ?? '-'} / {play.max_players ?? '-'}</dd>
-										</div>
-										{#if play.courts != null}
+										{#if meta.shuttle}
 											<div class="flex gap-4">
-												<dt class="text-muted w-24">Courts</dt>
-												<dd>{play.courts}</dd>
+												<dt class="text-muted w-24">Shuttle</dt>
+												<dd>{meta.shuttle}</dd>
 											</div>
 										{/if}
-									</dl>
-									{#if play.contacts?.length}
-										<div class="mt-3 pt-3 border-t border-border">
-											<p class="text-muted mb-2">Contacts</p>
-											{#each play.contacts as contact (`${contact.type}:${contact.value}`)}
-												<div class="text-sm flex gap-4">
-													<dt class="text-muted shrink-0 w-24">{contact.type}</dt>
-													<dd>{contact.value}</dd>
-												</div>
-											{/each}
-										</div>
-									{/if}
-									{@const meta = play.meta ?? {}}
-									{@const knownMetaKeys = [
-										'fee_male',
-										'fee_female',
-										'shuttle',
-										'air_con',
-										'details'
-									]}
-									{@const extraEntries = Object.entries(meta).filter(
-										([key]) => !knownMetaKeys.includes(key)
-									)}
-									{#if meta.shuttle || meta.air_con != null || meta.details || extraEntries.length > 0}
-										<div class="mt-3 pt-3 border-t border-border">
-											<p class="text-muted mb-2">Info</p>
-											<dl class="text-sm space-y-2">
-												{#if meta.shuttle}
-													<div class="flex gap-4">
-														<dt class="text-muted w-24">Shuttle</dt>
-														<dd>{meta.shuttle}</dd>
-													</div>
-												{/if}
-												{#if meta.air_con != null}
-													<div class="flex gap-4">
-														<dt class="text-muted w-24">Air Con</dt>
-														<dd>{meta.air_con ? 'Yes' : 'No'}</dd>
-													</div>
-												{/if}
-												{#if meta.details}
-													<div class="flex gap-4">
-														<dt class="text-muted w-24">Details</dt>
-														<dd>{meta.details}</dd>
-													</div>
-												{/if}
-												{#each extraEntries as [key, value] (key)}
-													<div class="flex gap-4">
-														<dt class="text-muted w-24">
-															{capitalize(key.replace(/_/g, ' '))}
-														</dt>
-														<dd>{value}</dd>
-													</div>
-												{/each}
-											</dl>
-										</div>
-									{/if}
-									{#if play.source === 'telegram' && (play.source_link || play.source_sender_link)}
-										<div class="mt-3 pt-3 border-t border-border flex flex-col gap-1">
-											{#if play.source_link}
-												<a
-													rel="external noopener noreferrer"
-													href={play.source_link}
-													target="_blank"
-													class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
-												>
-													View in Telegram ↗
-												</a>
-											{/if}
-											{#if play.source_sender_link}
-												<a
-													rel="external noopener noreferrer"
-													href={play.source_sender_link}
-													target="_blank"
-													class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
-												>
-													Message sender ↗
-												</a>
-											{/if}
-										</div>
-									{/if}
-									<div class="mt-3 pt-3 border-t border-border">
-										<dl class="text-xs text-muted-foreground space-y-1">
+										{#if meta.air_con != null}
 											<div class="flex gap-4">
-												<dt class="w-24">Created</dt>
-												<dd>{formatDateTime(play.created_at)}</dd>
+												<dt class="text-muted w-24">Air Con</dt>
+												<dd>{meta.air_con ? 'Yes' : 'No'}</dd>
 											</div>
-											{#if play.updated_at !== play.created_at}
+										{/if}
+										{#if meta.details}
+											<div class="flex gap-4">
+												<dt class="text-muted w-24">Details</dt>
+												<dd>{meta.details}</dd>
+											</div>
+										{/if}
+										{#each extraEntries as [key, value] (key)}
+											<div class="flex gap-4">
+												<dt class="text-muted w-24">{capitalize(key.replace(/_/g, ' '))}</dt>
+												<dd>{value}</dd>
+											</div>
+										{/each}
+									</dl>
+								</div>
+							{/if}
+							{#if play.source === 'telegram' && (play.source_link || play.source_sender_link)}
+								<div class="mt-3 pt-3 border-t border-border flex flex-col gap-1">
+									{#if play.source_link}
+										<a
+											rel="external noopener noreferrer"
+											href={play.source_link}
+											target="_blank"
+											class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+										>
+											View in Telegram ↗
+										</a>
+									{/if}
+									{#if play.source_sender_link}
+										<a
+											rel="external noopener noreferrer"
+											href={play.source_sender_link}
+											target="_blank"
+											class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+										>
+											Message sender ↗
+										</a>
+									{/if}
+								</div>
+							{/if}
+							<div class="mt-3 pt-3 border-t border-border">
+								<dl class="text-xs text-muted-foreground space-y-1">
+									<div class="flex gap-4">
+										<dt class="w-24">Created</dt>
+										<dd>{formatDateTime(play.created_at)}</dd>
+									</div>
+									{#if play.updated_at !== play.created_at}
+										<div class="flex gap-4">
+											<dt class="w-24">Updated</dt>
+											<dd>{formatDateTime(play.updated_at)}</dd>
+										</div>
+									{/if}
+								</dl>
+							</div>
+						</Dialog.Content>
+					</Dialog.Root>
+		{/each}
+	</div>
+
+	<div class="hidden xl:block">
+		<ScrollArea orientation="horizontal" viewportClasses="pb-2.5">
+			<table class="w-full border-collapse">
+				<thead>
+					<tr
+						class="text-muted border-b border-border *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
+					>
+						<th>Venue</th>
+						<th>Date</th>
+						<th>Time</th>
+						<th>Host</th>
+						<th>Sport</th>
+						<th>Level</th>
+						<th>Fee</th>
+						<th>Slots/Type</th>
+						<th>Details</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each data.plays.items as play (play.id)}
+						<tr class="border-b border-border *:p-2 hover:bg-card *:whitespace-nowrap">
+							<td>{play.venue_name}</td>
+							<td>{formatDate(play.starts_at, play.timezone)}</td>
+							<td
+								>{formatTime(play.starts_at, play.timezone)} - {formatTime(
+									play.ends_at,
+									play.timezone
+								)}</td
+							>
+							<td>{play.host_name}</td>
+							<td>{capitalize(play.sport)}</td>
+							<td>{formatLevel(play.level_min, play.level_max)}</td>
+							<td>{formatPlayFee(play)}</td>
+							<td
+								>{#if play.listing_type === 'sell_booking'}To let go{:else}{play.slots_left ?? '-'} / {play.max_players ??
+										'-'}{/if}</td
+							>
+							<td>
+								<Dialog.Root>
+									<Dialog.Trigger>
+										{#snippet child({ props })}
+											<Button {...props} size="xs" variant="outline">View</Button>
+										{/snippet}
+									</Dialog.Trigger>
+									<Dialog.Content variant="right">
+										<Dialog.Header>
+											<Dialog.Title class="text-xl pe-6">{play.venue_name}</Dialog.Title>
+											<p class="text-lg mb-4">
+												{formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(
+													play.starts_at,
+													play.timezone
+												)} - {formatTime(play.ends_at, play.timezone)}
+											</p>
+										</Dialog.Header>
+										<dl class="text-sm space-y-2">
+											<div class="flex gap-4">
+												<dt class="text-muted w-24">Host</dt>
+												<dd>{play.host_name}</dd>
+											</div>
+											<div class="flex gap-4">
+												<dt class="text-muted w-24">Sport</dt>
+												<dd>
+													{capitalize(play.sport)}{play.game_type
+														? ` · ${capitalize(play.game_type)}`
+														: ''}
+												</dd>
+											</div>
+											<div class="flex gap-4">
+												<dt class="text-muted w-24">Level</dt>
+												<dd>{formatLevel(play.level_min, play.level_max)}</dd>
+											</div>
+											<div class="flex gap-4">
+												<dt class="text-muted w-24">Fee</dt>
+												<dd>{formatPlayFee(play)}</dd>
+											</div>
+											<div class="flex gap-4">
+												<dt class="text-muted w-24">Slots</dt>
+												<dd>{play.slots_left ?? '-'} / {play.max_players ?? '-'}</dd>
+											</div>
+											{#if play.courts != null}
 												<div class="flex gap-4">
-													<dt class="w-24">Updated</dt>
-													<dd>{formatDateTime(play.updated_at)}</dd>
+													<dt class="text-muted w-24">Courts</dt>
+													<dd>{play.courts}</dd>
 												</div>
 											{/if}
 										</dl>
-									</div>
-								</Dialog.Content>
-							</Dialog.Root>
-						</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</ScrollArea>
+										{#if play.contacts?.length}
+											<div class="mt-3 pt-3 border-t border-border">
+												<p class="text-muted mb-2">Contacts</p>
+												{#each play.contacts as contact (`${contact.type}:${contact.value}`)}
+													<div class="text-sm flex gap-4">
+														<dt class="text-muted shrink-0 w-24">{contact.type}</dt>
+														<dd>{contact.value}</dd>
+													</div>
+												{/each}
+											</div>
+										{/if}
+										{@const meta = play.meta ?? {}}
+										{@const knownMetaKeys = [
+											'fee_male',
+											'fee_female',
+											'shuttle',
+											'air_con',
+											'details'
+										]}
+										{@const extraEntries = Object.entries(meta).filter(
+											([key]) => !knownMetaKeys.includes(key)
+										)}
+										{#if meta.shuttle || meta.air_con != null || meta.details || extraEntries.length > 0}
+											<div class="mt-3 pt-3 border-t border-border">
+												<p class="text-muted mb-2">Info</p>
+												<dl class="text-sm space-y-2">
+													{#if meta.shuttle}
+														<div class="flex gap-4">
+															<dt class="text-muted w-24">Shuttle</dt>
+															<dd>{meta.shuttle}</dd>
+														</div>
+													{/if}
+													{#if meta.air_con != null}
+														<div class="flex gap-4">
+															<dt class="text-muted w-24">Air Con</dt>
+															<dd>{meta.air_con ? 'Yes' : 'No'}</dd>
+														</div>
+													{/if}
+													{#if meta.details}
+														<div class="flex gap-4">
+															<dt class="text-muted w-24">Details</dt>
+															<dd>{meta.details}</dd>
+														</div>
+													{/if}
+													{#each extraEntries as [key, value] (key)}
+														<div class="flex gap-4">
+															<dt class="text-muted w-24">
+																{capitalize(key.replace(/_/g, ' '))}
+															</dt>
+															<dd>{value}</dd>
+														</div>
+													{/each}
+												</dl>
+											</div>
+										{/if}
+										{#if play.source === 'telegram' && (play.source_link || play.source_sender_link)}
+											<div class="mt-3 pt-3 border-t border-border flex flex-col gap-1">
+												{#if play.source_link}
+													<a
+														rel="external noopener noreferrer"
+														href={play.source_link}
+														target="_blank"
+														class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+													>
+														View in Telegram ↗
+													</a>
+												{/if}
+												{#if play.source_sender_link}
+													<a
+														rel="external noopener noreferrer"
+														href={play.source_sender_link}
+														target="_blank"
+														class="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+													>
+														Message sender ↗
+													</a>
+												{/if}
+											</div>
+										{/if}
+										<div class="mt-3 pt-3 border-t border-border">
+											<dl class="text-xs text-muted-foreground space-y-1">
+												<div class="flex gap-4">
+													<dt class="w-24">Created</dt>
+													<dd>{formatDateTime(play.created_at)}</dd>
+												</div>
+												{#if play.updated_at !== play.created_at}
+													<div class="flex gap-4">
+														<dt class="w-24">Updated</dt>
+														<dd>{formatDateTime(play.updated_at)}</dd>
+													</div>
+												{/if}
+											</dl>
+										</div>
+									</Dialog.Content>
+								</Dialog.Root>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</ScrollArea>
+	</div>
 {:else}
 	<p>No plays match these filters.</p>
 {/if}
