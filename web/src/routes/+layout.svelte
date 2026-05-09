@@ -48,7 +48,9 @@
 	<meta name="twitter:image" content={opengraphimage} />
 </svelte:head>
 
-<div class="text-foreground bg-background flex flex-col min-h-screen transition-colors duration-150">
+<div
+	class="text-foreground bg-background flex flex-col min-h-screen transition-colors duration-150"
+>
 	<header class="p-4 flex items-center justify-between">
 		<a href={resolve('/')} class="text-2xl text-foreground font-bold">OpenPlays</a>
 		<div class="flex gap-3 items-center">
@@ -65,10 +67,8 @@
 			</button>
 
 			{#if data.user}
-				<a
-					href={resolve('/create')}
-					class="text-sm text-muted hover:text-foreground"
-				>Create Game</a>
+				<a href={resolve('/create')} class="text-sm text-muted hover:text-foreground">Create Game</a
+				>
 				<a
 					href={resolve('/profile')}
 					class="text-foreground flex gap-2 items-center hover:text-foreground/80"
@@ -85,8 +85,7 @@
 			{:else}
 				<!-- Don't show sign in button on login page -->
 				{#if page.url.pathname !== '/login'}
-					<a href={resolve('/login')} class="text-sm text-muted hover:text-foreground">Sign in</a
-					>
+					<a href={resolve('/login')} class="text-sm text-muted hover:text-foreground">Sign in</a>
 				{/if}
 			{/if}
 		</div>
@@ -96,10 +95,19 @@
 	</main>
 	<footer class="p-4 flex gap-2 items-center">
 		<p class="text-sm text-muted-foreground">© {new Date().getFullYear()}</p>
+		<nav class="text-sm flex gap-3 items-center">
+			<a href={resolve('/privacy')} class="text-muted hover:text-foreground hover:underline"
+				>Privacy</a
+			>
+			<a href={resolve('/terms')} class="text-muted hover:text-foreground hover:underline">Terms</a>
+		</nav>
 
 		<Dialog.Root>
-			<Dialog.Trigger class="ms-auto">
-				<Info class="text-muted-foreground size-4" />
+			<Dialog.Trigger
+				class="text-muted-foreground ms-auto p-1 rounded-md transition-colors hover:text-foreground hover:bg-accent"
+				aria-label="About OpenPlays"
+			>
+				<Info class="size-4" />
 			</Dialog.Trigger>
 			<Dialog.Content class="border border-border shadow-card/30 shadow-lg">
 				<Dialog.Header>
