@@ -1,0 +1,74 @@
+- description: Coaching ad with embedded sell-booking should only extract booking
+  vars:
+    senderName: Test Sender 4
+    referenceDate: '2026-04-12'
+    expected: file://tests/extractor/fixtures/coaching-plus-booking.json
+    block: |
+      Badminton training/coaching* 🏸🏸
+      Date: Monday-Sunday (private) offering 1-1🙋‍♂️ and 1-2 🙋‍♂️🙋‍♂️
+      Monday-Sunday (group) minimum pax of 3✅, maximum pax of 4 ⭕
+      venue: anywhere in SG, location to be discussed
+      timing: able to commit to any time 🦅🦅trial classes are also available 🙂
+      PM if you have any enquiries @93436947 cheers!
+
+      NROC Certified
+      BWF Level 1 Certified
+      First Aid Certified
+
+      letting go court:
+
+      today, 12/4, edgefield primary 4-5pm
+  threshold: 0.8
+  assertScoringFunction: file://configs/assertions/extractor-scoring.js:extractorScoring
+  assert:
+    - type: javascript
+      metric: count
+      value: file://configs/assertions/extractor-assertions.js:listingCountMatches
+    - type: javascript
+      metric: structure
+      value: file://configs/assertions/extractor-assertions.js:structureMatches
+    - type: javascript
+      metric: courts
+      value: file://configs/assertions/extractor-assertions.js:courtsMatch
+    - type: javascript
+      metric: fees
+      value: file://configs/assertions/extractor-assertions.js:feesMatch
+    - type: javascript
+      metric: contacts
+      value: file://configs/assertions/extractor-assertions.js:contactsMatch
+    - type: javascript
+      metric: normalization
+      value: file://configs/assertions/extractor-assertions.js:normalizationMatches
+
+- description: Fully skippable coaching ad should return empty array
+  vars:
+    senderName: Test Sender 5
+    referenceDate: '2026-04-12'
+    expected: file://tests/extractor/fixtures/coaching-skip.json
+    block: |
+      Badminton training/coaching* 🏸🏸
+      Malaysia State Player
+      Date: Monday-Sunday (private) offering 1-1🙋‍♂️ and 1-2 🙋‍♂️🙋‍♂️Monday-Sunday ⭕
+      venue: anywhere in SG, location to be discussed
+      timing: able to commit to any PM if you have any enquiries@81966096
+  threshold: 0.8
+  assertScoringFunction: file://configs/assertions/extractor-scoring.js:extractorScoring
+  assert:
+    - type: javascript
+      metric: count
+      value: file://configs/assertions/extractor-assertions.js:listingCountMatches
+    - type: javascript
+      metric: structure
+      value: file://configs/assertions/extractor-assertions.js:structureMatches
+    - type: javascript
+      metric: courts
+      value: file://configs/assertions/extractor-assertions.js:courtsMatch
+    - type: javascript
+      metric: fees
+      value: file://configs/assertions/extractor-assertions.js:feesMatch
+    - type: javascript
+      metric: contacts
+      value: file://configs/assertions/extractor-assertions.js:contactsMatch
+    - type: javascript
+      metric: normalization
+      value: file://configs/assertions/extractor-assertions.js:normalizationMatches

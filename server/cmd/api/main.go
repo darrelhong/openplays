@@ -15,6 +15,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 
 	apiRouter "openplays/server/internal/api/routes/api"
+	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/logging"
 )
@@ -36,6 +37,19 @@ func main() {
 		port = "8080"
 	}
 
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	if googleClientID == "" {
+		slog.Warn("GOOGLE_CLIENT_ID not set, Google auth will reject all tokens")
+	}
+	googleVerifier := auth.NewGoogleVerifier(googleClientID)
+
+	facebookVerifier := auth.NewFacebookVerifier(auth.FacebookConfig{
+		AppID:     os.Getenv("FACEBOOK_APP_ID"),
+		AppSecret: os.Getenv("FACEBOOK_APP_SECRET"),
+	})
+
+	cookieSecure := os.Getenv("COOKIE_SECURE") != "false" // default true, set COOKIE_SECURE=false for local dev
+
 	sqlDb, err := sql.Open("sqlite", dbURL)
 	if err != nil {
 		slog.Error("failed to open database", "error", err)
@@ -44,13 +58,14 @@ func main() {
 	defer sqlDb.Close()
 
 	queries := db.New(sqlDb)
+	svc := auth.NewService(queries)
 
 	router := chi.NewMux()
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries)
+	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, cookieSecure)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",

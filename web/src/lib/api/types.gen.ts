@@ -4,6 +4,90 @@
  */
 
 export interface paths {
+    "/api/auth/facebook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authenticate with Facebook
+         * @description Exchange a Facebook OAuth code for a session.
+         */
+        post: operations["auth-facebook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authenticate with Google
+         * @description Verify a Google ID token, create/update user, return session.
+         */
+        post: operations["auth-google"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log out
+         * @description Deletes the current session and clears the session cookie.
+         */
+        post: operations["auth-logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current user
+         * @description Returns the authenticated user. Requires session cookie.
+         */
+        get: operations["get-me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update profile
+         * @description Update the current user's display name and username. Requires session cookie.
+         */
+        patch: operations["update-me"];
+        trace?: never;
+    };
     "/api/plays/": {
         parameters: {
             query?: never;
@@ -14,7 +98,11 @@ export interface paths {
         /** List upcoming plays */
         get: operations["list-plays"];
         put?: never;
-        post?: never;
+        /**
+         * Create a play
+         * @description Create a new play session. Requires authentication.
+         */
+        post: operations["create-play"];
         delete?: never;
         options?: never;
         head?: never;
@@ -66,6 +154,74 @@ export interface components {
             type: string;
             value: string;
         };
+        CreateInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Contact methods */
+            contacts?: components["schemas"]["ContactMethod"][] | null;
+            /**
+             * Format: int64
+             * @description Number of courts
+             */
+            courts?: number;
+            /**
+             * @description Currency code
+             * @default SGD
+             */
+            currency: string;
+            /**
+             * Format: int64
+             * @description Duration in minutes (must be multiple of 15, max 300)
+             */
+            duration_minutes: number;
+            /**
+             * Format: int64
+             * @description Fee in cents
+             */
+            fee?: number;
+            /**
+             * @description Game type
+             * @enum {string}
+             */
+            game_type?: "doubles" | "singles" | "mixed_doubles" | "";
+            /**
+             * @description Gender preference
+             * @enum {string}
+             */
+            gender_pref?: "all" | "male_only" | "female_only" | "";
+            /** @description Maximum level code */
+            level_max?: string;
+            /** @description Minimum level code */
+            level_min?: string;
+            /**
+             * Format: int64
+             * @description Maximum number of players
+             */
+            max_players?: number;
+            /**
+             * Format: int64
+             * @description Available slots
+             */
+            slots_left?: number;
+            /**
+             * @description Sport type
+             * @enum {string}
+             */
+            sport: "badminton" | "tennis" | "football" | "pickleball";
+            /** @description Start time in RFC3339 format */
+            starts_at: string;
+            /**
+             * @description IANA timezone, e.g. Asia/Singapore
+             * @default Asia/Singapore
+             */
+            timezone: string;
+            /** @description Venue name (free text) */
+            venue: string;
+        };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
             location?: string;
@@ -113,6 +269,48 @@ export interface components {
              */
             type: string;
         };
+        FacebookInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/FacebookInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description OAuth authorization code from Facebook callback */
+            code: string;
+            /** @description The redirect_uri used in the OAuth flow (must match) */
+            redirect_uri: string;
+        };
+        FacebookOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/FacebookOutputBody.json
+             */
+            readonly $schema?: string;
+            session_token: string;
+            user: components["schemas"]["User"];
+        };
+        GoogleInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/GoogleInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Google ID token from GIS Sign-In */
+            credential: string;
+        };
+        GoogleOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/GoogleOutputBody.json
+             */
+            readonly $schema?: string;
+            session_token: string;
+            user: components["schemas"]["User"];
+        };
         ListBody: {
             /**
              * Format: uri
@@ -151,6 +349,10 @@ export interface components {
             /** Format: int64 */
             courts?: number;
             created_at: string;
+            created_by?: string;
+            creator_display_name?: string;
+            creator_photo_url?: string;
+            creator_username?: string;
             currency: string;
             ends_at: string;
             /** Format: int64 */
@@ -197,6 +399,36 @@ export interface components {
             venue_name: string;
             venue_postal_code?: string;
         };
+        UpdateInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdateInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description User's display name */
+            display_name: string;
+            /** @description Optional unique handle */
+            username?: string;
+        };
+        User: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/User.json
+             */
+            readonly $schema?: string;
+            contact_info?: string;
+            created_at: string;
+            display_name: string;
+            email: string;
+            id: string;
+            photo_url?: string;
+            sports_profile?: string;
+            status: string;
+            updated_at: string;
+            username?: string;
+        };
         VenuePublic: {
             /** Format: int64 */
             id: number;
@@ -216,6 +448,166 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "auth-facebook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FacebookInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FacebookOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "auth-google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoogleInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "auth-logout": {
+        parameters: {
+            query?: never;
+            header?: {
+                Cookie?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-plays": {
         parameters: {
             query?: {
@@ -231,6 +623,10 @@ export interface operations {
                 level_max?: string;
                 /** @description Only include plays starting on or after this date (YYYY-MM-DD) */
                 starts_after?: string;
+                /** @description Only include plays starting on or before this date (YYYY-MM-DD) */
+                starts_before?: string;
+                /** @description IANA timezone for date filters, e.g. Asia/Singapore. Defaults to UTC. */
+                timezone?: string;
                 /** @description Reference latitude for distance sorting */
                 lat?: number;
                 /** @description Reference longitude for distance sorting */
@@ -253,6 +649,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PagePlayPublic"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayPublic"];
                 };
             };
             /** @description Error */

@@ -1,14 +1,33 @@
 <script lang="ts">
 	import 'virtual:uno.css';
+	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import opengraphimage from '$lib/assets/opengraph-image.png';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import Button from '$lib/components/ui/button.svelte';
-	import { Info } from '@lucide/svelte';
+	import { Info, Sun, Moon, Palette } from '@lucide/svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index';
-	import { DESCRIPTION } from '$lib/consts';
+	import { DESCRIPTION } from '$lib/consts/index';
+	import type { LayoutData } from './$types';
+	import type { Snippet } from 'svelte';
+	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
+	import { getTheme, setTheme, type Theme } from '$lib/theme.svelte';
 
-	let { children } = $props();
+	let { children, data }: { children: Snippet; data: LayoutData } = $props();
+
+	const themes: { value: Theme; icon: typeof Sun }[] = [
+		{ value: 'light', icon: Sun },
+		{ value: 'dark', icon: Moon },
+		{ value: 'system', icon: Palette }
+	];
+
+	function cycleTheme() {
+		const order: Theme[] = ['light', 'dark', 'system'];
+		const idx = order.indexOf(getTheme());
+		const next = order[(idx + 1) % order.length]!;
+		setTheme(next);
+	}
 </script>
 
 <svelte:head>
@@ -29,21 +48,68 @@
 	<meta name="twitter:image" content={opengraphimage} />
 </svelte:head>
 
-<div class="text-stone-50 bg-stone-900 flex flex-col min-h-screen">
-	<header class="p-4">
-		<a href={resolve('/')} class="text-2xl text-white font-bold">OpenPlays</a>
+<div
+	class="text-foreground bg-background flex flex-col min-h-screen transition-colors duration-150"
+>
+	<header class="p-4 flex items-center justify-between">
+		<a href={resolve('/')} class="text-2xl text-foreground font-bold">OpenPlays</a>
+		<div class="flex gap-3 items-center">
+			<button
+				onclick={cycleTheme}
+				class="text-muted p-1 transition-colors hover:text-foreground"
+				title="Theme: {getTheme()}"
+			>
+				{#each themes as { value, icon: Icon } (value)}
+					{#if getTheme() === value}
+						<Icon class="size-4" />
+					{/if}
+				{/each}
+			</button>
+
+			{#if data.user}
+				<a href={resolve('/create')} class="text-sm text-muted hover:text-foreground">Create Game</a
+				>
+				<a
+					href={resolve('/profile')}
+					class="text-foreground flex gap-2 items-center hover:text-foreground/80"
+				>
+					<UserAvatar
+						src={data.user.photo_url}
+						nameForFallback={data.user.username ?? data.user.display_name}
+					/>
+					<span class="text-sm">{data.user.username ?? data.user.display_name}</span>
+				</a>
+				<form method="POST" action="/logout">
+					<button type="submit" class="text-sm text-muted hover:text-foreground">Logout</button>
+				</form>
+			{:else}
+				<!-- Don't show sign in button on login page -->
+				{#if data.showLoginButton && page.url.pathname !== '/login'}
+					<a href={resolve('/login')} class="text-sm text-muted hover:text-foreground">Sign in</a>
+				{/if}
+			{/if}
+		</div>
 	</header>
-	<main class="px-4 flex-1">
+	<main class="px-4 flex flex-1 flex-col">
 		{@render children()}
 	</main>
 	<footer class="p-4 flex gap-2 items-center">
-		<p class="text-sm text-stone-500">© {new Date().getFullYear()}</p>
+		<p class="text-sm text-muted-foreground">© {new Date().getFullYear()}</p>
+		<nav class="text-sm flex gap-3 items-center">
+			<a href={resolve('/privacy')} class="text-muted hover:text-foreground hover:underline"
+				>Privacy</a
+			>
+			<a href={resolve('/terms')} class="text-muted hover:text-foreground hover:underline">Terms</a>
+		</nav>
 
 		<Dialog.Root>
-			<Dialog.Trigger class="ms-auto">
-				<Info class="text-stone-500 size-4" />
+			<Dialog.Trigger
+				class="text-muted-foreground ms-auto p-1 rounded-md transition-colors hover:text-foreground hover:bg-accent"
+				aria-label="About OpenPlays"
+			>
+				<Info class="size-4" />
 			</Dialog.Trigger>
-			<Dialog.Content class="border border-stone-700 shadow-lg shadow-stone-800/30">
+			<Dialog.Content class="border border-border shadow-card/30 shadow-lg">
 				<Dialog.Header>
 					<Dialog.Title>OpenPlays</Dialog.Title>
 					<Dialog.Description>{DESCRIPTION}</Dialog.Description>
@@ -68,13 +134,13 @@
 							height="96"
 							viewBox="0 0 98 96"
 							fill="none"
-							class="size-4"
+							class="size-4 dark:invert"
 							xmlns="http://www.w3.org/2000/svg"
 						>
 							<g clip-path="url(#clip0_730_27136)">
 								<path
 									d="M41.4395 69.3848C28.8066 67.8535 19.9062 58.7617 19.9062 46.9902C19.9062 42.2051 21.6289 37.0371 24.5 33.5918C23.2559 30.4336 23.4473 23.7344 24.8828 20.959C28.7109 20.4805 33.8789 22.4902 36.9414 25.2656C40.5781 24.1172 44.4062 23.543 49.0957 23.543C53.7852 23.543 57.6133 24.1172 61.0586 25.1699C64.0254 22.4902 69.2891 20.4805 73.1172 20.959C74.457 23.543 74.6484 30.2422 73.4043 33.4961C76.4668 37.1328 78.0937 42.0137 78.0937 46.9902C78.0937 58.7617 69.1934 67.6621 56.3691 69.2891C59.623 71.3945 61.8242 75.9883 61.8242 81.252L61.8242 91.2051C61.8242 94.0762 64.2168 95.7031 67.0879 94.5547C84.4102 87.9512 98 70.6289 98 49.1914C98 22.1074 75.9883 6.69539e-07 48.9043 4.309e-07C21.8203 1.92261e-07 -1.9479e-07 22.1074 -4.3343e-07 49.1914C-6.20631e-07 70.4375 13.4941 88.0469 31.6777 94.6504C34.2617 95.6074 36.75 93.8848 36.75 91.3008L36.75 83.6445C35.4102 84.2188 33.6875 84.6016 32.1562 84.6016C25.8398 84.6016 22.1074 81.1563 19.4277 74.7441C18.375 72.1602 17.2266 70.6289 15.0254 70.3418C13.877 70.2461 13.4941 69.7676 13.4941 69.1934C13.4941 68.0449 15.4082 67.1836 17.3223 67.1836C20.0977 67.1836 22.4902 68.9063 24.9785 72.4473C26.8926 75.2227 28.9023 76.4668 31.2949 76.4668C33.6875 76.4668 35.2187 75.6055 37.4199 73.4043C39.0469 71.7773 40.291 70.3418 41.4395 69.3848Z"
-									fill="white"
+									fill="black"
 								/>
 							</g>
 							<defs>

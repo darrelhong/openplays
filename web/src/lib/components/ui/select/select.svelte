@@ -8,6 +8,7 @@
 		items: { value: string; label: string; disabled?: boolean }[];
 		placeholder?: string;
 		label?: string;
+		required?: boolean;
 		contentProps?: WithoutChildrenOrChild<SelectPrimitive.ContentProps>;
 	};
 
@@ -16,6 +17,7 @@
 		value = $bindable(),
 		placeholder = 'Select…',
 		label,
+		required = false,
 		contentProps,
 		...restProps
 	}: Props = $props();
@@ -30,11 +32,11 @@
 	{#if label}
 		<Label.Root
 			for={triggerId}
-			class="text-sm text-stone-400 mb-1 block"
-		>{label}</Label.Root>
+			class="text-sm text-muted mb-1 block"
+		>{label}{#if required}<span class="text-destructive/70 ml-0.5">*</span>{/if}</Label.Root>
 	{/if}
 	<SelectTrigger id={triggerId}>
-		<span class="truncate" class:text-stone-500={!selectedLabel}>
+		<span class="truncate" class:text-muted-foreground={!selectedLabel}>
 			{selectedLabel ?? placeholder}
 		</span>
 	</SelectTrigger>

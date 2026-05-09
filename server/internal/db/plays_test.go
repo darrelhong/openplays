@@ -97,7 +97,6 @@ func TestUpsertPlay_DifferentVenueID_InsertsBoth(t *testing.T) {
 	ctx := context.Background()
 
 	startsAt := futureTime()
-
 	params1 := makePlayParams("Daniel", "Peirce Sec", 1, startsAt)
 	params2 := makePlayParams("Daniel", "Hougang CC", 2, startsAt)
 
@@ -114,6 +113,39 @@ func TestUpsertPlay_DifferentVenueID_InsertsBoth(t *testing.T) {
 	}
 	if len(plays) != 2 {
 		t.Errorf("expected 2 plays (different venue IDs), got %d", len(plays))
+	}
+}
+
+func TestListUpcomingPlays_DateRange(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	base := time.Now().UTC().Add(24 * time.Hour).Truncate(24 * time.Hour)
+	if _, err := queries.UpsertPlay(ctx, makePlayParams("Day 1", "Peirce Sec", 1, base)); err != nil {
+		t.Fatalf("insert day 1: %v", err)
+	}
+	if _, err := queries.UpsertPlay(ctx, makePlayParams("Day 2", "Hougang CC", 2, base.AddDate(0, 0, 1))); err != nil {
+		t.Fatalf("insert day 2: %v", err)
+	}
+	if _, err := queries.UpsertPlay(ctx, makePlayParams("Day 3", "Bishan CC", 3, base.AddDate(0, 0, 2))); err != nil {
+		t.Fatalf("insert day 3: %v", err)
+	}
+
+	rows, err := queries.ListUpcomingPlays(ctx, db.ListUpcomingPlaysParams{
+		StartsAfter:  base.Format("2006-01-02 15:04:05+00:00"),
+		StartsBefore: base.AddDate(0, 0, 2).Format("2006-01-02 15:04:05+00:00"),
+		PageSize:     100,
+	})
+	if err != nil {
+		t.Fatalf("ListUpcomingPlays: %v", err)
+	}
+
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2", len(rows))
+	}
+	if rows[0].HostName != "Day 1" || rows[1].HostName != "Day 2" {
+		t.Fatalf("hosts = %q, %q; want Day 1, Day 2", rows[0].HostName, rows[1].HostName)
 	}
 }
 

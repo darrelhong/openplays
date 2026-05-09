@@ -13,7 +13,7 @@
 <SelectPrimitive.ScrollUpButton
 	bind:ref
 	data-slot="select-scroll-up-button"
-	class={cn('text-stone-400 py-1 flex w-full items-center justify-center', className)}
+	class={cn('text-muted py-1 flex w-full items-center justify-center', className)}
 	{...restProps}
 >
 	<ChevronsUp size={14} />

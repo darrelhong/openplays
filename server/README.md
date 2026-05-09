@@ -91,19 +91,62 @@ go run ./tools/parsetest/ < example_messages.txt
 
 REST API for querying plays and venues. Built with [huma](https://huma.rocks/) + [chi](https://github.com/go-chi/chi). Auto-generates an OpenAPI 3.1 spec from Go types.
 
+### Local development
+
+```bash
+# Install air for hot reload
+go install github.com/air-verse/air@latest
+
+# Copy env and configure
+cp .env.example .env
+```
+
+Add to `.env`:
+
+```
+COOKIE_SECURE=false
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+```
+
+Run with hot reload:
+
+```bash
+air
+```
+
+Or without hot reload:
+
 ```bash
 go run ./cmd/api/
 ```
 
 The server starts on port 8080 by default (configure with `API_PORT` in `.env`).
 
-- `GET /plays` — list upcoming plays with optional filters (`sport`, `venue_id`, `cursor`, `limit`)
-- `GET /plays/{id}` — get a single play
+- OpenAPI spec: http://localhost:8080/openapi.json
+- Interactive docs: http://localhost:8080/docs
+
+### Auth endpoints
+
+- `POST /api/auth/google` — body: `{"credential": "<google-id-token>"}` → returns user + session token, sets `session` cookie
+- `GET /api/auth/me` — returns current user from session cookie
+- `POST /api/auth/logout` — clears session
+
+### Play endpoints
+
+- `GET /api/plays/` — list upcoming plays with optional filters (`sport`, `venue_id`, `cursor`, `limit`, `lat`, `lng`, `starts_after`, `level_min`, `level_max`)
+- `GET /api/plays/{id}` — get a single play
 
 Pagination is cursor-based. The response includes `next_cursor` and `has_more` for paging through results.
 
-- OpenAPI spec: http://localhost:8080/openapi.json
-- Interactive docs: http://localhost:8080/docs
+### Environment variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `DB_URL` | No | `openplays_local.db` | SQLite database path |
+| `API_PORT` | No | `8080` | HTTP port |
+| `GOOGLE_CLIENT_ID` | Yes (for auth) | — | Google OAuth client ID |
+| `COOKIE_SECURE` | No | `true` | Set `false` for local dev (HTTP) |
+| `LOG_FORMAT` | No | `text` | `text` or `json` |
 
 ## Test OneMap search
 

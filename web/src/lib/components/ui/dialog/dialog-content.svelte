@@ -26,7 +26,7 @@
 	} = $props();
 
 	const baseClasses =
-		'fixed z-50 text-sm p-6 outline-none bg-stone-900 text-stone-100 ring-1 ring-stone-500/10';
+		'fixed z-50 text-sm p-6 outline-none bg-background text-foreground ring-1 ring-border/10';
 
 	const variantClasses: Record<Variant, string> = {
 		center: cn(
@@ -38,7 +38,7 @@
 		),
 		right: cn(
 			'h-full max-w-md w-full right-0 top-0 lg:max-w-lg',
-			'border-l border-stone-700 flex flex-col shadow-xl',
+			'border-l border-border flex flex-col shadow-xl',
 			'translate-x-0 transition-transform duration-200 ease-out',
 			'data-[state=closed]:translate-x-full data-[state=closed]:duration-150 data-[state=closed]:ease-in',
 			'data-[starting-style]:translate-x-full'

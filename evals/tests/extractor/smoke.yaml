@@ -1,0 +1,36 @@
+- description: Simple single listing smoke test
+  vars:
+    senderName: Test Sender 6
+    referenceDate: '2026-05-03'
+    expected: file://tests/extractor/fixtures/simple-single-listing.json
+    block: |
+      Friendly doubles HB-LI
+
+      Beatty sec toa Payoh
+      Sat 9 May
+      3-5pm
+
+      $8/pax
+      RSL Supreme
+      slots 5/6
+  threshold: 0.8
+  assertScoringFunction: file://configs/assertions/extractor-scoring.js:extractorScoring
+  assert:
+    - type: javascript
+      metric: count
+      value: file://configs/assertions/extractor-assertions.js:listingCountMatches
+    - type: javascript
+      metric: structure
+      value: file://configs/assertions/extractor-assertions.js:structureMatches
+    - type: javascript
+      metric: courts
+      value: file://configs/assertions/extractor-assertions.js:courtsMatch
+    - type: javascript
+      metric: fees
+      value: file://configs/assertions/extractor-assertions.js:feesMatch
+    - type: javascript
+      metric: contacts
+      value: file://configs/assertions/extractor-assertions.js:contactsMatch
+    - type: javascript
+      metric: normalization
+      value: file://configs/assertions/extractor-assertions.js:normalizationMatches

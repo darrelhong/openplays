@@ -1,3 +1,6 @@
+// Package model defines domain types (sports, levels, listing types, etc).
+// Frontend mirror: web/src/lib/consts/
+// Keep sport values, game types, and levels in sync with the frontend constants.
 package model
 
 import (

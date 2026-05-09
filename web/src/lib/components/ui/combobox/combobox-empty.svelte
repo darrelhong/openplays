@@ -7,7 +7,7 @@
 
 <span
 	data-slot="combobox-empty"
-	class={cn('text-sm text-stone-500 px-2 py-1.5 block', className)}
+	class={cn('text-sm text-muted-foreground px-2 py-1.5 block', className)}
 	{...restProps}
 >
 	No results found.

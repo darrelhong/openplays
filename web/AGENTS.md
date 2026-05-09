@@ -6,7 +6,19 @@
 
 ---
 
-You are able to use the Svelte MCP server, where you have access to comprehensive Svelte 5 and SvelteKit documentation. Here's how to use the available tools effectively:
+## API Client
+
+All calls to the Go backend should use the typed `openapi-fetch` client at `$lib/api/client.ts`. Never use raw `fetch()` to call the API unless somehow necessary — the typed client provides compile-time safety from the generated OpenAPI types.
+
+When new API endpoints are added to the Go backend, run:
+
+```bash
+pnpm gen:types
+```
+
+This regenerates `$lib/api/types.gen.ts` from the Go API's OpenAPI spec (`/openapi.json`). Always do this before using new endpoints in frontend code.
+
+---
 
 ## Available MCP Tools:
 

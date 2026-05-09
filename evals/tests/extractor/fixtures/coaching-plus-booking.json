@@ -1,0 +1,30 @@
+[
+  {
+    "listing_type": "sell_booking",
+    "host_name": "Test Sender 4",
+    "game_type": null,
+    "date": "2026-04-12",
+    "start_time": "16:00",
+    "end_time": "17:00",
+    "venue": "edgefield primary",
+    "level_min": null,
+    "level_max": null,
+    "level_raw": null,
+    "level_male_min": null,
+    "level_male_max": null,
+    "level_female_min": null,
+    "level_female_max": null,
+    "fee_cents": null,
+    "fee_male_cents": null,
+    "fee_female_cents": null,
+    "currency": "SGD",
+    "max_players": null,
+    "slots_left": null,
+    "courts": null,
+    "gender_pref": null,
+    "shuttle": null,
+    "air_con": null,
+    "details": null,
+    "contacts": []
+  }
+]

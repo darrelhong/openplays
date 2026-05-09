@@ -47,9 +47,9 @@ func TestPromoTicker_Tick(t *testing.T) {
 	sgt, _ := time.LoadLocation("Asia/Singapore")
 
 	tests := []struct {
-		name       string
-		hour       int
-		wantPost   bool
+		name     string
+		hour     int
+		wantPost bool
 	}{
 		{"7am posts (first slot)", 7, true},
 		{"8am skips (not on interval)", 8, false},

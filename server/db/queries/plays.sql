@@ -44,6 +44,26 @@ ON CONFLICT(host_name, starts_at, sport, COALESCE(level_min, ''), COALESCE(level
     updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 RETURNING *;
 
+-- name: CreatePlay :one
+INSERT INTO plays (
+    listing_type, sport, game_type, host_name,
+    starts_at, ends_at, timezone,
+    venue, venue_id,
+    level_min, level_max, level_min_ord, level_max_ord,
+    fee, currency, max_players, slots_left, courts,
+    contacts, gender_pref, meta,
+    source, created_by
+) VALUES (
+    ?, ?, ?, ?,
+    ?, ?, ?,
+    ?, ?,
+    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
+    ?, ?, ?,
+    'user', ?
+)
+RETURNING *;
+
 -- name: GetUpcomingPlays :many
 SELECT * FROM plays
 WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
@@ -59,17 +79,20 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id,
+    p.venue, p.venue_id, p.created_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
+  AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
@@ -86,6 +109,7 @@ LIMIT sqlc.arg('page_size');
 SELECT COUNT(*) FROM plays p
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
+  AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
@@ -100,13 +124,14 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id,
+    p.venue, p.venue_id, p.created_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
     v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
     CAST(2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(sqlc.arg('ref_lat'))) / 2), 2) +
         cos(radians(sqlc.arg('ref_lat'))) * cos(radians(v.latitude)) *
@@ -114,8 +139,10 @@ SELECT
     )) AS REAL) AS distance_km
 FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
+  AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
@@ -141,6 +168,7 @@ SELECT COUNT(*) FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
+  AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
   AND (sqlc.narg('sport') IS NULL OR p.sport = sqlc.narg('sport'))
   AND (sqlc.narg('venue_id') IS NULL OR p.venue_id = sqlc.narg('venue_id'))
@@ -152,13 +180,15 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id,
+    p.venue, p.venue_id, p.created_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
 WHERE p.id = ?;

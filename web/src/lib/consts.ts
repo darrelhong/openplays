@@ -1,1 +1,0 @@
-export const DESCRIPTION = "The best way to discover and organise sports sessions.";

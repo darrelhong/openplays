@@ -4,6 +4,50 @@ import (
 	"testing"
 )
 
+func TestBuildFiltersDateRange(t *testing.T) {
+	f := buildFilters(&ListInput{
+		StartsAfter:  "2026-04-10",
+		StartsBefore: "2026-04-11",
+		Timezone:     "Asia/Singapore",
+	})
+
+	if got, want := f.startsAfter, "2026-04-09 16:00:00+00:00"; got != want {
+		t.Errorf("starts_after = %v, want %v", got, want)
+	}
+	if got, want := f.startsBefore, "2026-04-11 16:00:00+00:00"; got != want {
+		t.Errorf("starts_before = %v, want exclusive next-day bound %v", got, want)
+	}
+}
+
+func TestBuildFiltersDateRange_DefaultUTC(t *testing.T) {
+	f := buildFilters(&ListInput{
+		StartsAfter:  "2026-04-10",
+		StartsBefore: "2026-04-11",
+	})
+
+	if got, want := f.startsAfter, "2026-04-10 00:00:00+00:00"; got != want {
+		t.Errorf("starts_after = %v, want %v", got, want)
+	}
+	if got, want := f.startsBefore, "2026-04-12 00:00:00+00:00"; got != want {
+		t.Errorf("starts_before = %v, want exclusive next-day bound %v", got, want)
+	}
+}
+
+func TestBuildFiltersDateRange_InvalidTimezoneFallsBackToUTC(t *testing.T) {
+	f := buildFilters(&ListInput{
+		StartsAfter:  "2026-04-10",
+		StartsBefore: "2026-04-11",
+		Timezone:     "Mars/Olympus",
+	})
+
+	if got, want := f.startsAfter, "2026-04-10 00:00:00+00:00"; got != want {
+		t.Errorf("starts_after = %v, want %v", got, want)
+	}
+	if got, want := f.startsBefore, "2026-04-12 00:00:00+00:00"; got != want {
+		t.Errorf("starts_before = %v, want exclusive next-day bound %v", got, want)
+	}
+}
+
 func TestEncodeTimeCursor(t *testing.T) {
 	tests := []struct {
 		name     string

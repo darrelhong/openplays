@@ -13,9 +13,9 @@
 	bind:ref
 	data-slot="date-picker-input"
 	class={cn(
-		'text-sm text-stone-100 pe-1.5 ps-3 border border-stone-500 rounded-lg bg-stone-800 h-9 w-full',
+		'text-sm text-foreground pe-1.5 ps-3 border border-border rounded-lg bg-card h-9 w-full',
 		'flex select-none items-center',
-		'focus-within:outline-none focus-within:ring-1 focus-within:ring-stone-400',
+		'focus-within:outline-none focus-within:ring-1 focus-within:ring-ring',
 		className
 	)}
 	{...restProps}
