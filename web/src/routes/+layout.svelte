@@ -84,7 +84,7 @@
 				</form>
 			{:else}
 				<!-- Don't show sign in button on login page -->
-				{#if page.url.pathname !== '/login'}
+				{#if data.showLoginButton && page.url.pathname !== '/login'}
 					<a href={resolve('/login')} class="text-sm text-muted hover:text-foreground">Sign in</a>
 				{/if}
 			{/if}
