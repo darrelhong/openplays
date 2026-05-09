@@ -717,7 +717,7 @@ INSERT INTO plays (
     ?, ?, ?, ?, ?,
     ?, ?
 )
-ON CONFLICT(host_name, starts_at, sport, COALESCE(level_min, ''), COALESCE(level_max, ''), COALESCE(venue_id, 0)) DO UPDATE SET
+ON CONFLICT(host_name, starts_at, sport, COALESCE(venue_id, 0)) DO UPDATE SET
     listing_type          = excluded.listing_type,
     game_type             = excluded.game_type,
     ends_at               = excluded.ends_at,

@@ -116,6 +116,62 @@ func TestUpsertPlay_DifferentVenueID_InsertsBoth(t *testing.T) {
 	}
 }
 
+func TestUpsertPlay_DifferentLevel_UpdatesSameRow(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	startsAt := futureTime()
+	venueID := int64(1)
+
+	params1 := makePlayParams("Daniel", "Peirce Sec", venueID, startsAt)
+	levelMin1 := "LB"
+	levelMax1 := "HB"
+	slotsLeft1 := int64(6)
+	params1.LevelMin = &levelMin1
+	params1.LevelMax = &levelMax1
+	params1.SlotsLeft = &slotsLeft1
+
+	play1, err := queries.UpsertPlay(ctx, params1)
+	if err != nil {
+		t.Fatalf("first UpsertPlay: %v", err)
+	}
+
+	params2 := makePlayParams("Daniel", "Peirce Sec", venueID, startsAt)
+	levelMin2 := "HI"
+	levelMax2 := "A"
+	slotsLeft2 := int64(3)
+	params2.LevelMin = &levelMin2
+	params2.LevelMax = &levelMax2
+	params2.SlotsLeft = &slotsLeft2
+
+	play2, err := queries.UpsertPlay(ctx, params2)
+	if err != nil {
+		t.Fatalf("second UpsertPlay: %v", err)
+	}
+
+	if play2.ID != play1.ID {
+		t.Errorf("expected same ID %d, got %d", play1.ID, play2.ID)
+	}
+	if play2.LevelMin == nil || *play2.LevelMin != "HI" {
+		t.Errorf("LevelMin = %v, want HI", play2.LevelMin)
+	}
+	if play2.LevelMax == nil || *play2.LevelMax != "A" {
+		t.Errorf("LevelMax = %v, want A", play2.LevelMax)
+	}
+	if play2.SlotsLeft == nil || *play2.SlotsLeft != 3 {
+		t.Errorf("SlotsLeft = %v, want 3", play2.SlotsLeft)
+	}
+
+	plays, err := queries.GetUpcomingPlays(ctx)
+	if err != nil {
+		t.Fatalf("GetUpcomingPlays: %v", err)
+	}
+	if len(plays) != 1 {
+		t.Errorf("expected 1 play, got %d", len(plays))
+	}
+}
+
 func TestListUpcomingPlays_DateRange(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
