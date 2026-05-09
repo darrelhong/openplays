@@ -3,6 +3,7 @@ package plays
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -86,6 +87,11 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			}
 		}
 
+		var resolvedVenueID *int64
+		if queries, ok := store.(*db.Queries); ok {
+			resolvedVenueID = resolveVenueID(ctx, queries, input.Body.Venue)
+		}
+
 		play, err := store.CreatePlay(ctx, db.CreatePlayParams{
 			ListingType: model.ListingPlay,
 			Sport:       input.Body.Sport,
@@ -95,6 +101,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			EndsAt:      endsAt,
 			Timezone:    input.Body.Timezone,
 			Venue:       input.Body.Venue,
+			VenueID:     resolvedVenueID,
 			LevelMin:    input.Body.LevelMin,
 			LevelMax:    input.Body.LevelMax,
 			LevelMinOrd: levelMinOrd,
@@ -141,6 +148,39 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		}
 		return out, nil
 	})
+}
+
+func resolveVenueID(ctx context.Context, queries *db.Queries, rawVenue string) *int64 {
+	venue := strings.TrimSpace(rawVenue)
+	if venue == "" {
+		return nil
+	}
+
+	if v, err := queries.GetVenueByAlias(ctx, venue); err == nil {
+		id := v.ID
+		return &id
+	}
+
+	if lower := strings.ToLower(venue); lower != venue {
+		if v, err := queries.GetVenueByAlias(ctx, lower); err == nil {
+			id := v.ID
+			return &id
+		}
+	}
+
+	names, err := queries.ListVenueNames(ctx)
+	if err != nil {
+		return nil
+	}
+
+	for _, item := range names {
+		if strings.EqualFold(strings.TrimSpace(item.Name), venue) {
+			id := item.ID
+			return &id
+		}
+	}
+
+	return nil
 }
 
 // Ensure *db.Queries satisfies CreatePlayStore

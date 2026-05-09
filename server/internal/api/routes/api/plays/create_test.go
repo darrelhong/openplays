@@ -3,6 +3,9 @@ package plays_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,6 +21,7 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/testdb"
 )
 
 type fakeCreatePlayStore struct {
@@ -67,7 +71,7 @@ func (f *fakeAuthStore) RefreshSession(_ context.Context, _ db.RefreshSessionPar
 	return nil
 }
 
-func setupCreateTest(authStore *fakeAuthStore, playStore *fakeCreatePlayStore) *httptest.Server {
+func setupCreateTest(authStore *fakeAuthStore, playStore plays.CreatePlayStore) *httptest.Server {
 	svc := auth.NewService(authStore)
 
 	r := chi.NewRouter()
@@ -288,3 +292,67 @@ func TestCreatePlay_PastStartTime_Returns422(t *testing.T) {
 		t.Fatalf("status = %d, want 422", resp.StatusCode)
 	}
 }
+
+func TestCreatePlay_ResolvesVenueID_ForKnownVenueName(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+
+	venue, err := queries.UpsertVenue(context.Background(), db.UpsertVenueParams{
+		PostalCode: ptrString("359844"),
+		Name:       "Beatty Secondary School",
+		Address:    "1 Toa Payoh Lor 3, Singapore 319795",
+		Latitude:   1.3285,
+		Longitude:  103.8571,
+		Source:     "manual",
+		SearchTerm: ptrString("beatty secondary school"),
+	})
+	if err != nil {
+		t.Fatalf("upsert venue: %v", err)
+	}
+
+	ts := setupCreateTest(activeSession(), queries)
+	defer ts.Close()
+
+	startsAt := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"Beatty Secondary School","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`,
+		startsAt,
+	)
+
+	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, want 200, body=%s", resp.StatusCode, string(b))
+	}
+
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ID == 0 {
+		t.Fatalf("expected created play id in response")
+	}
+
+	row, err := queries.GetPlayByID(context.Background(), out.ID)
+	if err != nil {
+		t.Fatalf("GetPlayByID: %v", err)
+	}
+	if row.VenueID == nil {
+		t.Fatalf("venue_id = nil, want %d", venue.ID)
+	}
+	if *row.VenueID != venue.ID {
+		t.Fatalf("venue_id = %d, want %d", *row.VenueID, venue.ID)
+	}
+}
+
+func ptrString(v string) *string { return &v }
