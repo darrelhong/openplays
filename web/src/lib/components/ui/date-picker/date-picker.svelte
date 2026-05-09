@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { DatePicker as DatePickerPrimitive } from 'bits-ui';
 	import type { DateValue } from '@internationalized/date';
 	import DatePickerInput from './date-picker-input.svelte';
@@ -34,7 +35,7 @@
 		granularity = 'day',
 		weekStartsOn,
 		fixedWeeks = true,
-		locale = 'en',
+		locale = 'en-SG',
 		closeOnDateSelect = true,
 		label,
 		required = false,
