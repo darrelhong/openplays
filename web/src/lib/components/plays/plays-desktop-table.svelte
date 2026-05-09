@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/button.svelte';
-	import * as Dialog from '$lib/components/ui/dialog/index';
 	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
 	import {
 		capitalize,
@@ -9,7 +8,6 @@
 		formatLevel,
 		formatTime
 	} from '$lib/utils/formatting';
-	import PlayDetailsContent from './play-details-content.svelte';
 	import type { Play } from './types';
 
 	let { plays }: { plays: Play[] } = $props();
@@ -45,7 +43,13 @@
 							)}</td
 						>
 						<td>{play.host_name}</td>
-						<td>{capitalize(play.sport)}</td>
+						<td>
+							<span
+								class={`text-xs px-2 py-0.5 border rounded-full inline-flex items-center ${play.created_by != null ? 'text-sky-700 border-sky-300/60 bg-sky-100/40 dark:text-sky-300 dark:border-sky-700/60 dark:bg-sky-900/20' : 'text-muted border-border bg-card/70'}`}
+							>
+								{capitalize(play.sport)}
+							</span>
+						</td>
 						<td>{formatLevel(play.level_min, play.level_max)}</td>
 						<td>{formatPlayFee(play)}</td>
 						<td
@@ -53,14 +57,7 @@
 									'-'}{/if}</td
 						>
 						<td>
-							<Dialog.Root>
-								<Dialog.Trigger>
-									{#snippet child({ props })}
-										<Button {...props} size="xs" variant="outline">View</Button>
-									{/snippet}
-								</Dialog.Trigger>
-								<PlayDetailsContent {play} />
-							</Dialog.Root>
+							<Button href={`/play/${play.id}`} size="xs" variant="outline">View</Button>
 						</td>
 					</tr>
 				{/each}
