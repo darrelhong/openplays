@@ -3,4 +3,4 @@
 
 export { DESCRIPTION } from './app';
 export { SPORTS, GAME_TYPES, DURATIONS, type SelectItem } from './sports';
-export { BADMINTON_LEVELS, levelIndex } from './levels';
+export { BADMINTON_LEVELS, TENNIS_LEVELS, levelIndex } from './levels';

@@ -1,5 +1,12 @@
 package model
 
+import (
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
+)
+
 // Level ordinal mappings for each sport.
 // Ordinals define the skill ordering for filtering and sorting.
 // Gaps of 10 allow inserting new levels between existing ones.
@@ -30,6 +37,33 @@ var BadmintonLevels = []LevelDef{
 	{Code: "A", Ord: 70, Name: "Advanced"},
 }
 
+// TennisLevels defines tennis levels from 1.0 to 7.0 in 0.5 increments
+// for UI selectors and filter controls.
+// Ordinals follow NTRP x10 so 3.5 maps to 35.
+var TennisLevels = buildTennisLevels()
+
+func buildTennisLevels() []LevelDef {
+	levels := make([]LevelDef, 0, 13)
+	for ord := 10; ord <= 70; ord += 5 {
+		code := fmt.Sprintf("%.1f", float64(ord)/10)
+		levels = append(levels, LevelDef{Code: code, Ord: ord, Name: code})
+	}
+	return levels
+}
+
+func tennisCodeToOrd(code string) (int, bool) {
+	f, err := strconv.ParseFloat(strings.TrimSpace(code), 64)
+	if err != nil || f < 1.0 || f > 7.0 {
+		return 0, false
+	}
+	scaled := f * 10
+	if math.Abs(scaled-math.Round(scaled)) > 1e-9 {
+		return 0, false
+	}
+	ord := int(math.Round(scaled))
+	return ord, true
+}
+
 // LevelDef defines a single level within a sport's skill scale.
 type LevelDef struct {
 	Code string // short code: "HB", "3.5"
@@ -48,7 +82,7 @@ type levelIndex struct {
 func init() {
 	sportLevelIndex = map[Sport]*levelIndex{
 		SportBadminton: buildLevelIndex(BadmintonLevels),
-		// Tennis: use NTRP rating directly as the ordinal (e.g. 35 for 3.5)
+		SportTennis:    buildLevelIndex(TennisLevels),
 		// Football: TBD
 	}
 }
@@ -68,6 +102,13 @@ func buildLevelIndex(defs []LevelDef) *levelIndex {
 // LevelOrd returns the numeric ordinal for a level code within a sport.
 // Returns nil if the sport or code is not recognized.
 func LevelOrd(sport Sport, code string) *int {
+	if sport == SportTennis {
+		if ord, ok := tennisCodeToOrd(code); ok {
+			return &ord
+		}
+		return nil
+	}
+
 	idx, ok := sportLevelIndex[sport]
 	if !ok {
 		return nil
@@ -81,6 +122,14 @@ func LevelOrd(sport Sport, code string) *int {
 // LevelCode returns the level code for a numeric ordinal within a sport.
 // Returns nil if the sport or ordinal is not recognized.
 func LevelCode(sport Sport, ord int) *string {
+	if sport == SportTennis {
+		if ord < 10 || ord > 70 {
+			return nil
+		}
+		code := fmt.Sprintf("%.1f", float64(ord)/10)
+		return &code
+	}
+
 	idx, ok := sportLevelIndex[sport]
 	if !ok {
 		return nil
@@ -109,6 +158,8 @@ func LevelDefs(sport Sport) []LevelDef {
 	switch sport {
 	case SportBadminton:
 		return BadmintonLevels
+	case SportTennis:
+		return TennisLevels
 	default:
 		return nil
 	}

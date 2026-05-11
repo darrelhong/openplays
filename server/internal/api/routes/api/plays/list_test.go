@@ -186,3 +186,21 @@ func TestCursorStartsAtForDB(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildFilters_SportAndTennisLevel(t *testing.T) {
+	f := buildFilters(&ListInput{
+		Sport:    "tennis",
+		LevelMin: "3.0",
+		LevelMax: "4.0",
+	})
+
+	if got, want := f.sport, "tennis"; got != want {
+		t.Errorf("sport = %v, want %v", got, want)
+	}
+	if got, want := f.filterLevelMinOrd, 30; got != want {
+		t.Errorf("filter_level_min_ord = %v, want %v", got, want)
+	}
+	if got, want := f.filterLevelMaxOrd, 40; got != want {
+		t.Errorf("filter_level_max_ord = %v, want %v", got, want)
+	}
+}

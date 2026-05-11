@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import { DateRangePicker as DateRangePickerPrimitive } from 'bits-ui';
 	import type { DateValue } from '@internationalized/date';
 	import DateRangePickerInput from './date-range-picker-input.svelte';

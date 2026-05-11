@@ -10,7 +10,7 @@
 	import { Combobox } from '$lib/components/ui/combobox/index';
 	import { Select } from '$lib/components/ui/select/index';
 	import { DateRangePicker } from '$lib/components/ui/date-range-picker/index';
-	import { BADMINTON_LEVELS, levelIndex } from '$lib/consts/index';
+	import { BADMINTON_LEVELS, TENNIS_LEVELS, SPORTS, levelIndex } from '$lib/consts/index';
 	import PlaysDesktopTable from '$lib/components/plays/plays-desktop-table.svelte';
 	import PlaysMobileGrid from '$lib/components/plays/plays-mobile-grid.svelte';
 
@@ -21,6 +21,7 @@
 
 	let { data }: { data: PageData } = $props();
 
+	let selectedSport = $state<string>(page.url.searchParams.get('sport') || '');
 	let selectedVenue = $state<string>(getInitialVenue());
 	let selectedDateRange = $state<DateRange>({
 		start: getInitialDate('starts_after'),
@@ -36,16 +37,18 @@
 	const venueItems = $derived(data.venues.map((v) => ({ value: String(v.id), label: v.name })));
 
 	// Disable levels above selected max for min, and below selected min for max
+	const levelOptions = $derived(selectedSport === 'tennis' ? TENNIS_LEVELS : BADMINTON_LEVELS);
+
 	const levelMinItems = $derived(
-		BADMINTON_LEVELS.map((item, idx) => {
-			const maxIdx = levelIndex(BADMINTON_LEVELS, selectedLevelMax);
+		levelOptions.map((item, idx) => {
+			const maxIdx = levelIndex(levelOptions, selectedLevelMax);
 			return { ...item, disabled: maxIdx !== -1 && idx > maxIdx };
 		})
 	);
 
 	const levelMaxItems = $derived(
-		BADMINTON_LEVELS.map((item, idx) => {
-			const minIdx = levelIndex(BADMINTON_LEVELS, selectedLevel);
+		levelOptions.map((item, idx) => {
+			const minIdx = levelIndex(levelOptions, selectedLevel);
 			return { ...item, disabled: minIdx !== -1 && idx < minIdx };
 		})
 	);
@@ -119,6 +122,25 @@
 		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
 	}
 
+	function handleSportChange(value: string) {
+		selectedSport = value;
+		selectedLevel = '';
+		selectedLevelMax = '';
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+		ensureTimezoneParam(params);
+		if (value) {
+			params.set('sport', value);
+		} else {
+			params.delete('sport');
+		}
+		params.delete('level_min');
+		params.delete('level_max');
+		params.delete('cursor');
+
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+	}
+
 	function handleLevelChange() {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		ensureTimezoneParam(params);
@@ -139,12 +161,14 @@
 	}
 
 	function clearFilters() {
+		selectedSport = '';
 		selectedVenue = '';
 		selectedDateRange = { start: undefined, end: undefined };
 		selectedLevel = '';
 		selectedLevelMax = '';
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		ensureTimezoneParam(params);
+		params.delete('sport');
 		params.delete('lat');
 		params.delete('lng');
 		params.delete('starts_after');
@@ -168,6 +192,17 @@
 <h1 class="text-xl font-semibold mb-2">Plays</h1>
 
 <div class="mb-4 flex flex-wrap gap-2 items-end">
+	<div class="w-full sm:w-52">
+		<Select
+			type="single"
+			items={SPORTS}
+			bind:value={selectedSport}
+			onValueChange={handleSportChange}
+			placeholder="Any sport"
+			label="Sport"
+			allowDeselect
+		/>
+	</div>
 	<div class="w-full sm:w-70">
 		<label for="venue-filter" class="text-sm text-muted mb-1 block">Sort near venue</label>
 		<Combobox
@@ -212,7 +247,7 @@
 			/>
 		</div>
 	</div>
-	{#if selectedVenue || selectedDateRange.start || selectedDateRange.end || selectedLevel || selectedLevelMax}
+	{#if selectedSport || selectedVenue || selectedDateRange.start || selectedDateRange.end || selectedLevel || selectedLevelMax}
 		<Button class="w-full sm:w-auto" variant="outline" onclick={clearFilters}>Clear filters</Button>
 	{/if}
 </div>

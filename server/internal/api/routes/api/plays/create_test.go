@@ -272,6 +272,40 @@ func TestCreatePlay_EndsAtComputedFromDuration(t *testing.T) {
 	}
 }
 
+func TestCreatePlay_TennisLevelsMappedToOrdinals(t *testing.T) {
+	now := time.Now()
+	playStore := &fakeCreatePlayStore{
+		play: db.Play{
+			ID: 1, ListingType: model.ListingPlay, Currency: "SGD",
+			Timezone: "Asia/Singapore", CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setupCreateTest(activeSession(), playStore)
+	defer ts.Close()
+
+	body := `{"sport":"tennis","venue":"Kallang Tennis Centre","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","level_min":"3.0","level_max":"4.0"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	if playStore.lastArgs.LevelMinOrd == nil || *playStore.lastArgs.LevelMinOrd != 30 {
+		t.Fatalf("level_min_ord = %v, want 30", playStore.lastArgs.LevelMinOrd)
+	}
+	if playStore.lastArgs.LevelMaxOrd == nil || *playStore.lastArgs.LevelMaxOrd != 40 {
+		t.Fatalf("level_max_ord = %v, want 40", playStore.lastArgs.LevelMaxOrd)
+	}
+}
+
 func TestCreatePlay_PastStartTime_Returns422(t *testing.T) {
 	ts := setupCreateTest(activeSession(), &fakeCreatePlayStore{})
 	defer ts.Close()
