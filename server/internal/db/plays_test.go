@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
 	"openplays/server/internal/testdb"
@@ -23,7 +25,7 @@ func TestUpsertPlay_Insert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertPlay insert: %v", err)
 	}
-	if play.ID == 0 {
+	if play.ID == "" {
 		t.Error("expected non-zero ID")
 	}
 	if play.SlotsLeft == nil || *play.SlotsLeft != 6 {
@@ -65,7 +67,7 @@ func TestUpsertPlay_UpdateOnConflict(t *testing.T) {
 
 	// Should be the same row, not a new one
 	if play2.ID != play1.ID {
-		t.Errorf("expected same ID %d, got %d (new row created instead of update)", play1.ID, play2.ID)
+		t.Errorf("expected same ID %s, got %s (new row created instead of update)", play1.ID, play2.ID)
 	}
 
 	// Slots and fee should be updated
@@ -151,7 +153,7 @@ func TestUpsertPlay_DifferentLevel_UpdatesSameRow(t *testing.T) {
 	}
 
 	if play2.ID != play1.ID {
-		t.Errorf("expected same ID %d, got %d", play1.ID, play2.ID)
+		t.Errorf("expected same ID %s, got %s", play1.ID, play2.ID)
 	}
 	if play2.LevelMin == nil || *play2.LevelMin != "HI" {
 		t.Errorf("LevelMin = %v, want HI", play2.LevelMin)
@@ -210,6 +212,7 @@ func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.Up
 	levelMin := "LB"
 	levelMax := "HB"
 	return db.UpsertPlayParams{
+		ID:          uuid.NewString(),
 		ListingType: model.ListingPlay,
 		Sport:       model.SportBadminton,
 		HostName:    host,

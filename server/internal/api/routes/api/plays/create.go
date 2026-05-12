@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
 
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
@@ -93,6 +94,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		}
 
 		play, err := store.CreatePlay(ctx, db.CreatePlayParams{
+			ID:          uuid.NewString(),
 			ListingType: model.ListingPlay,
 			Sport:       input.Body.Sport,
 			GameType:    input.Body.GameType,

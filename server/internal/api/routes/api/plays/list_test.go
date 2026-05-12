@@ -52,20 +52,20 @@ func TestEncodeTimeCursor(t *testing.T) {
 	tests := []struct {
 		name     string
 		startsAt string
-		id       int64
+		id       string
 		want     string
 	}{
 		{
 			name:     "standard RFC3339 stays RFC3339",
 			startsAt: "2026-04-10T12:00:00Z",
-			id:       42,
-			want:     "2026-04-10T12:00:00Z,42",
+			id:       "018f9f0e-5d2d-7777-9b9c-111111111111",
+			want:     "2026-04-10T12:00:00Z,018f9f0e-5d2d-7777-9b9c-111111111111",
 		},
 		{
 			name:     "with timezone offset",
 			startsAt: "2026-04-10T20:00:00+08:00",
-			id:       99,
-			want:     "2026-04-10T12:00:00Z,99", // normalized to UTC RFC3339
+			id:       "018f9f0e-5d2d-7777-9b9c-222222222222",
+			want:     "2026-04-10T12:00:00Z,018f9f0e-5d2d-7777-9b9c-222222222222", // normalized to UTC RFC3339
 		},
 	}
 
@@ -73,7 +73,7 @@ func TestEncodeTimeCursor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := encodeTimeCursor(tt.startsAt, tt.id)
 			if got != tt.want {
-				t.Errorf("encodeTimeCursor(%q, %d) = %q, want %q", tt.startsAt, tt.id, got, tt.want)
+				t.Errorf("encodeTimeCursor(%q, %q) = %q, want %q", tt.startsAt, tt.id, got, tt.want)
 			}
 		})
 	}
@@ -84,14 +84,14 @@ func TestDecodeTimeCursor(t *testing.T) {
 		name     string
 		cursor   string
 		wantTime string
-		wantID   int64
+		wantID   string
 		wantOK   bool
 	}{
 		{
 			name:     "valid cursor",
-			cursor:   "2026-04-10T12:00:00Z,42",
+			cursor:   "2026-04-10T12:00:00Z,018f9f0e-5d2d-7777-9b9c-111111111111",
 			wantTime: "2026-04-10T12:00:00Z",
-			wantID:   42,
+			wantID:   "018f9f0e-5d2d-7777-9b9c-111111111111",
 			wantOK:   true,
 		},
 		{
@@ -105,8 +105,8 @@ func TestDecodeTimeCursor(t *testing.T) {
 			wantOK: false,
 		},
 		{
-			name:   "bad id",
-			cursor: "2026-04-10T12:00:00Z,notanumber",
+			name:   "missing id",
+			cursor: "2026-04-10T12:00:00Z,",
 			wantOK: false,
 		},
 	}
@@ -124,7 +124,7 @@ func TestDecodeTimeCursor(t *testing.T) {
 				t.Errorf("decodeTimeCursor(%q) time = %q, want %q", tt.cursor, gotTime, tt.wantTime)
 			}
 			if gotID != tt.wantID {
-				t.Errorf("decodeTimeCursor(%q) id = %d, want %d", tt.cursor, gotID, tt.wantID)
+				t.Errorf("decodeTimeCursor(%q) id = %q, want %q", tt.cursor, gotID, tt.wantID)
 			}
 		})
 	}
@@ -133,14 +133,15 @@ func TestDecodeTimeCursor(t *testing.T) {
 func TestCursorRoundTrip(t *testing.T) {
 	// Encode from API format (RFC3339), decode, and verify the cursor stays
 	// in RFC3339 externally.
-	cursor := encodeTimeCursor("2026-04-10T12:00:00Z", 123)
+	wantID := "018f9f0e-5d2d-7777-9b9c-111111111111"
+	cursor := encodeTimeCursor("2026-04-10T12:00:00Z", wantID)
 
 	startsAt, id, ok := decodeTimeCursor(cursor)
 	if !ok {
 		t.Fatalf("decodeTimeCursor(%q) failed", cursor)
 	}
-	if id != 123 {
-		t.Errorf("round-trip id = %d, want 123", id)
+	if id != wantID {
+		t.Errorf("round-trip id = %q, want %q", id, wantID)
 	}
 	if startsAt != "2026-04-10T12:00:00Z" {
 		t.Errorf("round-trip time = %q, want RFC3339", startsAt)

@@ -11,7 +11,7 @@ import (
 )
 
 type Play struct {
-	ID                   int64
+	ID                   string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	ListingType          model.ListingType
@@ -43,6 +43,18 @@ type Play struct {
 	SourceGroup          *string
 	SourceSenderName     *string
 	CreatedBy            *string
+}
+
+type PlayParticipant struct {
+	ID         int64
+	PlayID     string
+	UserID     *string
+	GuestName  *string
+	RatingCode *string
+	RatingOrd  *int64
+	Status     model.PlayParticipantStatus
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type RawMessage struct {

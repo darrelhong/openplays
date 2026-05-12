@@ -3,9 +3,9 @@ import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params }) => {
-	const id = Number(params.id);
+	const id = params.id;
 
-	if (!Number.isFinite(id) || id <= 0) {
+	if (!id) {
 		error(404, 'Play not found');
 	}
 

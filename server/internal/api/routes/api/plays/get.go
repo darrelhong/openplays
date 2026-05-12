@@ -12,7 +12,7 @@ import (
 )
 
 type GetInput struct {
-	ID int64 `path:"id" doc:"Play ID"`
+	ID string `path:"id" doc:"Play ID"`
 }
 
 type GetOutput struct {

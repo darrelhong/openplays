@@ -6,7 +6,7 @@
 -- A valid play must have time and venue.
 -- sqlc overrides are used to into typed structs defined in internal/model/play.go
 CREATE TABLE plays (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    id              TEXT PRIMARY KEY NOT NULL,
     created_at      TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')),
     updated_at      TIMESTAMP NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')),
 

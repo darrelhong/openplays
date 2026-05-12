@@ -28,6 +28,10 @@ sql:
               import: "openplays/server/internal/model"
               type: "GenderPref"
               pointer: true
+          - column: "play_participants.status"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "PlayParticipantStatus"
           # JSON columns -> custom types with Scanner/Valuer
           - column: "plays.contacts"
             go_type:

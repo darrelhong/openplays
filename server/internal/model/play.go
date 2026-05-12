@@ -77,6 +77,24 @@ func (l ListingType) Schema(r huma.Registry) *huma.Schema {
 	return schema
 }
 
+// PlayParticipantStatus is a user's or guest's roster state for a play.
+type PlayParticipantStatus string
+
+const (
+	ParticipantConfirmed  PlayParticipantStatus = "confirmed"
+	ParticipantWaitlisted PlayParticipantStatus = "waitlisted"
+)
+
+// Schema implements huma.SchemaProvider.
+func (s PlayParticipantStatus) Schema(r huma.Registry) *huma.Schema {
+	schema := r.Schema(reflect.TypeOf(""), false, "")
+	schema.Enum = []any{
+		string(ParticipantConfirmed),
+		string(ParticipantWaitlisted),
+	}
+	return schema
+}
+
 // GameType represents the format of play.
 type GameType string
 

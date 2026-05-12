@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
 	"openplays/server/internal/testdb"
@@ -17,6 +19,7 @@ func insertPlay(t *testing.T, queries *db.Queries, host string, levelMinOrd, lev
 	startsAt := time.Now().UTC().Add(24 * time.Hour)
 	venueID := int64(1)
 	_, err := queries.UpsertPlay(context.Background(), db.UpsertPlayParams{
+		ID:          uuid.NewString(),
 		ListingType: model.ListingPlay,
 		Sport:       model.SportBadminton,
 		HostName:    host,

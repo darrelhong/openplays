@@ -362,8 +362,7 @@ export interface components {
             /** @enum {string} */
             gender_pref?: "all" | "male_only" | "female_only";
             host_name: string;
-            /** Format: int64 */
-            id: number;
+            id: string;
             level_max?: string;
             level_min?: string;
             /** @enum {string} */
@@ -701,7 +700,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Play ID */
-                id: number;
+                id: string;
             };
             cookie?: never;
         };

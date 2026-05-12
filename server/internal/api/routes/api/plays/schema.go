@@ -8,7 +8,7 @@ import (
 
 // PlayPublic is the API response schema for a play.
 type PlayPublic struct {
-	ID          int64             `json:"id"`
+	ID          string            `json:"id"`
 	CreatedAt   string            `json:"created_at"`
 	UpdatedAt   string            `json:"updated_at"`
 	ListingType model.ListingType `json:"listing_type"`

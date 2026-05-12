@@ -1,6 +1,6 @@
 -- name: UpsertPlay :one
 INSERT INTO plays (
-    listing_type, sport, game_type, host_name,
+    id, listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
     venue, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
@@ -9,7 +9,7 @@ INSERT INTO plays (
     source, source_sender_username, source_sender_name, source_raw_message, source_message_time,
     source_message_id, source_group
 ) VALUES (
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?, ?,
     ?, ?,
     ?, ?, ?, ?,
@@ -46,7 +46,7 @@ RETURNING *;
 
 -- name: CreatePlay :one
 INSERT INTO plays (
-    listing_type, sport, game_type, host_name,
+    id, listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
     venue, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
@@ -54,7 +54,7 @@ INSERT INTO plays (
     contacts, gender_pref, meta,
     source, created_by
 ) VALUES (
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?, ?,
     ?, ?,
     ?, ?, ?, ?,

@@ -91,7 +91,7 @@ func (q *Queries) CountUpcomingPlaysByDistance(ctx context.Context, arg CountUpc
 
 const createPlay = `-- name: CreatePlay :one
 INSERT INTO plays (
-    listing_type, sport, game_type, host_name,
+    id, listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
     venue, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
@@ -99,7 +99,7 @@ INSERT INTO plays (
     contacts, gender_pref, meta,
     source, created_by
 ) VALUES (
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?, ?,
     ?, ?,
     ?, ?, ?, ?,
@@ -111,6 +111,7 @@ RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name,
 `
 
 type CreatePlayParams struct {
+	ID          string
 	ListingType model.ListingType
 	Sport       model.Sport
 	GameType    *model.GameType
@@ -137,6 +138,7 @@ type CreatePlayParams struct {
 
 func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, error) {
 	row := q.db.QueryRowContext(ctx, createPlay,
+		arg.ID,
 		arg.ListingType,
 		arg.Sport,
 		arg.GameType,
@@ -218,7 +220,7 @@ WHERE p.id = ?
 `
 
 type GetPlayByIDRow struct {
-	ID                   int64
+	ID                   string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	ListingType          model.ListingType
@@ -256,7 +258,7 @@ type GetPlayByIDRow struct {
 	CreatorPhotoUrl      *string
 }
 
-func (q *Queries) GetPlayByID(ctx context.Context, id int64) (GetPlayByIDRow, error) {
+func (q *Queries) GetPlayByID(ctx context.Context, id string) (GetPlayByIDRow, error) {
 	row := q.db.QueryRowContext(ctx, getPlayByID, id)
 	var i GetPlayByIDRow
 	err := row.Scan(
@@ -403,12 +405,12 @@ type ListUpcomingPlaysParams struct {
 	FilterLevelMinOrd interface{}
 	FilterLevelMaxOrd interface{}
 	CursorStartsAt    interface{}
-	CursorID          *int64
+	CursorID          *string
 	PageSize          int64
 }
 
 type ListUpcomingPlaysRow struct {
-	ID                   int64
+	ID                   string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	ListingType          model.ListingType
@@ -576,12 +578,12 @@ type ListUpcomingPlaysByDistanceParams struct {
 	FilterLevelMinOrd interface{}
 	FilterLevelMaxOrd interface{}
 	CursorDistance    interface{}
-	CursorID          *int64
+	CursorID          *string
 	PageSize          int64
 }
 
 type ListUpcomingPlaysByDistanceRow struct {
-	ID                   int64
+	ID                   string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	ListingType          model.ListingType
@@ -699,7 +701,7 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 
 const upsertPlay = `-- name: UpsertPlay :one
 INSERT INTO plays (
-    listing_type, sport, game_type, host_name,
+    id, listing_type, sport, game_type, host_name,
     starts_at, ends_at, timezone,
     venue, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
@@ -708,7 +710,7 @@ INSERT INTO plays (
     source, source_sender_username, source_sender_name, source_raw_message, source_message_time,
     source_message_id, source_group
 ) VALUES (
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?, ?,
     ?, ?,
     ?, ?, ?, ?,
@@ -745,6 +747,7 @@ RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name,
 `
 
 type UpsertPlayParams struct {
+	ID                   string
 	ListingType          model.ListingType
 	Sport                model.Sport
 	GameType             *model.GameType
@@ -777,6 +780,7 @@ type UpsertPlayParams struct {
 
 func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, error) {
 	row := q.db.QueryRowContext(ctx, upsertPlay,
+		arg.ID,
 		arg.ListingType,
 		arg.Sport,
 		arg.GameType,

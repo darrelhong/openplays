@@ -40,28 +40,24 @@ type ListOutput struct {
 // --- Time-based cursor (starts_at, id) ---
 
 // encodeTimeCursor encodes a (starts_at, id) pair into an opaque cursor string.
-func encodeTimeCursor(startsAtRFC3339 string, id int64) string {
+func encodeTimeCursor(startsAtRFC3339 string, id string) string {
 	t, err := time.Parse(time.RFC3339, startsAtRFC3339)
 	if err != nil {
-		return fmt.Sprintf("%s,%d", startsAtRFC3339, id)
+		return fmt.Sprintf("%s,%s", startsAtRFC3339, id)
 	}
-	return fmt.Sprintf("%s,%d", t.UTC().Format(time.RFC3339), id)
+	return fmt.Sprintf("%s,%s", t.UTC().Format(time.RFC3339), id)
 }
 
 // decodeTimeCursor decodes an opaque cursor string into (starts_at, id).
-func decodeTimeCursor(cursor string) (startsAt string, id int64, ok bool) {
+func decodeTimeCursor(cursor string) (startsAt string, id string, ok bool) {
 	if cursor == "" {
-		return "", 0, false
+		return "", "", false
 	}
 	parts := strings.SplitN(cursor, ",", 2)
-	if len(parts) != 2 {
-		return "", 0, false
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
 	}
-	parsed, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		return "", 0, false
-	}
-	return parts[0], parsed, true
+	return parts[0], parts[1], true
 }
 
 func cursorStartsAtForDB(startsAtRFC3339 string) (string, bool) {
@@ -75,28 +71,24 @@ func cursorStartsAtForDB(startsAtRFC3339 string) (string, bool) {
 // --- Distance-based cursor (distance_km, id) ---
 
 // encodeDistanceCursor encodes a (distance_km, id) pair into an opaque cursor string.
-func encodeDistanceCursor(distanceKm float64, id int64) string {
-	return fmt.Sprintf("%f,%d", distanceKm, id)
+func encodeDistanceCursor(distanceKm float64, id string) string {
+	return fmt.Sprintf("%f,%s", distanceKm, id)
 }
 
 // decodeDistanceCursor decodes an opaque cursor string into (distance_km, id).
-func decodeDistanceCursor(cursor string) (distance float64, id int64, ok bool) {
+func decodeDistanceCursor(cursor string) (distance float64, id string, ok bool) {
 	if cursor == "" {
-		return 0, 0, false
+		return 0, "", false
 	}
 	parts := strings.SplitN(cursor, ",", 2)
-	if len(parts) != 2 {
-		return 0, 0, false
+	if len(parts) != 2 || parts[1] == "" {
+		return 0, "", false
 	}
 	dist, err := strconv.ParseFloat(parts[0], 64)
 	if err != nil {
-		return 0, 0, false
+		return 0, "", false
 	}
-	parsed, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		return 0, 0, false
-	}
-	return dist, parsed, true
+	return dist, parts[1], true
 }
 
 // --- Shared filter helpers ---
@@ -268,7 +260,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 	pageSize := input.Limit + 1
 
 	var cursorStartsAt interface{}
-	var cursorID *int64
+	var cursorID *string
 	if startsAt, id, ok := decodeTimeCursor(input.Cursor); ok {
 		if dbStartsAt, ok := cursorStartsAtForDB(startsAt); ok {
 			cursorStartsAt = dbStartsAt
@@ -317,7 +309,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 	pageSize := input.Limit + 1
 
 	var cursorDistance interface{}
-	var cursorID *int64
+	var cursorID *string
 	if dist, id, ok := decodeDistanceCursor(input.Cursor); ok {
 		cursorDistance = dist
 		cursorID = &id

@@ -36,6 +36,7 @@ func (f *fakeCreatePlayStore) CreatePlay(_ context.Context, arg db.CreatePlayPar
 		return db.Play{}, f.err
 	}
 	p := f.play
+	p.ID = arg.ID
 	p.Sport = arg.Sport
 	p.Venue = arg.Venue
 	p.HostName = arg.HostName
@@ -97,7 +98,7 @@ func TestCreatePlay_Success(t *testing.T) {
 	now := time.Now()
 	playStore := &fakeCreatePlayStore{
 		play: db.Play{
-			ID: 1, ListingType: model.ListingPlay, Currency: "SGD",
+			ID: "play-1", ListingType: model.ListingPlay, Currency: "SGD",
 			Timezone: "Asia/Singapore", CreatedAt: now, UpdatedAt: now,
 		},
 	}
@@ -205,7 +206,7 @@ func TestCreatePlay_StartsAtStoredAsUTC(t *testing.T) {
 	now := time.Now()
 	playStore := &fakeCreatePlayStore{
 		play: db.Play{
-			ID: 1, ListingType: model.ListingPlay, Currency: "SGD",
+			ID: "play-1", ListingType: model.ListingPlay, Currency: "SGD",
 			Timezone: "Asia/Singapore", CreatedAt: now, UpdatedAt: now,
 		},
 	}
@@ -242,7 +243,7 @@ func TestCreatePlay_EndsAtComputedFromDuration(t *testing.T) {
 	now := time.Now()
 	playStore := &fakeCreatePlayStore{
 		play: db.Play{
-			ID: 1, ListingType: model.ListingPlay, Currency: "SGD",
+			ID: "play-1", ListingType: model.ListingPlay, Currency: "SGD",
 			Timezone: "Asia/Singapore", CreatedAt: now, UpdatedAt: now,
 		},
 	}
@@ -276,7 +277,7 @@ func TestCreatePlay_TennisLevelsMappedToOrdinals(t *testing.T) {
 	now := time.Now()
 	playStore := &fakeCreatePlayStore{
 		play: db.Play{
-			ID: 1, ListingType: model.ListingPlay, Currency: "SGD",
+			ID: "play-1", ListingType: model.ListingPlay, Currency: "SGD",
 			Timezone: "Asia/Singapore", CreatedAt: now, UpdatedAt: now,
 		},
 	}
@@ -368,12 +369,12 @@ func TestCreatePlay_ResolvesVenueID_ForKnownVenueName(t *testing.T) {
 	}
 
 	var out struct {
-		ID int64 `json:"id"`
+		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if out.ID == 0 {
+	if out.ID == "" {
 		t.Fatalf("expected created play id in response")
 	}
 

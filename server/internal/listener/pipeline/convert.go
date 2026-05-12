@@ -5,6 +5,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/google/uuid"
+
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
 )
@@ -36,6 +38,7 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.Ups
 	source := input.Source
 
 	params := db.UpsertPlayParams{
+		ID:                   uuid.NewString(),
 		ListingType:          listingType,
 		Sport:                model.SportBadminton,
 		GameType:             toGameType(c.GameType),
