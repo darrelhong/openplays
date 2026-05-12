@@ -9,6 +9,7 @@ import (
 	authRouter "openplays/server/internal/api/routes/api/auth"
 	meRouter "openplays/server/internal/api/routes/api/me"
 	playsRouter "openplays/server/internal/api/routes/api/plays"
+	usersRouter "openplays/server/internal/api/routes/api/users"
 	venuesRouter "openplays/server/internal/api/routes/api/venues"
 )
 
@@ -23,4 +24,5 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifi
 
 	// Protected routes (auth middleware applied via huma.UseMiddleware)
 	meRouter.Register(grp, svc, queries)
+	usersRouter.Register(grp, queries, svc)
 }

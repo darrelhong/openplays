@@ -126,6 +126,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/users/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search users
+         * @description Search active users by display name or username. Requires authentication.
+         */
+        get: operations["search-users"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/venues/": {
         parameters: {
             query?: never;
@@ -398,6 +418,22 @@ export interface components {
             venue_name: string;
             venue_postal_code?: string;
         };
+        SearchPage: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SearchPage.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["UserSummary"][] | null;
+        };
+        SportLevelProfile: {
+            level?: string;
+        };
+        SportsProfile: {
+            badminton?: components["schemas"]["SportLevelProfile"];
+            tennis?: components["schemas"]["SportLevelProfile"];
+        };
         UpdateInputBody: {
             /**
              * Format: uri
@@ -407,6 +443,8 @@ export interface components {
             readonly $schema?: string;
             /** @description User's display name */
             display_name: string;
+            /** @description Self-rated sport levels */
+            sports_profile?: components["schemas"]["SportsProfile"];
             /** @description Optional unique handle */
             username?: string;
         };
@@ -423,9 +461,16 @@ export interface components {
             email: string;
             id: string;
             photo_url?: string;
-            sports_profile?: string;
+            sports_profile?: components["schemas"]["SportsProfile"];
             status: string;
             updated_at: string;
+            username?: string;
+        };
+        UserSummary: {
+            display_name: string;
+            id: string;
+            photo_url?: string;
+            rating_code?: string;
             username?: string;
         };
         VenuePublic: {
@@ -713,6 +758,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlayPublic"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "search-users": {
+        parameters: {
+            query?: {
+                /** @description Search by display name or username */
+                q?: string;
+                /** @description Sport for rating snapshot */
+                sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
+                /** @description Maximum users to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchPage"];
                 };
             };
             /** @description Error */

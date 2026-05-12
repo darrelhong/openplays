@@ -34,6 +34,18 @@ SELECT * FROM users WHERE id = ?;
 -- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = ?;
 
+-- name: SearchActiveUsers :many
+SELECT id, display_name, username, photo_url, sports_profile
+FROM users
+WHERE status = 'active'
+  AND (
+    sqlc.arg('query') = ''
+    OR lower(display_name) LIKE '%' || lower(sqlc.arg('query')) || '%'
+    OR lower(COALESCE(username, '')) LIKE '%' || lower(sqlc.arg('query')) || '%'
+  )
+ORDER BY display_name ASC, id ASC
+LIMIT sqlc.arg('limit');
+
 -- name: UpdateUserProfile :one
 UPDATE users SET
     display_name = ?,

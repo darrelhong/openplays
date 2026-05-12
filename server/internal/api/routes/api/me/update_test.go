@@ -2,6 +2,7 @@ package me_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -17,21 +18,25 @@ import (
 	"openplays/server/internal/api/routes/api/me"
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
+	"openplays/server/internal/model"
 )
 
 // fakeProfileStore implements me.ProfileStore at the DB seam.
 type fakeProfileStore struct {
-	updated db.User
-	err     error
+	updated  db.User
+	err      error
+	lastArgs db.UpdateUserProfileParams
 }
 
 func (f *fakeProfileStore) UpdateUserProfile(_ context.Context, arg db.UpdateUserProfileParams) (db.User, error) {
+	f.lastArgs = arg
 	if f.err != nil {
 		return db.User{}, f.err
 	}
 	u := f.updated
 	u.DisplayName = arg.DisplayName
 	u.Username = arg.Username
+	u.SportsProfile = arg.SportsProfile
 	return u, nil
 }
 
@@ -112,6 +117,67 @@ func TestUpdateProfile_Success(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+func TestUpdateProfile_SportsProfile(t *testing.T) {
+	now := time.Now()
+	profileStore := &fakeProfileStore{
+		updated: db.User{
+			ID: "user-1", Email: "test@test.com", Status: "active",
+			CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setup(activeSession(), profileStore)
+	defer ts.Close()
+
+	body := `{"display_name":"New Name","username":"newuser","sports_profile":{"badminton":{"level":" LI "},"tennis":{"level":"3.5"}}}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out auth.User
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.SportsProfile == nil {
+		t.Fatal("sports_profile = nil, want profile")
+	}
+	if got := out.SportsProfile.LevelFor(model.SportBadminton); got == nil || *got != "LI" {
+		t.Fatalf("badminton level = %v, want LI", got)
+	}
+	if profileStore.lastArgs.SportsProfile == nil {
+		t.Fatal("stored sports_profile = nil, want JSON")
+	}
+}
+
+func TestUpdateProfile_InvalidSportsProfile_Returns422(t *testing.T) {
+	ts := setup(activeSession(), &fakeProfileStore{})
+	defer ts.Close()
+
+	body := `{"display_name":"New Name","sports_profile":{"badminton":{"level":"ZZ"}}}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
 	}
 }
 

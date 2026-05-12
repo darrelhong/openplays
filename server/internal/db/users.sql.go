@@ -323,6 +323,61 @@ func (q *Queries) RefreshSession(ctx context.Context, arg RefreshSessionParams) 
 	return err
 }
 
+const searchActiveUsers = `-- name: SearchActiveUsers :many
+SELECT id, display_name, username, photo_url, sports_profile
+FROM users
+WHERE status = 'active'
+  AND (
+    ?1 = ''
+    OR lower(display_name) LIKE '%' || lower(?1) || '%'
+    OR lower(COALESCE(username, '')) LIKE '%' || lower(?1) || '%'
+  )
+ORDER BY display_name ASC, id ASC
+LIMIT ?2
+`
+
+type SearchActiveUsersParams struct {
+	Query interface{}
+	Limit int64
+}
+
+type SearchActiveUsersRow struct {
+	ID            string
+	DisplayName   string
+	Username      *string
+	PhotoUrl      *string
+	SportsProfile *string
+}
+
+func (q *Queries) SearchActiveUsers(ctx context.Context, arg SearchActiveUsersParams) ([]SearchActiveUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchActiveUsers, arg.Query, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchActiveUsersRow
+	for rows.Next() {
+		var i SearchActiveUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.Username,
+			&i.PhotoUrl,
+			&i.SportsProfile,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users SET
     display_name = ?,

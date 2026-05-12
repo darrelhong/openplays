@@ -10,12 +10,14 @@ import (
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
+	"openplays/server/internal/model"
 )
 
 type UpdateInput struct {
 	Body struct {
-		DisplayName string  `json:"display_name" required:"true" doc:"User's display name"`
-		Username    *string `json:"username,omitempty" doc:"Optional unique handle"`
+		DisplayName   string               `json:"display_name" required:"true" doc:"User's display name"`
+		Username      *string              `json:"username,omitempty" doc:"Optional unique handle"`
+		SportsProfile *model.SportsProfile `json:"sports_profile,omitempty" doc:"Self-rated sport levels"`
 	}
 }
 
@@ -54,11 +56,20 @@ func RegisterUpdate(api huma.API, store ProfileStore) {
 			username = &trimmed
 		}
 
+		sportsProfile := user.SportsProfile
+		if input.Body.SportsProfile != nil {
+			sportsProfile = input.Body.SportsProfile
+		}
+		sportsProfileRaw, err := model.SportsProfileString(sportsProfile)
+		if err != nil {
+			return nil, huma.Error422UnprocessableEntity(err.Error())
+		}
+
 		updated, err := store.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
 			DisplayName:   displayName,
 			Username:      username,
 			PhotoUrl:      user.PhotoURL,
-			SportsProfile: user.SportsProfile,
+			SportsProfile: sportsProfileRaw,
 			ContactInfo:   user.ContactInfo,
 			ID:            user.ID,
 		})
