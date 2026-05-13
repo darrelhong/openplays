@@ -30,3 +30,11 @@ export function optionalNumber(value: string | null): number | undefined {
 	if (isNaN(num)) return undefined;
 	return num;
 }
+
+export function isPositiveInteger(value: number | undefined): value is number {
+	return value !== undefined && Number.isInteger(value) && value >= 1;
+}
+
+export function initialSlotsLeft(maxPlayers: number): number {
+	return Math.max(0, maxPlayers - 1);
+}

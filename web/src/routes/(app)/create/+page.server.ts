@@ -1,6 +1,11 @@
 import { redirect } from '@sveltejs/kit';
 import { api } from '$lib/api/client';
-import { feeToCents, optionalNumber } from '$lib/utils/create-play';
+import {
+	feeToCents,
+	initialSlotsLeft,
+	isPositiveInteger,
+	optionalNumber
+} from '$lib/utils/create-play';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent }) => {
@@ -34,7 +39,6 @@ export const actions: Actions = {
 		const levelMax = formData.get('level_max') as string | null;
 		const feeStr = formData.get('fee') as string | null;
 		const maxPlayersStr = formData.get('max_players') as string | null;
-		const slotsLeftStr = formData.get('slots_left') as string | null;
 		const courtsStr = formData.get('courts') as string | null;
 
 		// Validation
@@ -51,26 +55,33 @@ export const actions: Actions = {
 		const durationMinutes = optionalNumber(durationStr) ?? 0;
 		const fee = feeToCents(feeStr);
 		const maxPlayers = optionalNumber(maxPlayersStr);
-		const slotsLeft = optionalNumber(slotsLeftStr);
 		const courts = optionalNumber(courtsStr);
+
+		if (!isPositiveInteger(maxPlayers)) {
+			return { error: 'Max players is required' };
+		}
+
+		const slotsLeft = initialSlotsLeft(maxPlayers);
+
+		const createPlayBody = {
+			sport: sport as 'badminton' | 'tennis' | 'football' | 'pickleball',
+			venue: venue.trim(),
+			starts_at: startsAt,
+			duration_minutes: durationMinutes,
+			timezone,
+			currency,
+			game_type: (gameType || undefined) as 'doubles' | 'singles' | 'mixed_doubles' | undefined,
+			level_min: levelMin || undefined,
+			level_max: levelMax || undefined,
+			fee,
+			max_players: maxPlayers,
+			slots_left: slotsLeft,
+			courts
+		};
 
 		const { error } = await api.POST('/api/plays/', {
 			headers: { Cookie: `session=${sessionToken}` },
-			body: {
-				sport: sport as 'badminton' | 'tennis' | 'football' | 'pickleball',
-				venue: venue.trim(),
-				starts_at: startsAt,
-				duration_minutes: durationMinutes,
-				timezone,
-				currency,
-				game_type: (gameType || undefined) as 'doubles' | 'singles' | 'mixed_doubles' | undefined,
-				level_min: levelMin || undefined,
-				level_max: levelMax || undefined,
-				fee,
-				max_players: maxPlayers,
-				slots_left: slotsLeft,
-				courts
-			}
+			body: createPlayBody
 		});
 
 		if (error) {

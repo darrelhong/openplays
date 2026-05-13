@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { feeToCents, buildRFC3339, optionalNumber } from './create-play';
+import {
+	feeToCents,
+	buildRFC3339,
+	optionalNumber,
+	isPositiveInteger,
+	initialSlotsLeft
+} from './create-play';
 
 describe('feeToCents', () => {
 	it('converts dollars to cents', () => {
@@ -63,5 +69,26 @@ describe('optionalNumber', () => {
 
 	it('handles decimals', () => {
 		expect(optionalNumber('3.5')).toBe(3.5);
+	});
+});
+
+describe('isPositiveInteger', () => {
+	it('accepts positive whole numbers', () => {
+		expect(isPositiveInteger(1)).toBe(true);
+		expect(isPositiveInteger(4)).toBe(true);
+	});
+
+	it('rejects missing, zero, negative, and decimal values', () => {
+		expect(isPositiveInteger(undefined)).toBe(false);
+		expect(isPositiveInteger(0)).toBe(false);
+		expect(isPositiveInteger(-1)).toBe(false);
+		expect(isPositiveInteger(3.5)).toBe(false);
+	});
+});
+
+describe('initialSlotsLeft', () => {
+	it('counts the host as the first occupied slot', () => {
+		expect(initialSlotsLeft(1)).toBe(0);
+		expect(initialSlotsLeft(4)).toBe(3);
 	});
 });

@@ -170,12 +170,7 @@
 			<div>
 				<input type="hidden" name="level_min" value={tennisLevelMin} />
 				<input type="hidden" name="level_max" value={tennisLevelMax} />
-				<TennisSlider
-					bind:value={tennisRange}
-					label="Tennis Level Range"
-					minLabel="Min"
-					maxLabel="Max"
-				/>
+				<TennisSlider bind:value={tennisRange} label="Range restriction" />
 			</div>
 		{/if}
 
@@ -185,13 +180,8 @@
 		</FormField>
 
 		<!-- Max Players -->
-		<FormField label="Max Players" id="max_players">
-			<TextInput id="max_players" name="max_players" type="number" />
-		</FormField>
-
-		<!-- Slots Left -->
-		<FormField label="Slots Left" id="slots_left">
-			<TextInput id="slots_left" name="slots_left" type="number" />
+		<FormField label="Max Players" id="max_players" required>
+			<TextInput id="max_players" name="max_players" type="number" min="1" step="1" required />
 		</FormField>
 
 		<!-- Courts -->

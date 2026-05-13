@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import {
 		capitalize,
 		formatDate,
@@ -6,6 +7,7 @@
 		formatLevel,
 		formatTime
 	} from '$lib/utils/formatting';
+	import PlayRosterPreview from './play-roster-preview.svelte';
 	import type { Play } from './types';
 
 	let { plays }: { plays: Play[] } = $props();
@@ -14,7 +16,7 @@
 <div class="gap-2 grid md:grid-cols-2 lg:hidden">
 	{#each plays as play (play.id)}
 		<a
-			href={`/play/${play.id}`}
+			href={resolve(`/play/${play.id}`)}
 			class="p-2.5 border border-border rounded-xl bg-card shadow-sm transition-colors hover:bg-card/80"
 		>
 			<div class="flex gap-1.5 items-start justify-between">
@@ -34,6 +36,12 @@
 				</span>
 			</div>
 
+			{#if play.created_by && play.max_players}
+				<div class="mt-3">
+					<PlayRosterPreview {play} />
+				</div>
+			{/if}
+
 			<dl class="text-sm mt-2 gap-x-2 gap-y-1 grid grid-cols-3">
 				<div>
 					<dt class="text-xs text-muted tracking-wide">Host</dt>
@@ -47,16 +55,18 @@
 					<dt class="text-xs text-muted tracking-wide">Fee</dt>
 					<dd class="mt-0.5">{formatPlayFee(play)}</dd>
 				</div>
-				<div>
-					<dt class="text-xs text-muted tracking-wide">Slots</dt>
-					<dd class="mt-0.5">
-						{#if play.listing_type === 'sell_booking'}
-							To let go
-						{:else}
-							{play.slots_left ?? '-'} / {play.max_players ?? '-'}
-						{/if}
-					</dd>
-				</div>
+				{#if play.listing_type === 'sell_booking' || !play.created_by || !play.max_players}
+					<div>
+						<dt class="text-xs text-muted tracking-wide">Slots</dt>
+						<dd class="mt-0.5">
+							{#if play.listing_type === 'sell_booking'}
+								To let go
+							{:else}
+								{play.slots_left ?? '-'} / {play.max_players ?? '-'}
+							{/if}
+						</dd>
+					</div>
+				{/if}
 				{#if play.game_type}
 					<div>
 						<dt class="text-xs text-muted tracking-wide">Type</dt>

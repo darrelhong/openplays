@@ -8,6 +8,7 @@
 		formatLevel,
 		formatTime
 	} from '$lib/utils/formatting';
+	import PlayRosterPreview from './play-roster-preview.svelte';
 	import type { Play } from './types';
 
 	let { plays }: { plays: Play[] } = $props();
@@ -52,10 +53,15 @@
 						</td>
 						<td>{formatLevel(play.level_min, play.level_max)}</td>
 						<td>{formatPlayFee(play)}</td>
-						<td
-							>{#if play.listing_type === 'sell_booking'}To let go{:else}{play.slots_left ?? '-'} / {play.max_players ??
-									'-'}{/if}</td
-						>
+						<td>
+							{#if play.listing_type === 'sell_booking'}
+								To let go
+							{:else if play.created_by && play.max_players}
+								<PlayRosterPreview {play} maxVisibleSlots={6} />
+							{:else}
+								{play.slots_left ?? '-'} / {play.max_players ?? '-'}
+							{/if}
+						</td>
 						<td>
 							<Button href={`/play/${play.id}`} size="xs" variant="outline">View</Button>
 						</td>

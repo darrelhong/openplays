@@ -11,17 +11,15 @@
 		value?: number[];
 		label?: string;
 		required?: boolean;
-		minLabel?: string;
-		maxLabel?: string;
 	}
 
 	let {
 		value = $bindable([3, 4]),
 		label,
-		required = false,
-		minLabel = 'Min',
-		maxLabel = 'Max'
+		required = false
 	}: Props = $props();
+
+	const selectedRange = $derived(`${value[0]?.toFixed(1) ?? '1.0'} - ${value[1]?.toFixed(1) ?? '7.0'}`);
 
 	function isHalfStep(tick: TickItem) {
 		return Math.round(tick.value * 10) % 5 === 0;
@@ -32,7 +30,7 @@
 	}
 </script>
 
-<Slider bind:value min={1} max={7} step={0.1} {label} {required} {minLabel} {maxLabel}>
+<Slider bind:value min={1} max={7} step={0.1} {label} {required} minLabel="" maxLabel="">
 	{#snippet ticks({ tickItems })}
 		{#each tickItems as tick (tick.index)}
 			{#if isHalfStep(tick)}
@@ -46,3 +44,8 @@
 		{/each}
 	{/snippet}
 </Slider>
+<div class="text-xs text-muted-foreground mt-2 grid grid-cols-3 items-center">
+	<span>1.0</span>
+	<span class="text-sm text-primary font-semibold text-center">{selectedRange}</span>
+	<span class="text-right">7.0</span>
+</div>
