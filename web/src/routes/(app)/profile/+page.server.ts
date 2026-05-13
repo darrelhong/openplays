@@ -1,9 +1,12 @@
 import { api } from '$lib/api/client';
+import { sportsProfileFromFormData, sportsProfileToForm } from '$lib/utils/sports-profile';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { user } = await parent();
-	return { user: user! };
+	return {
+		sportsProfileForm: sportsProfileToForm(user.sports_profile)
+	};
 };
 
 export const actions: Actions = {
@@ -11,6 +14,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const displayName = (formData.get('display_name') as string)?.trim();
 		const username = (formData.get('username') as string)?.trim();
+		const sportsProfile = sportsProfileFromFormData(formData);
 
 		if (!displayName) {
 			return { error: 'Display name is required' };
@@ -29,7 +33,8 @@ export const actions: Actions = {
 			headers: { Cookie: `session=${sessionToken}` },
 			body: {
 				display_name: displayName,
-				username: username || undefined
+				username: username || undefined,
+				sports_profile: sportsProfile
 			}
 		});
 
@@ -37,6 +42,14 @@ export const actions: Actions = {
 			return { error: error.detail ?? 'Failed to update profile' };
 		}
 
-		return { success: true, user: data };
+		if (!data) {
+			return { error: 'Failed to update profile' };
+		}
+
+		return {
+			success: true,
+			user: data,
+			sportsProfileForm: sportsProfileToForm(data.sports_profile)
+		};
 	}
 };

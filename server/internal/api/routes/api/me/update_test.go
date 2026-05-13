@@ -181,6 +181,50 @@ func TestUpdateProfile_InvalidSportsProfile_Returns422(t *testing.T) {
 	}
 }
 
+func TestUpdateProfile_EmptySportsProfileClearsStoredValue(t *testing.T) {
+	now := time.Now()
+	existingLevel := "HB"
+	existingProfile := mustSportsProfileRaw(t, &model.SportsProfile{
+		Badminton: &model.SportLevelProfile{Level: &existingLevel},
+	})
+	authStore := activeSession()
+	authStore.sessionRow.SportsProfile = existingProfile
+	profileStore := &fakeProfileStore{
+		updated: db.User{
+			ID: "user-1", Email: "test@test.com", Status: "active",
+			SportsProfile: existingProfile, CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setup(authStore, profileStore)
+	defer ts.Close()
+
+	body := `{"display_name":"New Name","sports_profile":{}}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if profileStore.lastArgs.SportsProfile != nil {
+		t.Fatalf("stored sports_profile = %q, want nil", *profileStore.lastArgs.SportsProfile)
+	}
+
+	var out auth.User
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.SportsProfile != nil {
+		t.Fatalf("sports_profile = %#v, want nil", out.SportsProfile)
+	}
+}
+
 func TestUpdateProfile_UsernameTaken_Returns409(t *testing.T) {
 	profileStore := &fakeProfileStore{
 		err: errors.New("UNIQUE constraint failed: users.username"),
@@ -324,4 +368,13 @@ func TestUpdateProfile_NullUsername_PreservesExisting(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
+}
+
+func mustSportsProfileRaw(t *testing.T, profile *model.SportsProfile) *string {
+	t.Helper()
+	raw, err := model.SportsProfileString(profile)
+	if err != nil {
+		t.Fatalf("SportsProfileString: %v", err)
+	}
+	return raw
 }
