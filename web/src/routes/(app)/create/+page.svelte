@@ -170,7 +170,7 @@
 			<div>
 				<input type="hidden" name="level_min" value={tennisLevelMin} />
 				<input type="hidden" name="level_max" value={tennisLevelMax} />
-				<TennisSlider bind:value={tennisRange} label="Range restriction" />
+				<TennisSlider bind:value={tennisRange} label="Level restriction" />
 			</div>
 		{/if}
 
