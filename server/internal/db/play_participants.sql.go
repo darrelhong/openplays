@@ -285,6 +285,70 @@ func (q *Queries) ListConfirmedParticipantPreviewsByPlays(ctx context.Context, p
 	return items, nil
 }
 
+const listParticipantPreviewsByPlayAndStatus = `-- name: ListParticipantPreviewsByPlayAndStatus :many
+SELECT
+    pp.id,
+    pp.play_id,
+    pp.user_id,
+    pp.guest_name,
+    pp.rating_code,
+    u.display_name,
+    u.photo_url,
+    u.sports_profile
+FROM play_participants pp
+LEFT JOIN users u ON u.id = pp.user_id
+WHERE pp.play_id = ? AND pp.status = ?
+ORDER BY pp.created_at ASC, pp.id ASC
+`
+
+type ListParticipantPreviewsByPlayAndStatusParams struct {
+	PlayID string
+	Status model.PlayParticipantStatus
+}
+
+type ListParticipantPreviewsByPlayAndStatusRow struct {
+	ID            int64
+	PlayID        string
+	UserID        *string
+	GuestName     *string
+	RatingCode    *string
+	DisplayName   *string
+	PhotoUrl      *string
+	SportsProfile *string
+}
+
+func (q *Queries) ListParticipantPreviewsByPlayAndStatus(ctx context.Context, arg ListParticipantPreviewsByPlayAndStatusParams) ([]ListParticipantPreviewsByPlayAndStatusRow, error) {
+	rows, err := q.db.QueryContext(ctx, listParticipantPreviewsByPlayAndStatus, arg.PlayID, arg.Status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListParticipantPreviewsByPlayAndStatusRow
+	for rows.Next() {
+		var i ListParticipantPreviewsByPlayAndStatusRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PlayID,
+			&i.UserID,
+			&i.GuestName,
+			&i.RatingCode,
+			&i.DisplayName,
+			&i.PhotoUrl,
+			&i.SportsProfile,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlayParticipantsByPlay = `-- name: ListPlayParticipantsByPlay :many
 SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
 WHERE play_id = ?

@@ -61,6 +61,21 @@ LEFT JOIN users u ON u.id = pp.user_id
 WHERE pp.play_id IN (sqlc.slice('play_ids')) AND pp.status = 'confirmed'
 ORDER BY pp.play_id ASC, pp.created_at ASC, pp.id ASC;
 
+-- name: ListParticipantPreviewsByPlayAndStatus :many
+SELECT
+    pp.id,
+    pp.play_id,
+    pp.user_id,
+    pp.guest_name,
+    pp.rating_code,
+    u.display_name,
+    u.photo_url,
+    u.sports_profile
+FROM play_participants pp
+LEFT JOIN users u ON u.id = pp.user_id
+WHERE pp.play_id = ? AND pp.status = ?
+ORDER BY pp.created_at ASC, pp.id ASC;
+
 -- name: ListPlayParticipantsByUser :many
 SELECT * FROM play_participants
 WHERE user_id = ?

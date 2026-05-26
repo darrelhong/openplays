@@ -15,7 +15,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 
 	// Public
 	RegisterList(grp, queries)
-	RegisterGet(grp, queries)
+	RegisterGet(grp, queries, authmw.OptionalAuth(api, svc))
 
 	// Protected (auth middleware on this operation only)
 	RegisterCreate(grp, queries, authmw.RequireAuth(api, svc))

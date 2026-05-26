@@ -53,6 +53,13 @@ type PlayPublic struct {
 
 	ParticipantPreview []PlayParticipantPreviewPublic `json:"participant_preview,omitempty"`
 
+	ConfirmedParticipants []PlayParticipantPreviewPublic `json:"confirmed_participants,omitempty"`
+	Waitlist             []PlayParticipantPreviewPublic `json:"waitlist,omitempty"`
+	ViewerState          *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,creator"`
+	CanManage            *bool                          `json:"can_manage,omitempty"`
+	ConfirmedCount       *int64                         `json:"confirmed_count,omitempty"`
+	WaitlistCount        *int64                         `json:"waitlist_count,omitempty"`
+
 	distanceKm float64 `json:"-"`
 }
 

@@ -32,6 +32,26 @@ func RequireAuth(api huma.API, svc *auth.Service) func(ctx huma.Context, next fu
 	}
 }
 
+// OptionalAuth attaches authenticated user to context when a valid session
+// cookie is present, but never blocks the request on auth failures.
+func OptionalAuth(_ huma.API, svc *auth.Service) func(ctx huma.Context, next func(huma.Context)) {
+	return func(ctx huma.Context, next func(huma.Context)) {
+		cookie, err := huma.ReadCookie(ctx, "session")
+		if err != nil || cookie.Value == "" {
+			next(ctx)
+			return
+		}
+
+		user, err := svc.GetSession(ctx.Context(), cookie.Value)
+		if err != nil {
+			next(ctx)
+			return
+		}
+
+		next(huma.WithValue(ctx, contextKey{}, user))
+	}
+}
+
 // UserFromContext returns the authenticated user from the request context.
 // Returns nil if no user (should not happen behind middleware).
 func UserFromContext(ctx context.Context) *auth.User {

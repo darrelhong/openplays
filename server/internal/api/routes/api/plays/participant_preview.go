@@ -43,6 +43,17 @@ func participantPreviewsForPlay(ctx context.Context, queries *db.Queries, playID
 	return mapParticipantPreviewRows(sport, singleParticipantPreviewRows(rows), includeNames), nil
 }
 
+func participantPreviewsForPlayByStatus(ctx context.Context, queries *db.Queries, playID string, sport model.Sport, status model.PlayParticipantStatus, includeNames bool) ([]PlayParticipantPreviewPublic, error) {
+	rows, err := queries.ListParticipantPreviewsByPlayAndStatus(ctx, db.ListParticipantPreviewsByPlayAndStatusParams{
+		PlayID: playID,
+		Status: status,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mapParticipantPreviewRows(sport, statusParticipantPreviewRows(rows), includeNames), nil
+}
+
 type participantPreviewRow struct {
 	ID            int64
 	PlayID        string
@@ -82,6 +93,23 @@ func batchParticipantPreviewRow(row db.ListConfirmedParticipantPreviewsByPlaysRo
 		PhotoUrl:      row.PhotoUrl,
 		SportsProfile: row.SportsProfile,
 	}
+}
+
+func statusParticipantPreviewRows(rows []db.ListParticipantPreviewsByPlayAndStatusRow) []participantPreviewRow {
+	out := make([]participantPreviewRow, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, participantPreviewRow{
+			ID:            row.ID,
+			PlayID:        row.PlayID,
+			UserID:        row.UserID,
+			GuestName:     row.GuestName,
+			RatingCode:    row.RatingCode,
+			DisplayName:   row.DisplayName,
+			PhotoUrl:      row.PhotoUrl,
+			SportsProfile: row.SportsProfile,
+		})
+	}
+	return out
 }
 
 func mapParticipantPreviewRows(sport model.Sport, rows []participantPreviewRow, includeNames bool) []PlayParticipantPreviewPublic {
