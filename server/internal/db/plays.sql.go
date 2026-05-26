@@ -699,6 +699,27 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 	return items, nil
 }
 
+const updatePlaySlotsLeft = `-- name: UpdatePlaySlotsLeft :exec
+UPDATE plays
+SET
+    slots_left = CASE
+        WHEN max_players IS NULL THEN NULL
+        ELSE max(max_players - (
+            SELECT COUNT(*)
+            FROM play_participants pp
+            WHERE pp.play_id = plays.id
+              AND pp.status = 'confirmed'
+        ), 0)
+    END,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE plays.id = ?
+`
+
+func (q *Queries) UpdatePlaySlotsLeft(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, updatePlaySlotsLeft, id)
+	return err
+}
+
 const upsertPlay = `-- name: UpsertPlay :one
 INSERT INTO plays (
     id, listing_type, sport, game_type, host_name,

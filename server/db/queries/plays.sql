@@ -192,3 +192,18 @@ FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
 LEFT JOIN users u ON u.id = p.created_by
 WHERE p.id = ?;
+
+-- name: UpdatePlaySlotsLeft :exec
+UPDATE plays
+SET
+    slots_left = CASE
+        WHEN max_players IS NULL THEN NULL
+        ELSE max(max_players - (
+            SELECT COUNT(*)
+            FROM play_participants pp
+            WHERE pp.play_id = plays.id
+              AND pp.status = 'confirmed'
+        ), 0)
+    END,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE plays.id = ?;
