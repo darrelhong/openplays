@@ -108,6 +108,18 @@ COOKIE_SECURE=false
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 ```
 
+For local seed-user login without OAuth, also set:
+
+```
+DEV_AUTH_ENABLED=true
+```
+
+Seed local dev users:
+
+```bash
+go run ./tools/seeddev/
+```
+
 Run with hot reload:
 
 ```bash
@@ -130,6 +142,7 @@ The server starts on port 8080 by default (configure with `API_PORT` in `.env`).
 - `POST /api/auth/google` — body: `{"credential": "<google-id-token>"}` → returns user + session token, sets `session` cookie
 - `GET /api/auth/me` — returns current user from session cookie
 - `POST /api/auth/logout` — clears session
+- `POST /api/dev/login` — local dev only, enabled by `DEV_AUTH_ENABLED=true`; creates a session for a seeded user
 
 ### Play endpoints
 
@@ -146,6 +159,7 @@ Pagination is cursor-based. The response includes `next_cursor` and `has_more` f
 | `API_PORT` | No | `8080` | HTTP port |
 | `GOOGLE_CLIENT_ID` | Yes (for auth) | — | Google OAuth client ID |
 | `COOKIE_SECURE` | No | `true` | Set `false` for local dev (HTTP) |
+| `DEV_AUTH_ENABLED` | No | — | Set `true` to register local-only `/api/dev/*` auth helpers |
 | `LOG_FORMAT` | No | `text` | `text` or `json` |
 
 ## Test OneMap search

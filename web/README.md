@@ -26,6 +26,23 @@ Once you've installed dependencies with `pnpm install`, start a development serv
 pnpm dev
 ```
 
+### Local Dev Login
+
+For OAuth-free local login, enable the matching server and web flags:
+
+```sh
+DEV_AUTH_ENABLED=true
+```
+
+Seed users from the server package:
+
+```sh
+cd ../server
+go run ./tools/seeddev/
+```
+
+Then start the API and web dev servers and open `/__dev/login`. The page only loads in SvelteKit dev mode when `DEV_AUTH_ENABLED=true`; the backend `/api/dev/*` routes are only registered when the same flag is enabled on the API server.
+
 ## API Types
 
 TypeScript types are auto-generated from the Go API's OpenAPI spec. The generated file is `src/lib/api/types.gen.ts`.

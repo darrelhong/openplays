@@ -49,6 +49,7 @@ func main() {
 	})
 
 	cookieSecure := os.Getenv("COOKIE_SECURE") != "false" // default true, set COOKIE_SECURE=false for local dev
+	devAuthEnabled := os.Getenv("DEV_AUTH_ENABLED") == "true"
 
 	sqlDb, err := sql.Open("sqlite", dbURL)
 	if err != nil {
@@ -65,7 +66,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, cookieSecure)
+	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, cookieSecure, devAuthEnabled)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",
