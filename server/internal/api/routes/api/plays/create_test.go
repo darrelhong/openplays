@@ -46,6 +46,10 @@ func (f *fakeCreatePlayStore) CreatePlay(_ context.Context, arg db.CreatePlayPar
 	return p, nil
 }
 
+func (f *fakeCreatePlayStore) CreatePlayParticipant(_ context.Context, _ db.CreatePlayParticipantParams) (db.PlayParticipant, error) {
+	return db.PlayParticipant{}, nil
+}
+
 type fakeAuthStore struct {
 	sessionRow db.GetSessionWithUserRow
 	sessionErr error
@@ -105,7 +109,7 @@ func TestCreatePlay_Success(t *testing.T) {
 	ts := setupCreateTest(activeSession(), playStore)
 	defer ts.Close()
 
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -144,7 +148,7 @@ func TestCreatePlay_DurationNot15MinIncrement_Returns422(t *testing.T) {
 	ts := setupCreateTest(activeSession(), &fakeCreatePlayStore{})
 	defer ts.Close()
 
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":50,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":50,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -165,7 +169,7 @@ func TestCreatePlay_DurationTooLong_Returns422(t *testing.T) {
 	defer ts.Close()
 
 	// 315 minutes > 300 max — huma validates maximum:"300" on the field
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":315,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":315,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -186,7 +190,7 @@ func TestCreatePlay_DurationTooShort_Returns422(t *testing.T) {
 	defer ts.Close()
 
 	// 10 minutes < 15 min — huma validates minimum:"15" on the field
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":10,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":10,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -214,7 +218,7 @@ func TestCreatePlay_StartsAtStoredAsUTC(t *testing.T) {
 	defer ts.Close()
 
 	// Send time with +08:00 offset
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -251,7 +255,7 @@ func TestCreatePlay_EndsAtComputedFromDuration(t *testing.T) {
 	defer ts.Close()
 
 	// 90 minutes duration
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -284,7 +288,7 @@ func TestCreatePlay_TennisLevelsMappedToOrdinals(t *testing.T) {
 	ts := setupCreateTest(activeSession(), playStore)
 	defer ts.Close()
 
-	body := `{"sport":"tennis","venue":"Kallang Tennis Centre","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","level_min":"3.0","level_max":"4.0"}`
+	body := `{"sport":"tennis","venue":"Kallang Tennis Centre","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","max_players":4,"level_min":"3.0","level_max":"4.0"}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -312,7 +316,7 @@ func TestCreatePlay_PastStartTime_Returns422(t *testing.T) {
 	defer ts.Close()
 
 	// Use a date clearly in the past
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2020-01-01T10:00:00+08:00","duration_minutes":60,"timezone":"Asia/Singapore","currency":"SGD"}`
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2020-01-01T10:00:00+08:00","duration_minutes":60,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -349,7 +353,7 @@ func TestCreatePlay_ResolvesVenueID_ForKnownVenueName(t *testing.T) {
 	defer ts.Close()
 
 	startsAt := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
-	body := fmt.Sprintf(`{"sport":"badminton","venue":"Beatty Secondary School","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`,
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"Beatty Secondary School","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
 		startsAt,
 	)
 
@@ -387,6 +391,93 @@ func TestCreatePlay_ResolvesVenueID_ForKnownVenueName(t *testing.T) {
 	}
 	if *row.VenueID != venue.ID {
 		t.Fatalf("venue_id = %d, want %d", *row.VenueID, venue.ID)
+	}
+}
+
+func TestCreatePlay_MaxPlayersRequired_Returns422(t *testing.T) {
+	ts := setupCreateTest(activeSession(), &fakeCreatePlayStore{})
+	defer ts.Close()
+
+	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD"}`
+	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
+	}
+}
+
+func TestCreatePlay_SeedsCreatorAndDerivesSlotsLeft(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+
+	_, err := queries.UpsertUserByGoogleID(context.Background(), db.UpsertUserByGoogleIDParams{
+		ID:          "user-1",
+		Email:       "user-1@example.com",
+		DisplayName: "Test User",
+		GoogleID:    ptrString("google-user-1"),
+	})
+	if err != nil {
+		t.Fatalf("upsert user: %v", err)
+	}
+
+	ts := setupCreateTest(activeSession(), queries)
+	defer ts.Close()
+
+	startsAt := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+		startsAt,
+	)
+
+	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, want 200, body=%s", resp.StatusCode, string(b))
+	}
+
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	participants, err := queries.ListPlayParticipantsByPlay(context.Background(), out.ID)
+	if err != nil {
+		t.Fatalf("ListPlayParticipantsByPlay: %v", err)
+	}
+	if len(participants) != 1 {
+		t.Fatalf("participants = %d, want 1", len(participants))
+	}
+	if participants[0].UserID == nil || *participants[0].UserID != "user-1" {
+		t.Fatalf("participant user_id = %v, want user-1", participants[0].UserID)
+	}
+	if participants[0].Status != model.ParticipantConfirmed {
+		t.Fatalf("participant status = %q, want confirmed", participants[0].Status)
+	}
+
+	row, err := queries.GetPlayByID(context.Background(), out.ID)
+	if err != nil {
+		t.Fatalf("GetPlayByID: %v", err)
+	}
+	if row.SlotsLeft == nil || *row.SlotsLeft != 3 {
+		t.Fatalf("slots_left = %v, want 3", row.SlotsLeft)
 	}
 }
 

@@ -73,6 +73,15 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		// Compute ends_at from starts_at + duration
 		endsAt := startsAt.Add(time.Duration(input.Body.DurationMinutes) * time.Minute)
 
+		if input.Body.MaxPlayers == nil {
+			return nil, huma.Error422UnprocessableEntity("max_players is required")
+		}
+		if *input.Body.MaxPlayers < 1 {
+			return nil, huma.Error422UnprocessableEntity("max_players must be at least 1")
+		}
+
+		slotsLeft := *input.Body.MaxPlayers - 1
+
 		// Compute level ordinals if provided
 		var levelMinOrd, levelMaxOrd *int64
 		if input.Body.LevelMin != nil {
@@ -111,7 +120,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			Fee:         input.Body.Fee,
 			Currency:    input.Body.Currency,
 			MaxPlayers:  input.Body.MaxPlayers,
-			SlotsLeft:   input.Body.SlotsLeft,
+			SlotsLeft:   &slotsLeft,
 			Courts:      input.Body.Courts,
 			Contacts:    input.Body.Contacts,
 			GenderPref:  input.Body.GenderPref,
@@ -120,6 +129,29 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to create play")
 		}
+
+		var hostRatingCode *string
+		var hostRatingOrd *int64
+		if user.SportsProfile != nil {
+			hostRatingCode = user.SportsProfile.LevelFor(input.Body.Sport)
+			if hostRatingCode != nil {
+				if ord := model.LevelOrd(input.Body.Sport, *hostRatingCode); ord != nil {
+					v := int64(*ord)
+					hostRatingOrd = &v
+				}
+			}
+		}
+
+		if _, err := store.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+			PlayID:     play.ID,
+			UserID:     &user.ID,
+			RatingCode: hostRatingCode,
+			RatingOrd:  hostRatingOrd,
+			Status:     model.ParticipantConfirmed,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to seed creator participant")
+		}
+		play.SlotsLeft = &slotsLeft
 
 		out := &CreateOutput{
 			Body: PlayPublic{
