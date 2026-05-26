@@ -358,6 +358,14 @@ export interface components {
              */
             total: number;
         };
+        PlayParticipantPreviewPublic: {
+            display_name?: string;
+            /** Format: int64 */
+            id: number;
+            is_guest: boolean;
+            photo_url?: string;
+            rating_code?: string;
+        };
         PlayPublic: {
             /**
              * Format: uri
@@ -392,6 +400,7 @@ export interface components {
             meta: {
                 [key: string]: unknown;
             };
+            participant_preview?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
             /** Format: int64 */
             slots_left?: number;
             source?: string;

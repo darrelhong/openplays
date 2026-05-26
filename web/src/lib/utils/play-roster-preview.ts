@@ -6,6 +6,15 @@ type PlayRosterSource = {
 	host_name: string;
 	creator_display_name?: string;
 	creator_photo_url?: string;
+	participant_preview?: PlayRosterParticipantPreview[] | null;
+};
+
+type PlayRosterParticipantPreview = {
+	id: number;
+	display_name?: string;
+	photo_url?: string;
+	rating_code?: string;
+	is_guest: boolean;
 };
 
 export type RosterPreviewSlot =
@@ -13,6 +22,7 @@ export type RosterPreviewSlot =
 			kind: 'known';
 			name: string;
 			photoUrl?: string;
+			ratingCode?: string;
 	  }
 	| {
 			kind: 'occupied';
@@ -43,21 +53,29 @@ export function getPlayRosterPreview(
 	}
 
 	const requestedVisibleSlots = Math.max(1, Math.floor(maxVisibleSlots));
-	const openSlots = clampSlotCount(play.slots_left ?? maxPlayers - 1, 0, maxPlayers - 1);
+	const participantSlots = getParticipantSlots(play);
+	const hasParticipantPreview = participantSlots.length > 0;
+	const openSlots = hasParticipantPreview
+		? clampSlotCount(maxPlayers - participantSlots.length, 0, maxPlayers)
+		: clampSlotCount(play.slots_left ?? maxPlayers - 1, 0, maxPlayers - 1);
 	const occupiedSlots = maxPlayers - openSlots;
-	const allSlots: RosterPreviewSlot[] = [
-		{
-			kind: 'known',
-			name: play.creator_display_name ?? play.host_name,
-			photoUrl: play.creator_photo_url
-		}
-	];
+	const allSlots: RosterPreviewSlot[] = hasParticipantPreview
+		? participantSlots.slice(0, maxPlayers)
+		: [
+				{
+					kind: 'known',
+					name: play.creator_display_name ?? play.host_name,
+					photoUrl: play.creator_photo_url
+				}
+			];
 
-	for (let index = 1; index < occupiedSlots; index += 1) {
-		allSlots.push({
-			kind: 'occupied',
-			label: `Confirmed participant ${index + 1}`
-		});
+	if (!hasParticipantPreview) {
+		for (let index = 1; index < occupiedSlots; index += 1) {
+			allSlots.push({
+				kind: 'occupied',
+				label: `Confirmed participant ${index + 1}`
+			});
+		}
 	}
 
 	for (let index = 0; index < openSlots; index += 1) {
@@ -75,6 +93,19 @@ export function getPlayRosterPreview(
 		hiddenSlots: Math.max(0, allSlots.length - requestedVisibleSlots),
 		label: `${occupiedSlots}/${maxPlayers} joined`
 	};
+}
+
+function getParticipantSlots(play: PlayRosterSource): RosterPreviewSlot[] {
+	if (!Array.isArray(play.participant_preview)) {
+		return [];
+	}
+
+	return play.participant_preview.map<RosterPreviewSlot>((participant) => ({
+		kind: 'known',
+		name: participant.display_name ?? 'Player',
+		photoUrl: participant.photo_url,
+		ratingCode: participant.rating_code
+	}));
 }
 
 function normalizeSlotCount(value: number | undefined): number | null {
