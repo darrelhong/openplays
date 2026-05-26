@@ -72,6 +72,11 @@ func RegisterGet(api huma.API, queries *db.Queries) {
 			CreatorUsername:    r.CreatorUsername,
 			CreatorPhotoURL:    r.CreatorPhotoUrl,
 		}
+		previews, err := participantPreviewsForPlay(ctx, queries, item.ID, item.Sport, true)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get participant previews", err)
+		}
+		item.ParticipantPreview = previews
 
 		return &GetOutput{Body: item}, nil
 	})

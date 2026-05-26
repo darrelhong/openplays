@@ -51,7 +51,18 @@ type PlayPublic struct {
 	CreatorUsername    *string `json:"creator_username,omitempty"`
 	CreatorPhotoURL    *string `json:"creator_photo_url,omitempty"`
 
+	ParticipantPreview []PlayParticipantPreviewPublic `json:"participant_preview,omitempty"`
+
 	distanceKm float64 `json:"-"`
+}
+
+// PlayParticipantPreviewPublic is the compact roster data shown on play cards.
+type PlayParticipantPreviewPublic struct {
+	ID          int64   `json:"id"`
+	DisplayName *string `json:"display_name,omitempty"`
+	PhotoURL    *string `json:"photo_url,omitempty"`
+	RatingCode  *string `json:"rating_code,omitempty"`
+	IsGuest     bool    `json:"is_guest"`
 }
 
 // buildSourceLink constructs a deep link to the original message.

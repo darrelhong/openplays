@@ -396,6 +396,9 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		}
 
 		page := pagination.Paginate(items, input.Limit, total, getCursor)
+		if err := hydrateParticipantPreviews(ctx, queries, page.Items, false); err != nil {
+			return nil, huma.Error500InternalServerError("failed to list participant previews", err)
+		}
 
 		return &ListOutput{Body: page}, nil
 	})
