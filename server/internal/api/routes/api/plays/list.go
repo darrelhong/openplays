@@ -174,10 +174,11 @@ func (input *ListInput) sortByDistance() bool {
 // --- Row mapping ---
 
 func mapTimeRow(r db.ListUpcomingPlaysRow) PlayPublic {
+	createdAt, updatedAt := publicPlayTimestamps(r.CreatedBy, r.CreatedAt, r.UpdatedAt)
 	return PlayPublic{
 		ID:                 r.ID,
-		CreatedAt:          r.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:          r.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:          createdAt,
+		UpdatedAt:          updatedAt,
 		ListingType:        r.ListingType,
 		Sport:              r.Sport,
 		GameType:           r.GameType,
@@ -214,10 +215,11 @@ func mapTimeRow(r db.ListUpcomingPlaysRow) PlayPublic {
 }
 
 func mapDistanceRow(r db.ListUpcomingPlaysByDistanceRow) PlayPublic {
+	createdAt, updatedAt := publicPlayTimestamps(r.CreatedBy, r.CreatedAt, r.UpdatedAt)
 	return PlayPublic{
 		ID:                 r.ID,
-		CreatedAt:          r.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:          r.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:          createdAt,
+		UpdatedAt:          updatedAt,
 		ListingType:        r.ListingType,
 		Sport:              r.Sport,
 		GameType:           r.GameType,

@@ -2,6 +2,10 @@ package plays
 
 import (
 	"testing"
+	"time"
+
+	"openplays/server/internal/db"
+	"openplays/server/internal/model"
 )
 
 func TestBuildFiltersDateRange(t *testing.T) {
@@ -203,5 +207,93 @@ func TestBuildFilters_SportAndTennisLevel(t *testing.T) {
 	}
 	if got, want := f.filterLevelMaxOrd, 40; got != want {
 		t.Errorf("filter_level_max_ord = %v, want %v", got, want)
+	}
+}
+
+func TestMapTimeRowOmitsTimestampsForUserCreatedPlays(t *testing.T) {
+	creatorID := "creator-1"
+	item := mapTimeRow(listUpcomingPlayRowWithCreatedBy(&creatorID))
+
+	if item.CreatedAt != nil {
+		t.Fatalf("created_at = %v, want omitted for user-created play", *item.CreatedAt)
+	}
+	if item.UpdatedAt != nil {
+		t.Fatalf("updated_at = %v, want omitted for user-created play", *item.UpdatedAt)
+	}
+}
+
+func TestMapTimeRowIncludesTimestampsForImportedPlays(t *testing.T) {
+	item := mapTimeRow(listUpcomingPlayRowWithCreatedBy(nil))
+
+	if item.CreatedAt == nil || *item.CreatedAt != "2026-05-01T10:00:00Z" {
+		t.Fatalf("created_at = %v, want 2026-05-01T10:00:00Z", item.CreatedAt)
+	}
+	if item.UpdatedAt == nil || *item.UpdatedAt != "2026-05-02T10:00:00Z" {
+		t.Fatalf("updated_at = %v, want 2026-05-02T10:00:00Z", item.UpdatedAt)
+	}
+}
+
+func TestMapDistanceRowOmitsTimestampsForUserCreatedPlays(t *testing.T) {
+	creatorID := "creator-1"
+	item := mapDistanceRow(listUpcomingPlayByDistanceRowWithCreatedBy(&creatorID))
+
+	if item.CreatedAt != nil {
+		t.Fatalf("created_at = %v, want omitted for user-created play", *item.CreatedAt)
+	}
+	if item.UpdatedAt != nil {
+		t.Fatalf("updated_at = %v, want omitted for user-created play", *item.UpdatedAt)
+	}
+}
+
+func TestMapDistanceRowIncludesTimestampsForImportedPlays(t *testing.T) {
+	item := mapDistanceRow(listUpcomingPlayByDistanceRowWithCreatedBy(nil))
+
+	if item.CreatedAt == nil || *item.CreatedAt != "2026-05-01T10:00:00Z" {
+		t.Fatalf("created_at = %v, want 2026-05-01T10:00:00Z", item.CreatedAt)
+	}
+	if item.UpdatedAt == nil || *item.UpdatedAt != "2026-05-02T10:00:00Z" {
+		t.Fatalf("updated_at = %v, want 2026-05-02T10:00:00Z", item.UpdatedAt)
+	}
+}
+
+func listUpcomingPlayRowWithCreatedBy(createdBy *string) db.ListUpcomingPlaysRow {
+	createdAt := time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC)
+	startsAt := time.Date(2026, 5, 4, 10, 0, 0, 0, time.UTC)
+	return db.ListUpcomingPlaysRow{
+		ID:          "play-1",
+		CreatedAt:   createdAt,
+		UpdatedAt:   createdAt.Add(24 * time.Hour),
+		ListingType: model.ListingPlay,
+		Sport:       model.SportBadminton,
+		HostName:    "Host",
+		StartsAt:    startsAt,
+		EndsAt:      startsAt.Add(2 * time.Hour),
+		Timezone:    "Asia/Singapore",
+		Venue:       "SBH",
+		VenueName:   "SBH",
+		CreatedBy:   createdBy,
+		Currency:    "SGD",
+	}
+}
+
+func listUpcomingPlayByDistanceRowWithCreatedBy(createdBy *string) db.ListUpcomingPlaysByDistanceRow {
+	row := listUpcomingPlayRowWithCreatedBy(createdBy)
+	return db.ListUpcomingPlaysByDistanceRow{
+		ID:             row.ID,
+		CreatedAt:      row.CreatedAt,
+		UpdatedAt:      row.UpdatedAt,
+		ListingType:    row.ListingType,
+		Sport:          row.Sport,
+		HostName:       row.HostName,
+		StartsAt:       row.StartsAt,
+		EndsAt:         row.EndsAt,
+		Timezone:       row.Timezone,
+		Venue:          row.Venue,
+		VenueName:      row.VenueName,
+		CreatedBy:      row.CreatedBy,
+		Currency:       row.Currency,
+		VenueLatitude:  1.3,
+		VenueLongitude: 103.8,
+		DistanceKm:     1.2,
 	}
 }

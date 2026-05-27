@@ -39,10 +39,11 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			return nil, huma.Error500InternalServerError("failed to get play", err)
 		}
 
+		createdAt, updatedAt := publicPlayTimestamps(r.CreatedBy, r.CreatedAt, r.UpdatedAt)
 		item := PlayPublic{
 			ID:                 r.ID,
-			CreatedAt:          r.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:          r.UpdatedAt.Format(time.RFC3339),
+			CreatedAt:          createdAt,
+			UpdatedAt:          updatedAt,
 			ListingType:        r.ListingType,
 			Sport:              r.Sport,
 			GameType:           r.GameType,

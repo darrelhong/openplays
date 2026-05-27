@@ -525,7 +525,7 @@ export interface components {
             contacts: components["schemas"]["ContactMethod"][] | null;
             /** Format: int64 */
             courts?: number;
-            created_at: string;
+            created_at?: string;
             created_by?: string;
             creator_display_name?: string;
             creator_photo_url?: string;
@@ -563,7 +563,7 @@ export interface components {
             sport: "badminton" | "tennis" | "football" | "pickleball";
             starts_at: string;
             timezone: string;
-            updated_at: string;
+            updated_at?: string;
             /** @description Raw venue name as extracted from the message */
             venue: string;
             /** Format: int64 */

@@ -73,6 +73,8 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 		Waitlist []struct {
 			DisplayName *string `json:"display_name"`
 		} `json:"waitlist"`
+		CreatedAt      *string `json:"created_at"`
+		UpdatedAt      *string `json:"updated_at"`
 		ViewerState    *string `json:"viewer_state"`
 		CanManage      *bool   `json:"can_manage"`
 		ConfirmedCount *int64  `json:"confirmed_count"`
@@ -95,6 +97,12 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 	if len(out.Waitlist) != 0 {
 		t.Fatalf("waitlist len = %d, want 0 for anonymous viewer", len(out.Waitlist))
 	}
+	if out.CreatedAt != nil {
+		t.Fatalf("created_at = %v, want omitted for user-created play", *out.CreatedAt)
+	}
+	if out.UpdatedAt != nil {
+		t.Fatalf("updated_at = %v, want omitted for user-created play", *out.UpdatedAt)
+	}
 	if out.ConfirmedCount == nil || *out.ConfirmedCount != 2 {
 		t.Fatalf("confirmed_count = %v, want 2", out.ConfirmedCount)
 	}
@@ -109,6 +117,56 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 	}
 	if out.CanManage == nil || *out.CanManage {
 		t.Fatalf("can_manage = %v, want false", out.CanManage)
+	}
+}
+
+func TestGetPlayDetail_ImportedPlayIncludesTimestamps(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	startsAt := time.Now().UTC().Add(24 * time.Hour)
+	play, err := queries.CreatePlay(ctx, db.CreatePlayParams{
+		ID:          "detail-imported-timestamps",
+		ListingType: model.ListingPlay,
+		Sport:       model.SportBadminton,
+		HostName:    "Imported Host",
+		StartsAt:    startsAt,
+		EndsAt:      startsAt.Add(2 * time.Hour),
+		Timezone:    "Asia/Singapore",
+		Venue:       "SBH",
+		Currency:    "SGD",
+	})
+	if err != nil {
+		t.Fatalf("CreatePlay imported: %v", err)
+	}
+
+	ts := setupGetDetailTest(&fakeAuthStore{sessionErr: context.Canceled}, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+play.ID, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		CreatedAt *string `json:"created_at"`
+		UpdatedAt *string `json:"updated_at"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.CreatedAt == nil {
+		t.Fatal("created_at omitted, want timestamp for imported play")
+	}
+	if out.UpdatedAt == nil {
+		t.Fatal("updated_at omitted, want timestamp for imported play")
 	}
 }
 
@@ -250,8 +308,4 @@ func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 			}
 		})
 	}
-}
-
-func init() {
-	_ = time.Now
 }

@@ -389,20 +389,22 @@
 				{/if}
 			</div>
 		{/if}
-		<div class="mt-3 pt-3 border-t border-border">
-			<dl class="text-xs text-muted-foreground space-y-1">
-				<div class="flex gap-4">
-					<dt class="w-24">Created</dt>
-					<dd>{formatDateTime(play.created_at)}</dd>
-				</div>
-				{#if play.updated_at !== play.created_at}
+		{#if play.created_at}
+			<div class="mt-3 pt-3 border-t border-border">
+				<dl class="text-xs text-muted-foreground space-y-1">
 					<div class="flex gap-4">
-						<dt class="w-24">Updated</dt>
-						<dd>{formatDateTime(play.updated_at)}</dd>
+						<dt class="w-24">Created</dt>
+						<dd>{formatDateTime(play.created_at)}</dd>
 					</div>
-				{/if}
-			</dl>
-		</div>
+					{#if play.updated_at && play.updated_at !== play.created_at}
+						<div class="flex gap-4">
+							<dt class="w-24">Updated</dt>
+							<dd>{formatDateTime(play.updated_at)}</dd>
+						</div>
+					{/if}
+				</dl>
+			</div>
+		{/if}
 	</section>
 {/snippet}
 

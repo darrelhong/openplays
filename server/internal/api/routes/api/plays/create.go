@@ -152,12 +152,13 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			return nil, huma.Error500InternalServerError("failed to seed creator participant")
 		}
 		play.SlotsLeft = &slotsLeft
+		createdAt, updatedAt := publicPlayTimestamps(play.CreatedBy, play.CreatedAt, play.UpdatedAt)
 
 		out := &CreateOutput{
 			Body: PlayPublic{
 				ID:          play.ID,
-				CreatedAt:   play.CreatedAt.Format(time.RFC3339),
-				UpdatedAt:   play.UpdatedAt.Format(time.RFC3339),
+				CreatedAt:   createdAt,
+				UpdatedAt:   updatedAt,
 				ListingType: play.ListingType,
 				Sport:       play.Sport,
 				GameType:    play.GameType,

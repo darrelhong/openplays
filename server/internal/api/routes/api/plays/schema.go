@@ -2,6 +2,7 @@ package plays
 
 import (
 	"fmt"
+	"time"
 
 	"openplays/server/internal/model"
 )
@@ -9,8 +10,8 @@ import (
 // PlayPublic is the API response schema for a play.
 type PlayPublic struct {
 	ID          string            `json:"id"`
-	CreatedAt   string            `json:"created_at"`
-	UpdatedAt   string            `json:"updated_at"`
+	CreatedAt   *string           `json:"created_at,omitempty"`
+	UpdatedAt   *string           `json:"updated_at,omitempty"`
 	ListingType model.ListingType `json:"listing_type"`
 	Sport       model.Sport       `json:"sport"`
 	GameType    *model.GameType   `json:"game_type,omitempty"`
@@ -61,6 +62,15 @@ type PlayPublic struct {
 	WaitlistCount         *int64                         `json:"waitlist_count,omitempty"`
 
 	distanceKm float64 `json:"-"`
+}
+
+func publicPlayTimestamps(createdBy *string, createdAt, updatedAt time.Time) (*string, *string) {
+	if createdBy != nil {
+		return nil, nil
+	}
+	created := createdAt.Format(time.RFC3339)
+	updated := updatedAt.Format(time.RFC3339)
+	return &created, &updated
 }
 
 // PlayParticipantPreviewPublic is the compact roster data shown on play cards.
