@@ -31,6 +31,7 @@ type HostRosterOutput struct {
 
 type HostRosterStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
+	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	GetPlayParticipantByID(ctx context.Context, id int64) (db.PlayParticipant, error)
 	CountConfirmedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdatePlayParticipantStatus(ctx context.Context, arg db.UpdatePlayParticipantStatusParams) (db.PlayParticipant, error)
@@ -101,8 +102,12 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 			return nil, err
 		}
 
-		if participant.UserID != nil && play.CreatedBy != nil && *participant.UserID == *play.CreatedBy {
-			return nil, huma.Error409Conflict("host cannot remove themselves")
+		if participant.UserID != nil {
+			if ok, err := isPlayHost(ctx, store, play.ID, *participant.UserID); err != nil {
+				return nil, err
+			} else if ok {
+				return nil, huma.Error409Conflict("host cannot be removed from roster")
+			}
 		}
 
 		if err := store.DeletePlayParticipant(ctx, participant.ID); err != nil {
@@ -134,8 +139,8 @@ func loadHostRosterTarget(ctx context.Context, store HostRosterStore, playID str
 	if play.CreatedBy == nil {
 		return db.GetPlayByIDRow{}, db.PlayParticipant{}, huma.Error422UnprocessableEntity("cannot manage imported plays")
 	}
-	if user.ID != *play.CreatedBy {
-		return db.GetPlayByIDRow{}, db.PlayParticipant{}, huma.Error403Forbidden("only the host can manage this roster")
+	if err := requirePlayHost(ctx, store, playID, user.ID); err != nil {
+		return db.GetPlayByIDRow{}, db.PlayParticipant{}, err
 	}
 
 	participant, err := store.GetPlayParticipantByID(ctx, participantID)

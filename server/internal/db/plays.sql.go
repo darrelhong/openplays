@@ -203,16 +203,11 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 const deleteUserCreatedPlay = `-- name: DeleteUserCreatedPlay :exec
 DELETE FROM plays
 WHERE id = ?
-  AND created_by = ?
+  AND created_by IS NOT NULL
 `
 
-type DeleteUserCreatedPlayParams struct {
-	ID        string
-	CreatedBy *string
-}
-
-func (q *Queries) DeleteUserCreatedPlay(ctx context.Context, arg DeleteUserCreatedPlayParams) error {
-	_, err := q.db.ExecContext(ctx, deleteUserCreatedPlay, arg.ID, arg.CreatedBy)
+func (q *Queries) DeleteUserCreatedPlay(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteUserCreatedPlay, id)
 	return err
 }
 
@@ -761,7 +756,7 @@ SET
     courts = ?11,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE plays.id = ?12
-  AND plays.created_by = ?13
+  AND plays.created_by IS NOT NULL
 RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by
 `
 
@@ -778,7 +773,6 @@ type UpdateUserCreatedPlayParams struct {
 	MaxPlayers  *int64
 	Courts      *int64
 	ID          string
-	CreatedBy   *string
 }
 
 func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreatedPlayParams) (Play, error) {
@@ -795,7 +789,6 @@ func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreat
 		arg.MaxPlayers,
 		arg.Courts,
 		arg.ID,
-		arg.CreatedBy,
 	)
 	var i Play
 	err := row.Scan(

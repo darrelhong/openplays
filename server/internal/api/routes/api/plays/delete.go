@@ -17,7 +17,9 @@ type DeletePlayInput struct {
 
 type DeletePlayStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
-	DeleteUserCreatedPlay(ctx context.Context, arg db.DeleteUserCreatedPlayParams) error
+	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
+	DeletePlayHostsByPlay(ctx context.Context, playID string) error
+	DeleteUserCreatedPlay(ctx context.Context, id string) error
 	DeletePlayParticipantsByPlay(ctx context.Context, playID string) error
 }
 
@@ -47,15 +49,18 @@ func RegisterDelete(api huma.API, store DeletePlayStore, authMiddleware func(hum
 		if play.CreatedBy == nil {
 			return nil, huma.Error422UnprocessableEntity("cannot delete imported plays")
 		}
-		if user.ID != *play.CreatedBy {
-			return nil, huma.Error403Forbidden("only the host can delete this play")
+		if err := requirePlayHost(ctx, store, input.ID, user.ID); err != nil {
+			return nil, err
 		}
 
-		if err := store.DeleteUserCreatedPlay(ctx, db.DeleteUserCreatedPlayParams{ID: input.ID, CreatedBy: &user.ID}); err != nil {
-			return nil, huma.Error500InternalServerError("failed to delete play")
-		}
 		if err := store.DeletePlayParticipantsByPlay(ctx, input.ID); err != nil {
 			return nil, huma.Error500InternalServerError("failed to delete play roster")
+		}
+		if err := store.DeletePlayHostsByPlay(ctx, input.ID); err != nil {
+			return nil, huma.Error500InternalServerError("failed to delete play hosts")
+		}
+		if err := store.DeleteUserCreatedPlay(ctx, input.ID); err != nil {
+			return nil, huma.Error500InternalServerError("failed to delete play")
 		}
 
 		return &struct{}{}, nil

@@ -45,6 +45,13 @@ type Play struct {
 	CreatedBy            *string
 }
 
+type PlayHost struct {
+	PlayID    string
+	UserID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type PlayParticipant struct {
 	ID         int64
 	PlayID     string

@@ -231,6 +231,67 @@ func TestGetPlayDetail_CreatorPermissions(t *testing.T) {
 	}
 }
 
+func TestGetPlayDetail_HostCanManageWithoutRosterSlot(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-host-not-player")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+	guestName := "Host Visible Wait"
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID:    playID,
+		GuestName: &guestName,
+		Status:    model.ParticipantWaitlisted,
+	}); err != nil {
+		t.Fatalf("CreatePlayParticipant waitlist guest: %v", err)
+	}
+
+	authStore := sessionWithProfile(creatorID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupGetDetailTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		Waitlist []struct {
+			DisplayName *string `json:"display_name"`
+		} `json:"waitlist"`
+		ViewerState    *string `json:"viewer_state"`
+		CanManage      *bool   `json:"can_manage"`
+		ConfirmedCount *int64  `json:"confirmed_count"`
+		SlotsLeft      *int64  `json:"slots_left"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ViewerState == nil || *out.ViewerState != "creator" {
+		t.Fatalf("viewer_state = %v, want creator", out.ViewerState)
+	}
+	if out.CanManage == nil || !*out.CanManage {
+		t.Fatalf("can_manage = %v, want true", out.CanManage)
+	}
+	if len(out.Waitlist) != 1 {
+		t.Fatalf("waitlist len = %d, want 1 for host", len(out.Waitlist))
+	}
+	if out.ConfirmedCount == nil || *out.ConfirmedCount != 0 {
+		t.Fatalf("confirmed_count = %v, want 0", out.ConfirmedCount)
+	}
+	if out.SlotsLeft == nil || *out.SlotsLeft != 4 {
+		t.Fatalf("slots_left = %v, want 4", out.SlotsLeft)
+	}
+}
+
 func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 	tests := []struct {
 		name          string

@@ -245,6 +245,12 @@ func createUserPlay(t *testing.T, ctx context.Context, queries *db.Queries, crea
 	if err != nil {
 		t.Fatalf("CreatePlay: %v", err)
 	}
+	if _, err := queries.CreatePlayHost(ctx, db.CreatePlayHostParams{
+		PlayID: play.ID,
+		UserID: creatorID,
+	}); err != nil {
+		t.Fatalf("CreatePlayHost host: %v", err)
+	}
 	return play.ID
 }
 

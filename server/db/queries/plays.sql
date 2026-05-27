@@ -218,13 +218,13 @@ SET
     courts = sqlc.arg('courts'),
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE plays.id = sqlc.arg('id')
-  AND plays.created_by = sqlc.arg('created_by')
+  AND plays.created_by IS NOT NULL
 RETURNING *;
 
 -- name: DeleteUserCreatedPlay :exec
 DELETE FROM plays
 WHERE id = ?
-  AND created_by = ?;
+  AND created_by IS NOT NULL;
 
 -- name: UpdatePlaySlotsLeft :exec
 UPDATE plays

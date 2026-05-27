@@ -80,7 +80,9 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		viewerState := "not_joined"
 		canManage := false
 		if viewer := authmw.UserFromContext(ctx); viewer != nil {
-			if item.CreatedBy != nil && viewer.ID == *item.CreatedBy {
+			if ok, err := isPlayHost(ctx, queries, item.ID, viewer.ID); err != nil {
+				return nil, err
+			} else if ok {
 				viewerState = "creator"
 				canManage = true
 			} else {
@@ -107,7 +109,6 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to get confirmed participants", err)
 		}
-		markHostParticipant(confirmed, item.CreatedBy)
 		item.ParticipantPreview = confirmed
 		item.ConfirmedParticipants = confirmed
 

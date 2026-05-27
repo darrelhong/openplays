@@ -84,6 +84,43 @@ func TestHostAcceptWaitlistedParticipant_WhenSlotOpen(t *testing.T) {
 	}
 }
 
+func TestHostAcceptWaitlistedParticipant_HostCanAcceptWithoutRosterSlot(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "host-not-player")
+	waitlistedID := createRouteTestUser(t, ctx, queries, "host-not-player-waitlisted")
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	waitlisted := seedWaitlistedParticipant(t, ctx, queries, playID, waitlistedID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	ts := setupHostRosterTest(sessionWithProfile(creatorID, nil), queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/plays/%s/participants/%d/accept", ts.URL, playID, waitlisted.ID), nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	got, err := queries.GetPlayParticipantByID(ctx, waitlisted.ID)
+	if err != nil {
+		t.Fatalf("GetPlayParticipantByID: %v", err)
+	}
+	if got.Status != model.ParticipantConfirmed {
+		t.Fatalf("participant status = %q, want confirmed", got.Status)
+	}
+}
+
 func TestHostAcceptWaitlistedParticipant_RejectsWhenFull(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

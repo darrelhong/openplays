@@ -142,6 +142,13 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			}
 		}
 
+		if _, err := store.CreatePlayHost(ctx, db.CreatePlayHostParams{
+			PlayID: play.ID,
+			UserID: user.ID,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to seed play host")
+		}
+
 		if _, err := store.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
 			PlayID:     play.ID,
 			UserID:     &user.ID,

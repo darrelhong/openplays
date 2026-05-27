@@ -29,8 +29,15 @@ func hydrateParticipantPreviews(ctx context.Context, queries *db.Queries, items 
 		rowsByPlayID[row.PlayID] = append(rowsByPlayID[row.PlayID], batchParticipantPreviewRow(row))
 	}
 
+	hostUserIDsByPlay, err := hostUserIDSetsByPlay(ctx, queries, playIDs)
+	if err != nil {
+		return fmt.Errorf("list play hosts: %w", err)
+	}
+
 	for i := range items {
-		items[i].ParticipantPreview = mapParticipantPreviewRows(items[i].Sport, rowsByPlayID[items[i].ID], includeNames)
+		previews := mapParticipantPreviewRows(items[i].Sport, rowsByPlayID[items[i].ID], includeNames)
+		markHostParticipants(previews, hostUserIDsByPlay[items[i].ID])
+		items[i].ParticipantPreview = previews
 	}
 	return nil
 }
@@ -40,7 +47,13 @@ func participantPreviewsForPlay(ctx context.Context, queries *db.Queries, playID
 	if err != nil {
 		return nil, err
 	}
-	return mapParticipantPreviewRows(sport, singleParticipantPreviewRows(rows), includeNames), nil
+	previews := mapParticipantPreviewRows(sport, singleParticipantPreviewRows(rows), includeNames)
+	hostUserIDs, err := hostUserIDSetForPlay(ctx, queries, playID)
+	if err != nil {
+		return nil, err
+	}
+	markHostParticipants(previews, hostUserIDs)
+	return previews, nil
 }
 
 func participantPreviewsForPlayByStatus(ctx context.Context, queries *db.Queries, playID string, sport model.Sport, status model.PlayParticipantStatus, includeNames bool) ([]PlayParticipantPreviewPublic, error) {
@@ -51,7 +64,13 @@ func participantPreviewsForPlayByStatus(ctx context.Context, queries *db.Queries
 	if err != nil {
 		return nil, err
 	}
-	return mapParticipantPreviewRows(sport, statusParticipantPreviewRows(rows), includeNames), nil
+	previews := mapParticipantPreviewRows(sport, statusParticipantPreviewRows(rows), includeNames)
+	hostUserIDs, err := hostUserIDSetForPlay(ctx, queries, playID)
+	if err != nil {
+		return nil, err
+	}
+	markHostParticipants(previews, hostUserIDs)
+	return previews, nil
 }
 
 type participantPreviewRow struct {
@@ -127,12 +146,47 @@ func mapParticipantPreviewRows(sport model.Sport, rows []participantPreviewRow, 
 	return previews
 }
 
-func markHostParticipant(previews []PlayParticipantPreviewPublic, createdBy *string) {
-	if createdBy == nil {
+func hostUserIDSetForPlay(ctx context.Context, queries *db.Queries, playID string) (map[string]struct{}, error) {
+	ids, err := queries.ListPlayHostUserIDsByPlay(ctx, playID)
+	if err != nil {
+		return nil, err
+	}
+	return userIDSet(ids), nil
+}
+
+func hostUserIDSetsByPlay(ctx context.Context, queries *db.Queries, playIDs []string) (map[string]map[string]struct{}, error) {
+	rows, err := queries.ListPlayHostUserIDsByPlays(ctx, playIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make(map[string]map[string]struct{}, len(playIDs))
+	for _, row := range rows {
+		if out[row.PlayID] == nil {
+			out[row.PlayID] = make(map[string]struct{})
+		}
+		out[row.PlayID][row.UserID] = struct{}{}
+	}
+	return out, nil
+}
+
+func userIDSet(ids []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		out[id] = struct{}{}
+	}
+	return out
+}
+
+func markHostParticipants(previews []PlayParticipantPreviewPublic, hostUserIDs map[string]struct{}) {
+	if len(hostUserIDs) == 0 {
 		return
 	}
 	for i := range previews {
-		if previews[i].UserID != nil && *previews[i].UserID == *createdBy {
+		if previews[i].UserID == nil {
+			continue
+		}
+		if _, ok := hostUserIDs[*previews[i].UserID]; ok {
 			previews[i].IsHost = true
 		}
 	}

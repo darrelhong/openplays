@@ -37,6 +37,7 @@ type UpdatePlayOutput struct {
 
 type UpdatePlayStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
+	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	CountConfirmedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdateUserCreatedPlay(ctx context.Context, arg db.UpdateUserCreatedPlayParams) (db.Play, error)
 }
@@ -67,8 +68,8 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 		if play.CreatedBy == nil {
 			return nil, huma.Error422UnprocessableEntity("cannot update imported plays")
 		}
-		if user.ID != *play.CreatedBy {
-			return nil, huma.Error403Forbidden("only the host can update this play")
+		if err := requirePlayHost(ctx, store, input.ID, user.ID); err != nil {
+			return nil, err
 		}
 
 		startsAt, endsAt, err := updatePlayTimes(play.StartsAt, play.EndsAt, input.Body.StartsAt, input.Body.DurationMinutes)
@@ -140,7 +141,6 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 
 		updated, err := store.UpdateUserCreatedPlay(ctx, db.UpdateUserCreatedPlayParams{
 			ID:          input.ID,
-			CreatedBy:   &user.ID,
 			GameType:    gameType,
 			StartsAt:    startsAt,
 			EndsAt:      endsAt,

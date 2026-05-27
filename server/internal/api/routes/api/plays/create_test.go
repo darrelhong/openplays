@@ -25,9 +25,10 @@ import (
 )
 
 type fakeCreatePlayStore struct {
-	play     db.Play
-	err      error
-	lastArgs db.CreatePlayParams // captures last call args for assertions
+	play         db.Play
+	err          error
+	lastArgs     db.CreatePlayParams // captures last call args for assertions
+	lastHostArgs db.CreatePlayHostParams
 }
 
 func (f *fakeCreatePlayStore) CreatePlay(_ context.Context, arg db.CreatePlayParams) (db.Play, error) {
@@ -44,6 +45,11 @@ func (f *fakeCreatePlayStore) CreatePlay(_ context.Context, arg db.CreatePlayPar
 	p.EndsAt = arg.EndsAt
 	p.CreatedBy = arg.CreatedBy
 	return p, nil
+}
+
+func (f *fakeCreatePlayStore) CreatePlayHost(_ context.Context, arg db.CreatePlayHostParams) (db.PlayHost, error) {
+	f.lastHostArgs = arg
+	return db.PlayHost{PlayID: arg.PlayID, UserID: arg.UserID}, nil
 }
 
 func (f *fakeCreatePlayStore) CreatePlayParticipant(_ context.Context, _ db.CreatePlayParticipantParams) (db.PlayParticipant, error) {
@@ -122,6 +128,9 @@ func TestCreatePlay_Success(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if playStore.lastHostArgs.UserID != "user-1" || playStore.lastHostArgs.PlayID == "" {
+		t.Fatalf("CreatePlayHost args = %+v, want user-1 host", playStore.lastHostArgs)
 	}
 }
 
@@ -472,6 +481,9 @@ func TestCreatePlay_SeedsCreatorAndDerivesSlotsLeft(t *testing.T) {
 		t.Fatalf("participant status = %q, want confirmed", participants[0].Status)
 	}
 
+	if _, err := queries.GetPlayHost(context.Background(), db.GetPlayHostParams{PlayID: out.ID, UserID: "user-1"}); err != nil {
+		t.Fatalf("GetPlayHost: %v", err)
+	}
 	row, err := queries.GetPlayByID(context.Background(), out.ID)
 	if err != nil {
 		t.Fatalf("GetPlayByID: %v", err)

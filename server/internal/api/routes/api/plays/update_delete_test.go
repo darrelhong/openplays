@@ -134,7 +134,6 @@ func TestUpdatePlay_ClearsOptionalFields(t *testing.T) {
 	courts := int64(2)
 	if _, err := queries.UpdateUserCreatedPlay(ctx, db.UpdateUserCreatedPlayParams{
 		ID:          playID,
-		CreatedBy:   &creatorID,
 		GameType:    &doubles,
 		StartsAt:    play.StartsAt,
 		EndsAt:      play.EndsAt,
@@ -225,12 +224,47 @@ func TestUpdatePlay_RejectsLoweringMaxPlayersBelowConfirmedCount(t *testing.T) {
 	}
 }
 
+func TestUpdatePlay_HostCanUpdateWithoutRosterSlot(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "update-host-not-player")
+	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
+
+	ts := setupHostPlayManagementTest(sessionWithProfile(creatorID, nil), queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPatch, ts.URL+"/api/plays/"+playID, strings.NewReader(`{"max_players":4}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, want 200, body=%s", resp.StatusCode, string(b))
+	}
+
+	got, err := queries.GetPlayByID(ctx, playID)
+	if err != nil {
+		t.Fatalf("GetPlayByID: %v", err)
+	}
+	if got.MaxPlayers == nil || *got.MaxPlayers != 4 {
+		t.Fatalf("max_players = %v, want 4", got.MaxPlayers)
+	}
+}
+
 func TestUpdatePlay_RejectsNonHost(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	creatorID := createRouteTestUser(t, ctx, queries, "update-owner")
+	creatorID := createRouteTestUser(t, ctx, queries, "update-host")
 	otherID := createRouteTestUser(t, ctx, queries, "update-other")
 	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
 
@@ -291,12 +325,41 @@ func TestDeletePlay_HostDeletesPlayAndRoster(t *testing.T) {
 	}
 }
 
+func TestDeletePlay_HostDeletesWithoutRosterSlot(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "delete-host-not-player")
+	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
+
+	ts := setupHostPlayManagementTest(sessionWithProfile(creatorID, nil), queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/plays/"+playID, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, want 204, body=%s", resp.StatusCode, string(b))
+	}
+	if _, err := queries.GetPlayByID(ctx, playID); err != sql.ErrNoRows {
+		t.Fatalf("GetPlayByID err = %v, want sql.ErrNoRows", err)
+	}
+}
+
 func TestDeletePlay_RejectsNonHost(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	creatorID := createRouteTestUser(t, ctx, queries, "delete-owner")
+	creatorID := createRouteTestUser(t, ctx, queries, "delete-host-other")
 	otherID := createRouteTestUser(t, ctx, queries, "delete-other")
 	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
 
