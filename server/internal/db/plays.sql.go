@@ -200,6 +200,22 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 	return i, err
 }
 
+const deleteUserCreatedPlay = `-- name: DeleteUserCreatedPlay :exec
+DELETE FROM plays
+WHERE id = ?
+  AND created_by = ?
+`
+
+type DeleteUserCreatedPlayParams struct {
+	ID        string
+	CreatedBy *string
+}
+
+func (q *Queries) DeleteUserCreatedPlay(ctx context.Context, arg DeleteUserCreatedPlayParams) error {
+	_, err := q.db.ExecContext(ctx, deleteUserCreatedPlay, arg.ID, arg.CreatedBy)
+	return err
+}
+
 const getPlayByID = `-- name: GetPlayByID :one
 SELECT
     p.id, p.created_at, p.updated_at,
@@ -718,6 +734,105 @@ WHERE plays.id = ?
 func (q *Queries) UpdatePlaySlotsLeft(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, updatePlaySlotsLeft, id)
 	return err
+}
+
+const updateUserCreatedPlay = `-- name: UpdateUserCreatedPlay :one
+UPDATE plays
+SET
+    game_type = ?1,
+    starts_at = ?2,
+    ends_at = ?3,
+    timezone = ?4,
+    level_min = ?5,
+    level_max = ?6,
+    level_min_ord = ?7,
+    level_max_ord = ?8,
+    fee = ?9,
+    max_players = ?10,
+    slots_left = CASE
+        WHEN ?10 IS NULL THEN NULL
+        ELSE max(?10 - (
+            SELECT COUNT(*)
+            FROM play_participants pp
+            WHERE pp.play_id = plays.id
+              AND pp.status = 'confirmed'
+        ), 0)
+    END,
+    courts = ?11,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE plays.id = ?12
+  AND plays.created_by = ?13
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by
+`
+
+type UpdateUserCreatedPlayParams struct {
+	GameType    *model.GameType
+	StartsAt    time.Time
+	EndsAt      time.Time
+	Timezone    string
+	LevelMin    *string
+	LevelMax    *string
+	LevelMinOrd *int64
+	LevelMaxOrd *int64
+	Fee         *int64
+	MaxPlayers  *int64
+	Courts      *int64
+	ID          string
+	CreatedBy   *string
+}
+
+func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreatedPlayParams) (Play, error) {
+	row := q.db.QueryRowContext(ctx, updateUserCreatedPlay,
+		arg.GameType,
+		arg.StartsAt,
+		arg.EndsAt,
+		arg.Timezone,
+		arg.LevelMin,
+		arg.LevelMax,
+		arg.LevelMinOrd,
+		arg.LevelMaxOrd,
+		arg.Fee,
+		arg.MaxPlayers,
+		arg.Courts,
+		arg.ID,
+		arg.CreatedBy,
+	)
+	var i Play
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ListingType,
+		&i.Sport,
+		&i.GameType,
+		&i.HostName,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.Timezone,
+		&i.Venue,
+		&i.LevelMin,
+		&i.LevelMax,
+		&i.LevelMinOrd,
+		&i.LevelMaxOrd,
+		&i.Fee,
+		&i.Currency,
+		&i.MaxPlayers,
+		&i.SlotsLeft,
+		&i.Courts,
+		&i.Contacts,
+		&i.GenderPref,
+		&i.Meta,
+		&i.Source,
+		&i.SourceSenderUsername,
+		&i.SourceRawMessage,
+		&i.SourceMessageTime,
+		&i.VenueID,
+		&i.SourceMessageID,
+		&i.SourceGroup,
+		&i.SourceSenderName,
+		&i.CreatedBy,
+	)
+	return i, err
 }
 
 const upsertPlay = `-- name: UpsertPlay :one

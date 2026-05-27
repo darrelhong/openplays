@@ -104,3 +104,7 @@ WHERE id = ?;
 -- name: DeletePlayParticipantByPlayAndUser :exec
 DELETE FROM play_participants
 WHERE play_id = ? AND user_id = ?;
+
+-- name: DeletePlayParticipantsByPlay :exec
+DELETE FROM play_participants
+WHERE play_id = ?;

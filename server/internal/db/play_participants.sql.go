@@ -108,6 +108,16 @@ func (q *Queries) DeletePlayParticipantByPlayAndUser(ctx context.Context, arg De
 	return err
 }
 
+const deletePlayParticipantsByPlay = `-- name: DeletePlayParticipantsByPlay :exec
+DELETE FROM play_participants
+WHERE play_id = ?
+`
+
+func (q *Queries) DeletePlayParticipantsByPlay(ctx context.Context, playID string) error {
+	_, err := q.db.ExecContext(ctx, deletePlayParticipantsByPlay, playID)
+	return err
+}
+
 const getPlayParticipantByID = `-- name: GetPlayParticipantByID :one
 SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
 WHERE id = ?

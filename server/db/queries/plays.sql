@@ -193,6 +193,39 @@ LEFT JOIN venues v ON v.id = p.venue_id
 LEFT JOIN users u ON u.id = p.created_by
 WHERE p.id = ?;
 
+-- name: UpdateUserCreatedPlay :one
+UPDATE plays
+SET
+    game_type = sqlc.arg('game_type'),
+    starts_at = sqlc.arg('starts_at'),
+    ends_at = sqlc.arg('ends_at'),
+    timezone = sqlc.arg('timezone'),
+    level_min = sqlc.arg('level_min'),
+    level_max = sqlc.arg('level_max'),
+    level_min_ord = sqlc.arg('level_min_ord'),
+    level_max_ord = sqlc.arg('level_max_ord'),
+    fee = sqlc.arg('fee'),
+    max_players = sqlc.arg('max_players'),
+    slots_left = CASE
+        WHEN sqlc.arg('max_players') IS NULL THEN NULL
+        ELSE max(sqlc.arg('max_players') - (
+            SELECT COUNT(*)
+            FROM play_participants pp
+            WHERE pp.play_id = plays.id
+              AND pp.status = 'confirmed'
+        ), 0)
+    END,
+    courts = sqlc.arg('courts'),
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE plays.id = sqlc.arg('id')
+  AND plays.created_by = sqlc.arg('created_by')
+RETURNING *;
+
+-- name: DeleteUserCreatedPlay :exec
+DELETE FROM plays
+WHERE id = ?
+  AND created_by = ?;
+
 -- name: UpdatePlaySlotsLeft :exec
 UPDATE plays
 SET
