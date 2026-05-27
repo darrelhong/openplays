@@ -1,4 +1,4 @@
-import { redirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { api } from '$lib/api/client';
 import {
 	feeToCents,
@@ -7,6 +7,47 @@ import {
 	optionalNumber
 } from '$lib/utils/create-play';
 import type { Actions, PageServerLoad } from './$types';
+
+type CreateFormValues = {
+	sport: string;
+	venue: string;
+	date: string;
+	start_time: string;
+	starts_at: string;
+	duration_minutes: string;
+	timezone: string;
+	currency: string;
+	game_type: string;
+	level_min: string;
+	level_max: string;
+	fee: string;
+	max_players: string;
+	courts: string;
+};
+
+function stringValue(formData: FormData, key: keyof CreateFormValues) {
+	const value = formData.get(key);
+	return typeof value === 'string' ? value : '';
+}
+
+function createFormValues(formData: FormData): CreateFormValues {
+	return {
+		sport: stringValue(formData, 'sport'),
+		venue: stringValue(formData, 'venue'),
+		date: stringValue(formData, 'date'),
+		start_time: stringValue(formData, 'start_time'),
+		starts_at: stringValue(formData, 'starts_at'),
+		duration_minutes: stringValue(formData, 'duration_minutes'),
+		timezone: stringValue(formData, 'timezone') || 'Asia/Singapore',
+		currency: stringValue(formData, 'currency') || 'SGD',
+		game_type: stringValue(formData, 'game_type'),
+		level_min: stringValue(formData, 'level_min'),
+		level_max: stringValue(formData, 'level_max'),
+		fee: stringValue(formData, 'fee'),
+		max_players: stringValue(formData, 'max_players'),
+		courts: stringValue(formData, 'courts')
+	};
+}
 
 export const load: PageServerLoad = async ({ parent }) => {
 	const { user } = await parent();
@@ -19,38 +60,40 @@ export const load: PageServerLoad = async ({ parent }) => {
 
 export const actions: Actions = {
 	default: async ({ request, cookies }) => {
+		const formData = await request.formData();
+		const values = createFormValues(formData);
 		const sessionToken = cookies.get('session');
 		if (!sessionToken) {
-			return { error: 'Not authenticated' };
+			return fail(401, { error: 'Not authenticated', values });
 		}
 
-		const formData = await request.formData();
-
-		const sport = formData.get('sport') as string;
-		const venue = formData.get('venue') as string;
-		const startsAt = formData.get('starts_at') as string;
-		const durationStr = formData.get('duration_minutes') as string;
-		const timezone = (formData.get('timezone') as string) || 'Asia/Singapore';
-		const currency = (formData.get('currency') as string) || 'SGD';
+		const sport = values.sport;
+		const venue = values.venue;
+		const startsAt = values.starts_at;
+		const durationStr = values.duration_minutes;
+		const timezone = values.timezone;
+		const currency = values.currency;
 
 		// Optional fields
-		const gameType = formData.get('game_type') as string | null;
-		const levelMin = formData.get('level_min') as string | null;
-		const levelMax = formData.get('level_max') as string | null;
-		const feeStr = formData.get('fee') as string | null;
-		const maxPlayersStr = formData.get('max_players') as string | null;
-		const courtsStr = formData.get('courts') as string | null;
+		const gameType = values.game_type;
+		const levelMin = values.level_min;
+		const levelMax = values.level_max;
+		const feeStr = values.fee;
+		const maxPlayersStr = values.max_players;
+		const courtsStr = values.courts;
 
 		// Validation
-		if (!sport) return { error: 'Sport is required' };
-		if (!venue?.trim()) return { error: 'Venue is required' };
-		if (!startsAt) return { error: 'Start time is required' };
-		if (!durationStr) return { error: 'Duration is required' };
+		if (!sport) return fail(400, { error: 'Sport is required', values });
+		if (!venue?.trim()) return fail(400, { error: 'Venue is required', values });
+		if (!startsAt) return fail(400, { error: 'Start time is required', values });
+		if (!durationStr) return fail(400, { error: 'Duration is required', values });
 
 		// Validate start time is in the future
 		const startsAtDate = new Date(startsAt);
-		if (isNaN(startsAtDate.getTime())) return { error: 'Invalid start time' };
-		if (startsAtDate.getTime() <= Date.now()) return { error: 'Start time must be in the future' };
+		if (isNaN(startsAtDate.getTime())) return fail(400, { error: 'Invalid start time', values });
+		if (startsAtDate.getTime() <= Date.now()) {
+			return fail(400, { error: 'Start time must be in the future', values });
+		}
 
 		const durationMinutes = optionalNumber(durationStr) ?? 0;
 		const fee = feeToCents(feeStr);
@@ -58,7 +101,7 @@ export const actions: Actions = {
 		const courts = optionalNumber(courtsStr);
 
 		if (!isPositiveInteger(maxPlayers)) {
-			return { error: 'Max players is required' };
+			return fail(400, { error: 'Max players is required', values });
 		}
 
 		const slotsLeft = initialSlotsLeft(maxPlayers);
@@ -85,10 +128,10 @@ export const actions: Actions = {
 		});
 
 		if (error) {
-			return { error: error.detail ?? 'Failed to create game' };
+			return fail(error.status ?? 500, { error: error.detail ?? 'Failed to create game', values });
 		}
 		if (!data?.id) {
-			return { error: 'Created game was missing an id' };
+			return fail(500, { error: 'Created game was missing an id', values });
 		}
 
 		redirect(303, `/play/${data.id}`);

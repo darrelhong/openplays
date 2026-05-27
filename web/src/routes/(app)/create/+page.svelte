@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
 	import { FormField, FormLabel, TextInput } from '$lib/components/ui/form';
 	import { Select } from '$lib/components/ui/select/index';
@@ -10,29 +9,71 @@
 	import { BADMINTON_LEVELS, SPORTS, GAME_TYPES, DURATIONS } from '$lib/consts/index';
 	import { CalendarDate } from '@internationalized/date';
 	import type { DateValue } from '@internationalized/date';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	type CreateFormValues = {
+		sport?: string;
+		venue?: string;
+		date?: string;
+		start_time?: string;
+		starts_at?: string;
+		duration_minutes?: string;
+		game_type?: string;
+		level_min?: string;
+		level_max?: string;
+		fee?: string;
+		max_players?: string;
+		courts?: string;
+	};
+
+	let { data, form }: { data: PageData; form?: ActionData } = $props();
 
 	const venueItems = $derived(data.venues.map((v) => ({ value: v.name, label: v.name })));
+	const initialValues = initialFormValues();
+	const initialSport = initialValues?.sport ?? '';
 
-	let selectedSport = $state('');
-	let selectedVenue = $state('');
-	let selectedGameType = $state('');
-	let selectedLevelMin = $state('');
-	let selectedLevelMax = $state('');
-	let tennisRange = $state<number[]>([3, 4]);
-	let lastSport = $state('');
+	let selectedSport = $state(initialSport);
+	let selectedVenue = $state(initialValues?.venue ?? '');
+	let selectedGameType = $state(initialValues?.game_type ?? '');
+	let selectedLevelMin = $state(initialValues?.level_min ?? '');
+	let selectedLevelMax = $state(initialValues?.level_max ?? '');
+	let tennisRange = $state<number[]>(tennisRangeFromValues(initialValues));
+	let lastSport = $state(initialSport);
 
-	let selectedDate = $state<DateValue | undefined>(undefined);
-	let startTime = $state('');
-	let selectedDuration = $state('120'); // default 2 hours
+	let selectedDate = $state<DateValue | undefined>(dateFromValues(initialValues));
+	let startTime = $state(initialValues?.start_time || timeFromStartsAt(initialValues?.starts_at));
+	let selectedDuration = $state(initialValues?.duration_minutes || '120'); // default 2 hours
 
 	const today = $derived(
 		new CalendarDate(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate())
 	);
 
 	const TZ_OFFSET = '+08:00';
+
+	function initialFormValues() {
+		return form?.values;
+	}
+
+	function calendarDateFromString(value: string | undefined) {
+		if (!value) return undefined;
+		const [year, month, day] = value.split('-').map(Number);
+		if (!year || !month || !day) return undefined;
+		return new CalendarDate(year, month, day);
+	}
+
+	function dateFromValues(values: CreateFormValues | undefined) {
+		return calendarDateFromString(values?.date || values?.starts_at?.slice(0, 10));
+	}
+
+	function timeFromStartsAt(startsAt: string | undefined) {
+		return startsAt?.match(/T(\d{2}:\d{2})/)?.[1] ?? '';
+	}
+
+	function tennisRangeFromValues(values: CreateFormValues | undefined) {
+		const min = Number(values?.level_min);
+		const max = Number(values?.level_max);
+		return Number.isFinite(min) && Number.isFinite(max) ? [min, max] : [3, 4];
+	}
 
 	// Derive date string from DateValue
 	let dateStr = $derived(
@@ -64,6 +105,7 @@
 
 	<form method="POST" use:enhance class="flex flex-col gap-4">
 		<!-- Hidden computed fields -->
+		<input type="hidden" name="date" value={dateStr} />
 		<input type="hidden" name="starts_at" value={startsAt} />
 		<input type="hidden" name="duration_minutes" value={selectedDuration} />
 		<input type="hidden" name="timezone" value="Asia/Singapore" />
@@ -176,21 +218,36 @@
 
 		<!-- Fee -->
 		<FormField label="Fee ($)" id="fee">
-			<TextInput id="fee" name="fee" type="number" step="0.01" placeholder="0.00" />
+			<TextInput
+				id="fee"
+				name="fee"
+				type="number"
+				step="0.01"
+				placeholder="0.00"
+				value={initialValues?.fee ?? ''}
+			/>
 		</FormField>
 
 		<!-- Max Players -->
 		<FormField label="Max Players" id="max_players" required>
-			<TextInput id="max_players" name="max_players" type="number" min="1" step="1" required />
+			<TextInput
+				id="max_players"
+				name="max_players"
+				type="number"
+				min="1"
+				step="1"
+				value={initialValues?.max_players ?? ''}
+				required
+			/>
 		</FormField>
 
 		<!-- Courts -->
 		<FormField label="Courts" id="courts">
-			<TextInput id="courts" name="courts" type="number" />
+			<TextInput id="courts" name="courts" type="number" value={initialValues?.courts ?? ''} />
 		</FormField>
 
-		{#if page.form?.error}
-			<p class="text-sm text-destructive">{page.form.error}</p>
+		{#if form?.error}
+			<p class="text-sm text-destructive">{form.error}</p>
 		{/if}
 
 		<Button type="submit" class="mt-4 w-full">Create Game</Button>
