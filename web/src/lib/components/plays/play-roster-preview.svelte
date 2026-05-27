@@ -1,5 +1,6 @@
 <script lang="ts">
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
+	import { Badge, RatingBadge } from '$lib/components/ui/badge/index';
 	import { getPlayRosterPreview } from '$lib/utils/play-roster-preview';
 	import type { Play } from './types';
 
@@ -10,7 +11,7 @@
 
 {#if preview}
 	<div class="flex gap-2 items-center" aria-label={preview.label}>
-		<div class="flex items-center -space-x-1.5">
+		<div class="flex gap-1.5 items-center">
 			{#each preview.slots as slot, index (index)}
 				{#if slot.kind === 'known'}
 					<span class="inline-flex shrink-0 relative">
@@ -21,12 +22,12 @@
 							className="text-[0.65rem] h-7 w-7 ring-2 ring-background"
 						/>
 						{#if slot.ratingCode}
-							<span
-								class="text-[0.55rem] text-primary-foreground leading-none font-bold px-1 border border-background rounded-full bg-primary inline-flex h-4 min-w-4 shadow-sm items-center justify-center absolute z-10 -bottom-1 -right-1.5"
+							<RatingBadge
+								value={slot.ratingCode}
+								size="xs"
+								class="absolute z-10 -bottom-1 -right-1.5"
 								aria-hidden="true"
-							>
-								{slot.ratingCode}
-							</span>
+							/>
 						{/if}
 					</span>
 				{:else if slot.kind === 'occupied'}
@@ -48,11 +49,9 @@
 			{/each}
 
 			{#if preview.hiddenSlots > 0}
-				<span
-					class="text-[0.65rem] text-muted-foreground font-medium border border-border rounded-full bg-card inline-flex h-7 w-7 ring-2 ring-background items-center justify-center"
-				>
+				<Badge variant="muted" class="text-[0.65rem] p-0 h-7 w-7 ring-2 ring-background">
 					+{preview.hiddenSlots}
-				</span>
+				</Badge>
 			{/if}
 		</div>
 	</div>

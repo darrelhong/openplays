@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { Badge } from '$lib/components/ui/badge/index';
 	import {
 		capitalize,
 		formatDate,
@@ -29,11 +30,9 @@
 						)} - {formatTime(play.ends_at, play.timezone)}
 					</p>
 				</div>
-				<span
-					class={`text-xs px-2 py-0.5 border rounded-full inline-flex shrink-0 items-center ${play.created_by != null ? 'text-sky-700 border-sky-300/60 bg-sky-100/40 dark:text-sky-300 dark:border-sky-700/60 dark:bg-sky-900/20' : 'text-muted border-border bg-card/70'}`}
-				>
+				<Badge variant={play.created_by != null ? 'info' : 'muted'} class="shrink-0">
 					{capitalize(play.sport)}
-				</span>
+				</Badge>
 			</div>
 
 			{#if play.created_by && play.max_players}

@@ -1,6 +1,9 @@
 <script lang="ts">
+	import Check from '@lucide/svelte/icons/check';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import BaseAvatar from '$lib/components/ui/avatar/base-avatar.svelte';
+	import { Badge, RatingBadge } from '$lib/components/ui/badge/index';
 	import Button from '$lib/components/ui/button.svelte';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import {
@@ -61,19 +64,11 @@
 </script>
 
 {#snippet confirmedBadge()}
-	<span
-		class="text-xs text-emerald-700 font-semibold px-2 border border-emerald-300/70 rounded-full bg-emerald-100/50 inline-flex h-6 items-center dark:text-emerald-200 dark:border-emerald-700/70 dark:bg-emerald-900/20"
-	>
-		Confirmed
-	</span>
+	<Badge variant="success" class="font-semibold h-6">Confirmed</Badge>
 {/snippet}
 
 {#snippet waitlistBadge()}
-	<span
-		class="text-sm text-amber-800 font-medium px-3 py-1 border border-amber-300/70 rounded-full bg-amber-100/50 dark:text-amber-200 dark:border-amber-700/70 dark:bg-amber-900/20"
-	>
-		On waitlist
-	</span>
+	<Badge variant="warning" size="sm">On waitlist</Badge>
 {/snippet}
 
 {#snippet playerAvatar(participant: Participant)}
@@ -84,11 +79,7 @@
 			className="h-9 w-9 text-xs"
 		/>
 		{#if participant.rating_code}
-			<span
-				class="text-[10px] text-foreground font-semibold px-1 border border-border rounded-full bg-card inline-flex h-4 min-w-6 shadow-sm items-center justify-center absolute -bottom-1 -right-1"
-			>
-				{participant.rating_code}
-			</span>
+			<RatingBadge value={participant.rating_code} class="absolute -bottom-1 -right-1" />
 		{/if}
 	</div>
 {/snippet}
@@ -101,13 +92,31 @@
 				<p class="text-sm text-foreground font-medium break-words">
 					{participantName(participant)}
 				</p>
-				{#if participant.is_guest}
+				{#if participant.is_host}
+					<p class="text-xs text-muted">Host</p>
+				{:else if participant.is_guest}
 					<p class="text-xs text-muted">Guest</p>
 				{/if}
 			</div>
 		</div>
 		<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
 			{@render confirmedBadge()}
+			{#if canManage && !participant.is_host}
+				<form method="POST" action="?/removeParticipant">
+					<input type="hidden" name="participant_id" value={participant.id} />
+					<Button
+						type="submit"
+						size="xs"
+						variant="outline"
+						aria-label={`Remove ${participantName(participant)}`}
+						title="Remove player"
+						class="gap-1.5"
+					>
+						<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
+						Remove
+					</Button>
+				</form>
+			{/if}
 		</div>
 	</li>
 {/snippet}
@@ -125,6 +134,39 @@
 				{/if}
 			</div>
 		</div>
+		{#if canManage}
+			<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
+				<form method="POST" action="?/acceptParticipant">
+					<input type="hidden" name="participant_id" value={participant.id} />
+					<Button
+						type="submit"
+						size="xs"
+						variant="secondary"
+						disabled={openSlots <= 0}
+						aria-label={`Accept ${participantName(participant)}`}
+						title={openSlots > 0 ? 'Accept player' : 'No open slots'}
+						class="gap-1.5"
+					>
+						<Check class="h-3.5 w-3.5" aria-hidden="true" />
+						Accept
+					</Button>
+				</form>
+				<form method="POST" action="?/removeParticipant">
+					<input type="hidden" name="participant_id" value={participant.id} />
+					<Button
+						type="submit"
+						size="xs"
+						variant="outline"
+						aria-label={`Remove ${participantName(participant)}`}
+						title="Remove player"
+						class="gap-1.5"
+					>
+						<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
+						Remove
+					</Button>
+				</form>
+			</div>
+		{/if}
 	</li>
 {/snippet}
 
@@ -133,11 +175,7 @@
 		<div class="flex gap-3 min-w-0 items-center">
 			<BaseAvatar variant="dotted" className="h-9 w-9" />
 		</div>
-		<span
-			class="text-xs text-muted font-medium px-2 border border-border rounded-full bg-background inline-flex h-6 items-center"
-		>
-			Open
-		</span>
+		<Badge variant="outline" class="h-6">Open</Badge>
 	</li>
 {/snippet}
 
@@ -165,14 +203,12 @@
 	<section class="py-2 md:py-3">
 		<header>
 			<div class="mb-2 flex flex-wrap gap-2 items-center">
-				<span class="text-xs px-2 py-0.5 border border-border rounded-full bg-card/70">
+				<Badge>
 					{capitalize(play.sport)}
-				</span>
-				<span
-					class={`text-xs px-2 py-0.5 border rounded-full ${isUserCreated ? 'text-sky-700 border-sky-300/60 bg-sky-100/40 dark:text-sky-300 dark:border-sky-700/60 dark:bg-sky-900/20' : 'text-muted border-border bg-card/50'}`}
-				>
+				</Badge>
+				<Badge variant={isUserCreated ? 'info' : 'muted'}>
 					{sourceLabel}
-				</span>
+				</Badge>
 			</div>
 			<h1 class="text-2xl font-semibold pe-6">{play.venue_name}</h1>
 			{#if hasVenueCoordinates}
@@ -266,11 +302,7 @@
 						{#if !user}
 							<Button href="/login" size="sm">Sign in to join</Button>
 						{:else if viewerState === 'creator'}
-							<span
-								class="text-sm text-sky-700 font-medium px-3 py-1 border border-sky-300/60 rounded-full bg-sky-100/40 dark:text-sky-300 dark:border-sky-700/60 dark:bg-sky-900/20"
-							>
-								Hosting
-							</span>
+							<Badge variant="info" size="sm">Hosting</Badge>
 						{:else if viewerState === 'confirmed'}
 							{@render confirmedBadge()}
 							<form method="POST" action="?/leave">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Badge } from '$lib/components/ui/badge/index';
 	import Button from '$lib/components/ui/button.svelte';
 	import ScrollArea from '$lib/components/ui/scroll-area/scroll-area.svelte';
 	import {
@@ -45,11 +46,9 @@
 						>
 						<td>{play.host_name}</td>
 						<td>
-							<span
-								class={`text-xs px-2 py-0.5 border rounded-full inline-flex items-center ${play.created_by != null ? 'text-sky-700 border-sky-300/60 bg-sky-100/40 dark:text-sky-300 dark:border-sky-700/60 dark:bg-sky-900/20' : 'text-muted border-border bg-card/70'}`}
-							>
+							<Badge variant={play.created_by != null ? 'info' : 'muted'}>
 								{capitalize(play.sport)}
-							</span>
+							</Badge>
 						</td>
 						<td>{formatLevel(play.level_min, play.level_max)}</td>
 						<td>{formatPlayFee(play)}</td>
