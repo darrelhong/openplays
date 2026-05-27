@@ -64,6 +64,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dev/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dev login
+         * @description Create a local development session for an existing seed user. Only registered when DEV_AUTH_ENABLED=true.
+         */
+        post: operations["dev-login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/": {
         parameters: {
             query?: never;
@@ -161,6 +181,46 @@ export interface paths {
          * @description Remove the authenticated user from a play roster.
          */
         delete: operations["leave-play"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plays/{id}/participants/{participantID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a play participant
+         * @description Remove a participant from the confirmed roster or waitlist. Requires the play host.
+         */
+        delete: operations["remove-play-participant"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plays/{id}/participants/{participantID}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a waitlisted participant
+         * @description Move a waitlisted participant into the confirmed roster. Requires the play host and an open slot.
+         */
+        post: operations["accept-play-participant"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -371,6 +431,18 @@ export interface components {
             session_token: string;
             user: components["schemas"]["User"];
         };
+        HostRosterOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/HostRosterOutputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            slots_left?: number;
+            /** @enum {string} */
+            status: "confirmed" | "waitlisted";
+        };
         JoinOutputBody: {
             /**
              * Format: uri
@@ -391,6 +463,26 @@ export interface components {
              */
             readonly $schema?: string;
             items: components["schemas"]["VenuePublic"][] | null;
+        };
+        LoginInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/LoginInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Seed user ID to sign in as */
+            user_id: string;
+        };
+        LoginOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/LoginOutputBody.json
+             */
+            readonly $schema?: string;
+            session_token: string;
+            user: components["schemas"]["User"];
         };
         PagePlayPublic: {
             /**
@@ -415,6 +507,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             is_guest: boolean;
+            is_host: boolean;
             photo_url?: string;
             rating_code?: string;
         };
@@ -660,6 +753,40 @@ export interface operations {
             };
         };
     };
+    "dev-login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-me": {
         parameters: {
             query?: never;
@@ -891,6 +1018,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "remove-play-participant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Play ID */
+                id: string;
+                /** @description Participant ID */
+                participantID: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "accept-play-participant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Play ID */
+                id: string;
+                /** @description Participant ID */
+                participantID: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostRosterOutputBody"];
+                };
             };
             /** @description Error */
             default: {

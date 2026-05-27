@@ -68,6 +68,7 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 	var out struct {
 		ConfirmedParticipants []struct {
 			DisplayName *string `json:"display_name"`
+			IsHost      bool    `json:"is_host"`
 		} `json:"confirmed_participants"`
 		Waitlist []struct {
 			DisplayName *string `json:"display_name"`
@@ -84,6 +85,12 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 
 	if len(out.ConfirmedParticipants) != 2 {
 		t.Fatalf("confirmed_participants len = %d, want 2", len(out.ConfirmedParticipants))
+	}
+	if !out.ConfirmedParticipants[0].IsHost {
+		t.Fatal("confirmed_participants[0].is_host = false, want true")
+	}
+	if out.ConfirmedParticipants[1].IsHost {
+		t.Fatal("confirmed_participants[1].is_host = true, want false")
 	}
 	if len(out.Waitlist) != 0 {
 		t.Fatalf("waitlist len = %d, want 0 for anonymous viewer", len(out.Waitlist))

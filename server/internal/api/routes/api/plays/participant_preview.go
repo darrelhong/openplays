@@ -117,6 +117,7 @@ func mapParticipantPreviewRows(sport model.Sport, rows []participantPreviewRow, 
 	for _, row := range rows {
 		previews = append(previews, PlayParticipantPreviewPublic{
 			ID:          row.ID,
+			UserID:      row.UserID,
 			DisplayName: participantPreviewName(row, includeNames),
 			PhotoURL:    cleanStringPtr(row.PhotoUrl),
 			RatingCode:  participantPreviewRating(sport, row),
@@ -124,6 +125,17 @@ func mapParticipantPreviewRows(sport model.Sport, rows []participantPreviewRow, 
 		})
 	}
 	return previews
+}
+
+func markHostParticipant(previews []PlayParticipantPreviewPublic, createdBy *string) {
+	if createdBy == nil {
+		return
+	}
+	for i := range previews {
+		if previews[i].UserID != nil && *previews[i].UserID == *createdBy {
+			previews[i].IsHost = true
+		}
+	}
 }
 
 func participantPreviewName(row participantPreviewRow, includeNames bool) *string {

@@ -106,6 +106,7 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to get confirmed participants", err)
 		}
+		markHostParticipant(confirmed, item.CreatedBy)
 		item.ParticipantPreview = confirmed
 		item.ConfirmedParticipants = confirmed
 

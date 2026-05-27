@@ -54,11 +54,11 @@ type PlayPublic struct {
 	ParticipantPreview []PlayParticipantPreviewPublic `json:"participant_preview,omitempty"`
 
 	ConfirmedParticipants []PlayParticipantPreviewPublic `json:"confirmed_participants,omitempty"`
-	Waitlist             []PlayParticipantPreviewPublic `json:"waitlist,omitempty"`
-	ViewerState          *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,creator"`
-	CanManage            *bool                          `json:"can_manage,omitempty"`
-	ConfirmedCount       *int64                         `json:"confirmed_count,omitempty"`
-	WaitlistCount        *int64                         `json:"waitlist_count,omitempty"`
+	Waitlist              []PlayParticipantPreviewPublic `json:"waitlist,omitempty"`
+	ViewerState           *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,creator"`
+	CanManage             *bool                          `json:"can_manage,omitempty"`
+	ConfirmedCount        *int64                         `json:"confirmed_count,omitempty"`
+	WaitlistCount         *int64                         `json:"waitlist_count,omitempty"`
 
 	distanceKm float64 `json:"-"`
 }
@@ -66,10 +66,12 @@ type PlayPublic struct {
 // PlayParticipantPreviewPublic is the compact roster data shown on play cards.
 type PlayParticipantPreviewPublic struct {
 	ID          int64   `json:"id"`
+	UserID      *string `json:"-"`
 	DisplayName *string `json:"display_name,omitempty"`
 	PhotoURL    *string `json:"photo_url,omitempty"`
 	RatingCode  *string `json:"rating_code,omitempty"`
 	IsGuest     bool    `json:"is_guest"`
+	IsHost      bool    `json:"is_host"`
 }
 
 // buildSourceLink constructs a deep link to the original message.
