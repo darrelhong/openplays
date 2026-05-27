@@ -271,6 +271,9 @@
 								{playerCountLabel} • {confirmedCount} confirmed • {waitlistCount} waitlisted
 							</p>
 						</div>
+						{#if canManage}
+							<Button href={`/play/${play.id}/edit`} size="sm" variant="outline">Edit</Button>
+						{/if}
 					</div>
 
 					{#if form?.error}

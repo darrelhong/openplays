@@ -140,10 +140,18 @@ export interface paths {
         get: operations["get-play"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a hosted play
+         * @description Delete a user-created play and its roster. Requires the play host.
+         */
+        delete: operations["delete-play"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update a hosted play
+         * @description Update host-managed fields for a user-created play. Requires the play host.
+         */
+        patch: operations["update-play"];
         trace?: never;
     };
     "/api/plays/{id}/join": {
@@ -611,6 +619,51 @@ export interface components {
             /** @description Optional unique handle */
             username?: string;
         };
+        UpdatePlayInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdatePlayInputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Number of courts
+             */
+            courts?: number;
+            /** @description Clear the court count */
+            courts_clear?: boolean;
+            /**
+             * Format: int64
+             * @description Duration in minutes (must be multiple of 15, max 300)
+             */
+            duration_minutes?: number;
+            /**
+             * Format: int64
+             * @description Fee in cents
+             */
+            fee?: number;
+            /** @description Clear the fee */
+            fee_clear?: boolean;
+            /**
+             * @description Game type
+             * @enum {string}
+             */
+            game_type?: "doubles" | "singles" | "mixed_doubles" | "";
+            /** @description Maximum level code */
+            level_max?: string;
+            /** @description Minimum level code */
+            level_min?: string;
+            /**
+             * Format: int64
+             * @description Maximum number of players
+             */
+            max_players?: number;
+            /** @description Start time in RFC3339 format */
+            starts_at?: string;
+            /** @description IANA timezone, e.g. Asia/Singapore */
+            timezone?: string;
+        };
         User: {
             /**
              * Format: uri
@@ -947,6 +1000,72 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayPublic"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Play ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Play ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlayInputBody"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
