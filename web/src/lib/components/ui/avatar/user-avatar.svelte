@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { cn } from '$lib/utils/cn';
 	import { Avatar, type WithoutChildrenOrChild } from 'bits-ui';
+	import BaseAvatar from './base-avatar.svelte';
 
 	let {
 		src,
@@ -19,18 +19,7 @@
 	} = $props();
 </script>
 
-<Avatar.Root
-	class={cn(
-		'text-muted font-medium border rounded-full bg-card shrink-0 h-8 w-8 uppercase data-[status=loaded]:border-border data-[status=loading]:border-transparent',
-		className
-	)}
-	bind:ref
-	{...restProps}
->
-	<div
-		class="border-2 border-transparent rounded-full flex h-full w-full items-center justify-center overflow-hidden"
-	>
-		<Avatar.Image bind:ref={imageRef} {src} alt={`${nameForFallback}'s avatar`} />
-		<Avatar.Fallback bind:ref={fallbackRef}>{nameForFallback.charAt(0)}</Avatar.Fallback>
-	</div>
-</Avatar.Root>
+<BaseAvatar {className} bind:ref {...restProps}>
+	<Avatar.Image bind:ref={imageRef} {src} alt={`${nameForFallback}'s avatar`} />
+	<Avatar.Fallback bind:ref={fallbackRef}>{nameForFallback.charAt(0)}</Avatar.Fallback>
+</BaseAvatar>

@@ -1,5 +1,8 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/dialog/index';
+	import BaseAvatar from '$lib/components/ui/avatar/base-avatar.svelte';
+	import Button from '$lib/components/ui/button.svelte';
+	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import {
 		capitalize,
 		formatDate,
@@ -8,23 +11,155 @@
 		formatLevel,
 		formatTime
 	} from '$lib/utils/formatting';
+	import type { components } from '$lib/api/types.gen';
 	import type { Play } from './types';
 
-	let { play, dialog = true }: { play: Play; dialog?: boolean } = $props();
+	type User = components['schemas']['User'];
+	type Participant = components['schemas']['PlayParticipantPreviewPublic'];
+	type ActionForm = { error?: string } | null | undefined;
+
+	let {
+		play,
+		user = null,
+		form = null,
+		dialog = true
+	}: { play: Play; user?: User | null; form?: ActionForm; dialog?: boolean } = $props();
 
 	const knownMetaKeys = ['fee_male', 'fee_female', 'shuttle', 'air_con', 'details'];
 	const meta = $derived(play.meta ?? {});
-	const extraEntries = $derived(Object.entries(meta).filter(([key]) => !knownMetaKeys.includes(key)));
-	const hasVenueCoordinates = $derived(
-		play.venue_latitude != null && play.venue_longitude != null
+	const confirmedParticipants = $derived(
+		play.confirmed_participants ?? play.participant_preview ?? []
 	);
+	const waitlist = $derived(play.waitlist ?? []);
+	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
+	const openSlots = $derived(Math.max(play.slots_left ?? 0, 0));
+	const openSlotRows = $derived(
+		Array.from({ length: Math.min(openSlots, 12) }, (_, index) => confirmedCount + index + 1)
+	);
+	const hiddenOpenSlotCount = $derived(Math.max(openSlots - openSlotRows.length, 0));
+	const playerCountLabel = $derived(
+		play.max_players == null ? String(confirmedCount) : `${confirmedCount}/${play.max_players}`
+	);
+	const extraEntries = $derived(
+		Object.entries(meta).filter(([key]) => !knownMetaKeys.includes(key))
+	);
+	const hasVenueCoordinates = $derived(play.venue_latitude != null && play.venue_longitude != null);
 	const mapsHref = $derived.by(() => {
 		if (!hasVenueCoordinates) return '';
 		return `https://www.google.com/maps?q=${play.venue_latitude},${play.venue_longitude}`;
 	});
 	const isUserCreated = $derived(play.created_by != null);
 	const sourceLabel = $derived(isUserCreated ? 'User created' : 'Auto-created from Telegram');
+	const viewerState = $derived(play.viewer_state ?? 'not_joined');
+	const canManage = $derived(play.can_manage ?? false);
+	const waitlistCount = $derived(play.waitlist_count ?? waitlist.length);
+	const joinLabel = $derived(openSlots > 0 ? 'Join game' : 'Join waitlist');
+
+	function participantName(participant: Participant) {
+		return participant.display_name ?? (participant.is_guest ? 'Guest player' : 'Player');
+	}
 </script>
+
+{#snippet confirmedBadge()}
+	<span
+		class="text-xs text-emerald-700 font-semibold px-2 border border-emerald-300/70 rounded-full bg-emerald-100/50 inline-flex h-6 items-center dark:text-emerald-200 dark:border-emerald-700/70 dark:bg-emerald-900/20"
+	>
+		Confirmed
+	</span>
+{/snippet}
+
+{#snippet waitlistBadge()}
+	<span
+		class="text-sm text-amber-800 font-medium px-3 py-1 border border-amber-300/70 rounded-full bg-amber-100/50 dark:text-amber-200 dark:border-amber-700/70 dark:bg-amber-900/20"
+	>
+		On waitlist
+	</span>
+{/snippet}
+
+{#snippet playerAvatar(participant: Participant)}
+	<div class="shrink-0 relative">
+		<UserAvatar
+			src={participant.photo_url}
+			nameForFallback={participantName(participant)}
+			className="h-9 w-9 text-xs"
+		/>
+		{#if participant.rating_code}
+			<span
+				class="text-[10px] text-foreground font-semibold px-1 border border-border rounded-full bg-card inline-flex h-4 min-w-6 shadow-sm items-center justify-center absolute -bottom-1 -right-1"
+			>
+				{participant.rating_code}
+			</span>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet confirmedPlayer(participant: Participant)}
+	<li class="py-2 flex gap-3 items-center justify-between">
+		<div class="flex gap-3 min-w-0 items-center">
+			{@render playerAvatar(participant)}
+			<div class="min-w-0">
+				<p class="text-sm text-foreground font-medium break-words">
+					{participantName(participant)}
+				</p>
+				{#if participant.is_guest}
+					<p class="text-xs text-muted">Guest</p>
+				{/if}
+			</div>
+		</div>
+		<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
+			{@render confirmedBadge()}
+		</div>
+	</li>
+{/snippet}
+
+{#snippet waitlistPlayer(participant: Participant)}
+	<li class="py-2 flex gap-3 items-center justify-between">
+		<div class="flex gap-3 min-w-0 items-center">
+			{@render playerAvatar(participant)}
+			<div class="min-w-0">
+				<p class="text-sm text-foreground font-medium break-words">
+					{participantName(participant)}
+				</p>
+				{#if participant.is_guest}
+					<p class="text-xs text-muted">Guest</p>
+				{/if}
+			</div>
+		</div>
+	</li>
+{/snippet}
+
+{#snippet openPlayerSlot()}
+	<li class="py-2 flex gap-3 items-center justify-between">
+		<div class="flex gap-3 min-w-0 items-center">
+			<BaseAvatar variant="dotted" className="h-9 w-9" />
+		</div>
+		<span
+			class="text-xs text-muted font-medium px-2 border border-border rounded-full bg-background inline-flex h-6 items-center"
+		>
+			Open
+		</span>
+	</li>
+{/snippet}
+
+{#snippet rosterSection(title: string, participants: Participant[])}
+	<section>
+		<div class="mb-2 flex gap-3 items-center justify-between">
+			<h2 class="text-sm text-foreground font-semibold">{title}</h2>
+			<span class="text-xs text-muted">{participants.length}</span>
+		</div>
+		{#if participants.length > 0}
+			<ul class="px-3 border border-border rounded-md divide-border divide-y">
+				{#each participants as participant (participant.id)}
+					{@render waitlistPlayer(participant)}
+				{/each}
+			</ul>
+		{:else}
+			<p class="text-sm text-muted px-3 py-3 border border-border rounded-md border-dashed">
+				None yet
+			</p>
+		{/if}
+	</section>
+{/snippet}
 
 {#snippet details()}
 	<section class="py-2 md:py-3">
@@ -89,6 +224,72 @@
 				</div>
 			{/if}
 		</dl>
+		{#if isUserCreated}
+			<div class="mt-4 pt-4 border-t border-border space-y-4">
+				<section class="p-3 border border-border rounded-md bg-card/50 md:max-w-lg">
+					<div class="mb-3 flex flex-wrap gap-3 items-center justify-between">
+						<div>
+							<h2 class="text-sm text-foreground font-semibold">Players</h2>
+							<p class="text-sm text-muted">
+								{playerCountLabel} • {confirmedCount} confirmed • {waitlistCount} waitlisted
+							</p>
+						</div>
+					</div>
+
+					{#if form?.error}
+						<p
+							class="text-sm text-red-700 mb-3 px-3 py-2 border border-red-200 rounded-md bg-red-50"
+						>
+							{form.error}
+						</p>
+					{/if}
+
+					<ul class="px-3 border border-border rounded-md divide-border divide-y">
+						{#each confirmedParticipants as participant (participant.id)}
+							{@render confirmedPlayer(participant)}
+						{/each}
+						{#each openSlotRows as slotNumber (slotNumber)}
+							{@render openPlayerSlot()}
+						{/each}
+						{#if hiddenOpenSlotCount > 0}
+							<li class="text-sm text-muted py-2">+{hiddenOpenSlotCount} more open slots</li>
+						{/if}
+					</ul>
+
+					{#if canManage}
+						<div class="mt-4">
+							{@render rosterSection('Waitlist', waitlist)}
+						</div>
+					{/if}
+
+					<div class="mt-4 flex flex-wrap gap-2 items-center justify-start">
+						{#if !user}
+							<Button href="/login" size="sm">Sign in to join</Button>
+						{:else if viewerState === 'creator'}
+							<span
+								class="text-sm text-sky-700 font-medium px-3 py-1 border border-sky-300/60 rounded-full bg-sky-100/40 dark:text-sky-300 dark:border-sky-700/60 dark:bg-sky-900/20"
+							>
+								Hosting
+							</span>
+						{:else if viewerState === 'confirmed'}
+							{@render confirmedBadge()}
+							<form method="POST" action="?/leave">
+								<Button type="submit" size="sm" variant="outline">Leave game</Button>
+							</form>
+						{:else if viewerState === 'waitlisted'}
+							{@render waitlistBadge()}
+							<form method="POST" action="?/leave">
+								<Button type="submit" size="sm" variant="outline">Leave waitlist</Button>
+							</form>
+						{:else}
+							<form method="POST" action="?/join">
+								<Button type="submit" size="sm">{joinLabel}</Button>
+							</form>
+						{/if}
+					</div>
+				</section>
+			</div>
+		{/if}
 		{#if play.contacts?.length}
 			<div class="mt-3 pt-3 border-t border-border">
 				<p class="text-muted mb-2">Contacts</p>

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import PlayDetailsContent from '$lib/components/plays/play-details-content.svelte';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form?: ActionData } = $props();
 </script>
 
 <div class="pb-8 w-full">
-	<PlayDetailsContent play={data.play} dialog={false} />
+	<PlayDetailsContent play={data.play} user={data.user} {form} dialog={false} />
 </div>

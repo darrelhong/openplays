@@ -126,6 +126,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plays/{id}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join a play
+         * @description Join a user-created play. Auto-confirms if rating matches and slots exist; otherwise waitlists.
+         */
+        post: operations["join-play"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plays/{id}/participants/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Leave a play
+         * @description Remove the authenticated user from a play roster.
+         */
+        delete: operations["leave-play"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/search": {
         parameters: {
             query?: never;
@@ -331,6 +371,18 @@ export interface components {
             session_token: string;
             user: components["schemas"]["User"];
         };
+        JoinOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/JoinOutputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            slots_left?: number;
+            /** @enum {string} */
+            status: "confirmed" | "waitlisted";
+        };
         ListBody: {
             /**
              * Format: uri
@@ -373,6 +425,10 @@ export interface components {
              * @example https://example.com/schemas/PlayPublic.json
              */
             readonly $schema?: string;
+            can_manage?: boolean;
+            /** Format: int64 */
+            confirmed_count?: number;
+            confirmed_participants?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
             contacts: components["schemas"]["ContactMethod"][] | null;
             /** Format: int64 */
             courts?: number;
@@ -426,6 +482,11 @@ export interface components {
             /** @description Display name: resolved venue name, or raw venue name, or 'No venue' */
             venue_name: string;
             venue_postal_code?: string;
+            /** @enum {string} */
+            viewer_state?: "not_joined" | "confirmed" | "waitlisted" | "creator";
+            waitlist?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
+            /** Format: int64 */
+            waitlist_count?: number;
         };
         SearchPage: {
             /**
@@ -768,6 +829,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PlayPublic"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "join-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Play ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JoinOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "leave-play": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Play ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

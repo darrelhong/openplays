@@ -76,30 +76,6 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			CreatorUsername:    r.CreatorUsername,
 			CreatorPhotoURL:    r.CreatorPhotoUrl,
 		}
-		confirmed, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantConfirmed, true)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to get confirmed participants", err)
-		}
-		waitlist, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantWaitlisted, true)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to get waitlisted participants", err)
-		}
-		item.ParticipantPreview = confirmed
-		item.ConfirmedParticipants = confirmed
-		item.Waitlist = waitlist
-
-		confirmedCount := int64(len(confirmed))
-		waitlistCount := int64(len(waitlist))
-		item.ConfirmedCount = &confirmedCount
-		item.WaitlistCount = &waitlistCount
-		if item.CreatedBy != nil && item.MaxPlayers != nil {
-			slotsLeft := *item.MaxPlayers - confirmedCount
-			if slotsLeft < 0 {
-				slotsLeft = 0
-			}
-			item.SlotsLeft = &slotsLeft
-		}
-
 		viewerState := "not_joined"
 		canManage := false
 		if viewer := authmw.UserFromContext(ctx); viewer != nil {
@@ -125,6 +101,41 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		}
 		item.ViewerState = &viewerState
 		item.CanManage = &canManage
+
+		confirmed, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantConfirmed, true)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get confirmed participants", err)
+		}
+		item.ParticipantPreview = confirmed
+		item.ConfirmedParticipants = confirmed
+
+		confirmedCount := int64(len(confirmed))
+		item.ConfirmedCount = &confirmedCount
+
+		waitlistCount, err := queries.CountPlayParticipantsByStatus(ctx, db.CountPlayParticipantsByStatusParams{
+			PlayID: item.ID,
+			Status: model.ParticipantWaitlisted,
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to count waitlisted participants", err)
+		}
+		item.WaitlistCount = &waitlistCount
+
+		if canManage {
+			waitlist, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantWaitlisted, true)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to get waitlisted participants", err)
+			}
+			item.Waitlist = waitlist
+		}
+
+		if item.CreatedBy != nil && item.MaxPlayers != nil {
+			slotsLeft := *item.MaxPlayers - confirmedCount
+			if slotsLeft < 0 {
+				slotsLeft = 0
+			}
+			item.SlotsLeft = &slotsLeft
+		}
 
 		return &GetOutput{Body: item}, nil
 	})

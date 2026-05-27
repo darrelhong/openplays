@@ -85,11 +85,8 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 	if len(out.ConfirmedParticipants) != 2 {
 		t.Fatalf("confirmed_participants len = %d, want 2", len(out.ConfirmedParticipants))
 	}
-	if len(out.Waitlist) != 1 {
-		t.Fatalf("waitlist len = %d, want 1", len(out.Waitlist))
-	}
-	if out.Waitlist[0].DisplayName == nil || *out.Waitlist[0].DisplayName != guestName {
-		t.Fatalf("waitlist[0].display_name = %v, want %q", out.Waitlist[0].DisplayName, guestName)
+	if len(out.Waitlist) != 0 {
+		t.Fatalf("waitlist len = %d, want 0 for anonymous viewer", len(out.Waitlist))
 	}
 	if out.ConfirmedCount == nil || *out.ConfirmedCount != 2 {
 		t.Fatalf("confirmed_count = %v, want 2", out.ConfirmedCount)
@@ -116,6 +113,14 @@ func TestGetPlayDetail_CreatorPermissions(t *testing.T) {
 	creatorID := createRouteTestUser(t, ctx, queries, "detail-creator-2")
 	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
 	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	guestName := "Creator Visible Wait"
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID:    playID,
+		GuestName: &guestName,
+		Status:    model.ParticipantWaitlisted,
+	}); err != nil {
+		t.Fatalf("CreatePlayParticipant waitlist guest: %v", err)
+	}
 
 	authStore := sessionWithProfile(creatorID, ptrString(`{"badminton":{"level":"HB"}}`))
 	ts := setupGetDetailTest(authStore, queries)
@@ -134,8 +139,12 @@ func TestGetPlayDetail_CreatorPermissions(t *testing.T) {
 	}
 
 	var out struct {
-		ViewerState *string `json:"viewer_state"`
-		CanManage   *bool   `json:"can_manage"`
+		Waitlist []struct {
+			DisplayName *string `json:"display_name"`
+		} `json:"waitlist"`
+		ViewerState   *string `json:"viewer_state"`
+		CanManage     *bool   `json:"can_manage"`
+		WaitlistCount *int64  `json:"waitlist_count"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -145,6 +154,15 @@ func TestGetPlayDetail_CreatorPermissions(t *testing.T) {
 	}
 	if out.CanManage == nil || !*out.CanManage {
 		t.Fatalf("can_manage = %v, want true", out.CanManage)
+	}
+	if len(out.Waitlist) != 1 {
+		t.Fatalf("waitlist len = %d, want 1 for creator", len(out.Waitlist))
+	}
+	if out.Waitlist[0].DisplayName == nil || *out.Waitlist[0].DisplayName != guestName {
+		t.Fatalf("waitlist[0].display_name = %v, want %q", out.Waitlist[0].DisplayName, guestName)
+	}
+	if out.WaitlistCount == nil || *out.WaitlistCount != 1 {
+		t.Fatalf("waitlist_count = %v, want 1", out.WaitlistCount)
 	}
 }
 
@@ -175,6 +193,16 @@ func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 			}); err != nil {
 				t.Fatalf("CreatePlayParticipant viewer: %v", err)
 			}
+			if tc.participantSt != model.ParticipantWaitlisted {
+				guestName := "Hidden Wait"
+				if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+					PlayID:    playID,
+					GuestName: &guestName,
+					Status:    model.ParticipantWaitlisted,
+				}); err != nil {
+					t.Fatalf("CreatePlayParticipant waitlist guest: %v", err)
+				}
+			}
 
 			authStore := sessionWithProfile(viewerID, ptrString(`{"badminton":{"level":"HB"}}`))
 			ts := setupGetDetailTest(authStore, queries)
@@ -193,8 +221,10 @@ func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 			}
 
 			var out struct {
-				ViewerState *string `json:"viewer_state"`
-				CanManage   *bool   `json:"can_manage"`
+				Waitlist      []struct{} `json:"waitlist"`
+				ViewerState   *string    `json:"viewer_state"`
+				CanManage     *bool      `json:"can_manage"`
+				WaitlistCount *int64     `json:"waitlist_count"`
 			}
 			if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 				t.Fatalf("decode response: %v", err)
@@ -204,6 +234,12 @@ func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 			}
 			if out.CanManage == nil || *out.CanManage {
 				t.Fatalf("can_manage = %v, want false", out.CanManage)
+			}
+			if len(out.Waitlist) != 0 {
+				t.Fatalf("waitlist len = %d, want 0 for non-creator viewer", len(out.Waitlist))
+			}
+			if out.WaitlistCount == nil || *out.WaitlistCount != 1 {
+				t.Fatalf("waitlist_count = %v, want 1", out.WaitlistCount)
 			}
 		})
 	}
