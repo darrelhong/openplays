@@ -1,3 +1,4 @@
 # Architecture Decision Records
 
 - [0001 - Timezone-aware date filters](0001-timezone-aware-date-filters.md)
+- [0002 - Roster capacity, waitlist privacy, and host management](0002-roster-capacity-waitlist-host-management.md)
