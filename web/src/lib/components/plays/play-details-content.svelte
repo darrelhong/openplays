@@ -14,6 +14,7 @@
 		formatLevel,
 		formatTime
 	} from '$lib/utils/formatting';
+	import { getPlayJoinLabel } from '$lib/utils/play-join-label';
 	import type { components } from '$lib/api/types.gen';
 	import type { Play } from './types';
 
@@ -56,7 +57,7 @@
 	const viewerState = $derived(play.viewer_state ?? 'not_joined');
 	const canManage = $derived(play.can_manage ?? false);
 	const waitlistCount = $derived(play.waitlist_count ?? waitlist.length);
-	const joinLabel = $derived(openSlots > 0 ? 'Join game' : 'Join waitlist');
+	const joinLabel = $derived(getPlayJoinLabel(play, user));
 
 	function participantName(participant: Participant) {
 		return participant.display_name ?? (participant.is_guest ? 'Guest player' : 'Player');
