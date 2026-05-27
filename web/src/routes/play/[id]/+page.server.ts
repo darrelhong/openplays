@@ -37,6 +37,12 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 	};
 };
 
+function participantIDFrom(formData: FormData) {
+	const raw = formData.get('participant_id');
+	const participantID = typeof raw === 'string' ? Number(raw) : NaN;
+	return Number.isSafeInteger(participantID) && participantID > 0 ? participantID : null;
+}
+
 export const actions: Actions = {
 	join: async ({ params, cookies }) => {
 		const id = params.id;
@@ -71,6 +77,57 @@ export const actions: Actions = {
 		if (apiError) {
 			return fail(apiError.status ?? 500, {
 				error: apiError.detail ?? 'Failed to leave game'
+			});
+		}
+
+		redirect(303, `/play/${id}`);
+	},
+	acceptParticipant: async ({ params, request, cookies }) => {
+		const id = params.id;
+		const sessionToken = cookies.get('session');
+		if (!sessionToken) {
+			return fail(401, { error: 'Sign in to manage this roster' });
+		}
+
+		const participantID = participantIDFrom(await request.formData());
+		if (participantID == null) {
+			return fail(400, { error: 'Invalid participant' });
+		}
+
+		const { error: apiError } = await api.POST(
+			'/api/plays/{id}/participants/{participantID}/accept',
+			{
+				headers: { Cookie: `session=${sessionToken}` },
+				params: { path: { id, participantID } }
+			}
+		);
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to accept player'
+			});
+		}
+
+		redirect(303, `/play/${id}`);
+	},
+	removeParticipant: async ({ params, request, cookies }) => {
+		const id = params.id;
+		const sessionToken = cookies.get('session');
+		if (!sessionToken) {
+			return fail(401, { error: 'Sign in to manage this roster' });
+		}
+
+		const participantID = participantIDFrom(await request.formData());
+		if (participantID == null) {
+			return fail(400, { error: 'Invalid participant' });
+		}
+
+		const { error: apiError } = await api.DELETE('/api/plays/{id}/participants/{participantID}', {
+			headers: { Cookie: `session=${sessionToken}` },
+			params: { path: { id, participantID } }
+		});
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to remove player'
 			});
 		}
 
