@@ -79,7 +79,7 @@ export const actions: Actions = {
 			courts
 		};
 
-		const { error } = await api.POST('/api/plays/', {
+		const { data, error } = await api.POST('/api/plays/', {
 			headers: { Cookie: `session=${sessionToken}` },
 			body: createPlayBody
 		});
@@ -87,7 +87,10 @@ export const actions: Actions = {
 		if (error) {
 			return { error: error.detail ?? 'Failed to create game' };
 		}
+		if (!data?.id) {
+			return { error: 'Created game was missing an id' };
+		}
 
-		redirect(303, '/');
+		redirect(303, `/play/${data.id}`);
 	}
 };
