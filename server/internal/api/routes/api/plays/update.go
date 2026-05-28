@@ -38,7 +38,7 @@ type UpdatePlayOutput struct {
 type UpdatePlayStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
-	CountConfirmedPlayParticipants(ctx context.Context, playID string) (int64, error)
+	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdateUserCreatedPlay(ctx context.Context, arg db.UpdateUserCreatedPlayParams) (db.Play, error)
 }
 
@@ -123,12 +123,12 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 			return nil, huma.Error500InternalServerError("play is missing max_players")
 		}
 
-		confirmedCount, err := store.CountConfirmedPlayParticipants(ctx, input.ID)
+		reservedCount, err := store.CountReservedPlayParticipants(ctx, input.ID)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to count participants")
 		}
-		if *maxPlayers < confirmedCount {
-			return nil, huma.Error409Conflict("max_players cannot be less than confirmed participants")
+		if *maxPlayers < reservedCount {
+			return nil, huma.Error409Conflict("max_players cannot be less than reserved participants")
 		}
 
 		courts := play.Courts

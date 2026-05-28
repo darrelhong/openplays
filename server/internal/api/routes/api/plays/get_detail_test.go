@@ -292,6 +292,54 @@ func TestGetPlayDetail_HostCanManageWithoutRosterSlot(t *testing.T) {
 	}
 }
 
+func TestGetPlayDetail_HostCanSeeAddedParticipantsAndReservedSlots(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-added-host")
+	addedID := createRouteTestUser(t, ctx, queries, "detail-added-player")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedAddedParticipant(t, ctx, queries, playID, addedID)
+
+	authStore := sessionWithProfile(creatorID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupGetDetailTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		AddedParticipants []struct {
+			DisplayName *string `json:"display_name"`
+		} `json:"added_participants"`
+		AddedCount *int64 `json:"added_count"`
+		SlotsLeft  *int64 `json:"slots_left"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(out.AddedParticipants) != 1 {
+		t.Fatalf("added_participants len = %d, want 1", len(out.AddedParticipants))
+	}
+	if out.AddedCount == nil || *out.AddedCount != 1 {
+		t.Fatalf("added_count = %v, want 1", out.AddedCount)
+	}
+	if out.SlotsLeft == nil || *out.SlotsLeft != 2 {
+		t.Fatalf("slots_left = %v, want 2", out.SlotsLeft)
+	}
+}
+
 func TestGetPlayDetail_CancelledPlayIncludesCancellation(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
@@ -343,6 +391,7 @@ func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 	}{
 		{name: "confirmed", participantSt: model.ParticipantConfirmed, wantState: "confirmed"},
 		{name: "waitlisted", participantSt: model.ParticipantWaitlisted, wantState: "waitlisted"},
+		{name: "added", participantSt: model.ParticipantAdded, wantState: "added"},
 	}
 
 	for _, tc := range tests {

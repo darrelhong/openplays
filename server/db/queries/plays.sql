@@ -217,7 +217,7 @@ SET
             SELECT COUNT(*)
             FROM play_participants pp
             WHERE pp.play_id = plays.id
-              AND pp.status = 'confirmed'
+              AND pp.status IN ('confirmed', 'added')
         ), 0)
     END,
     courts = sqlc.arg('courts'),
@@ -245,7 +245,7 @@ SET
             SELECT COUNT(*)
             FROM play_participants pp
             WHERE pp.play_id = plays.id
-              AND pp.status = 'confirmed'
+              AND pp.status IN ('confirmed', 'added')
         ), 0)
     END,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')

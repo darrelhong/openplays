@@ -41,6 +41,18 @@ func (q *Queries) CountPlayParticipantsByStatus(ctx context.Context, arg CountPl
 	return count, err
 }
 
+const countReservedPlayParticipants = `-- name: CountReservedPlayParticipants :one
+SELECT COUNT(*) FROM play_participants
+WHERE play_id = ? AND status IN ('confirmed', 'added')
+`
+
+func (q *Queries) CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countReservedPlayParticipants, playID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createPlayParticipant = `-- name: CreatePlayParticipant :one
 INSERT INTO play_participants (
     play_id, user_id, guest_name, rating_code, rating_ord, status
@@ -365,7 +377,8 @@ WHERE play_id = ?
 ORDER BY
     CASE status
         WHEN 'confirmed' THEN 1
-        WHEN 'waitlisted' THEN 2
+        WHEN 'added' THEN 2
+        WHEN 'waitlisted' THEN 3
         ELSE 4
     END,
     created_at ASC,

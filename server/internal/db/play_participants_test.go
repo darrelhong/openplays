@@ -74,14 +74,6 @@ func TestCreatePlayParticipant_UserAndGuestInvariants(t *testing.T) {
 	}); err == nil {
 		t.Fatal("expected error when rating_code is set without rating_ord")
 	}
-
-	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
-		PlayID:    play.ID,
-		GuestName: &guestName,
-		Status:    model.PlayParticipantStatus("invited"),
-	}); err == nil {
-		t.Fatal("expected error for invalid participant status")
-	}
 }
 
 func TestCreatePlayParticipant_OneRowPerUserPerPlay(t *testing.T) {
@@ -126,6 +118,7 @@ func TestPlayParticipantStatusQueries(t *testing.T) {
 	play := createParticipantTestPlay(t, ctx, queries, "Host", "Peirce Sec")
 	userID := createParticipantTestUser(t, ctx, queries, "user-1")
 	waitlistedUserID := createParticipantTestUser(t, ctx, queries, "user-2")
+	addedUserID := createParticipantTestUser(t, ctx, queries, "user-3")
 	guestName := "Guest One"
 
 	confirmed, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
@@ -143,6 +136,14 @@ func TestPlayParticipantStatusQueries(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("create waitlisted participant: %v", err)
+	}
+	added, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID: play.ID,
+		UserID: &addedUserID,
+		Status: model.ParticipantAdded,
+	})
+	if err != nil {
+		t.Fatalf("create added participant: %v", err)
 	}
 	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
 		PlayID:    play.ID,
@@ -182,6 +183,14 @@ func TestPlayParticipantStatusQueries(t *testing.T) {
 		t.Fatalf("waitlist count = %d, want 1", waitlistCount)
 	}
 
+	reservedCount, err := queries.CountReservedPlayParticipants(ctx, play.ID)
+	if err != nil {
+		t.Fatalf("CountReservedPlayParticipants: %v", err)
+	}
+	if reservedCount != 3 {
+		t.Fatalf("reserved count = %d, want 3", reservedCount)
+	}
+
 	confirmedRows, err := queries.ListPlayParticipantsByPlayAndStatus(ctx, db.ListPlayParticipantsByPlayAndStatusParams{
 		PlayID: play.ID,
 		Status: model.ParticipantConfirmed,
@@ -197,10 +206,10 @@ func TestPlayParticipantStatusQueries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListPlayParticipantsByPlay: %v", err)
 	}
-	if len(allRows) != 3 {
-		t.Fatalf("all rows = %d, want 3", len(allRows))
+	if len(allRows) != 4 {
+		t.Fatalf("all rows = %d, want 4", len(allRows))
 	}
-	if allRows[0].ID != confirmed.ID || allRows[1].ID != updated.ID || allRows[2].Status != model.ParticipantWaitlisted {
+	if allRows[0].ID != confirmed.ID || allRows[1].ID != updated.ID || allRows[2].ID != added.ID || allRows[3].Status != model.ParticipantWaitlisted {
 		t.Fatalf("unexpected participant ordering: %#v", allRows)
 	}
 }

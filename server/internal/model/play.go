@@ -83,6 +83,7 @@ type PlayParticipantStatus string
 const (
 	ParticipantConfirmed  PlayParticipantStatus = "confirmed"
 	ParticipantWaitlisted PlayParticipantStatus = "waitlisted"
+	ParticipantAdded      PlayParticipantStatus = "added"
 )
 
 // Schema implements huma.SchemaProvider.
@@ -91,6 +92,7 @@ func (s PlayParticipantStatus) Schema(r huma.Registry) *huma.Schema {
 	schema.Enum = []any{
 		string(ParticipantConfirmed),
 		string(ParticipantWaitlisted),
+		string(ParticipantAdded),
 	}
 	return schema
 }

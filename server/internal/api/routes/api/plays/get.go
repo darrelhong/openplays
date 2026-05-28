@@ -97,6 +97,8 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 						viewerState = "confirmed"
 					case model.ParticipantWaitlisted:
 						viewerState = "waitlisted"
+					case model.ParticipantAdded:
+						viewerState = "added"
 					}
 				} else if !errors.Is(perr, sql.ErrNoRows) {
 					return nil, huma.Error500InternalServerError("failed to get viewer participation", perr)
@@ -116,6 +118,15 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		confirmedCount := int64(len(confirmed))
 		item.ConfirmedCount = &confirmedCount
 
+		addedCount, err := queries.CountPlayParticipantsByStatus(ctx, db.CountPlayParticipantsByStatusParams{
+			PlayID: item.ID,
+			Status: model.ParticipantAdded,
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to count added participants", err)
+		}
+		item.AddedCount = &addedCount
+
 		waitlistCount, err := queries.CountPlayParticipantsByStatus(ctx, db.CountPlayParticipantsByStatusParams{
 			PlayID: item.ID,
 			Status: model.ParticipantWaitlisted,
@@ -126,6 +137,12 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		item.WaitlistCount = &waitlistCount
 
 		if canManage {
+			added, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantAdded, true)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to get added participants", err)
+			}
+			item.AddedParticipants = added
+
 			waitlist, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantWaitlisted, true)
 			if err != nil {
 				return nil, huma.Error500InternalServerError("failed to get waitlisted participants", err)
@@ -134,7 +151,7 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		}
 
 		if item.CreatedBy != nil && item.MaxPlayers != nil {
-			slotsLeft := *item.MaxPlayers - confirmedCount
+			slotsLeft := *item.MaxPlayers - confirmedCount - addedCount
 			if slotsLeft < 0 {
 				slotsLeft = 0
 			}

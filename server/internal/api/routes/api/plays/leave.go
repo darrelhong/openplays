@@ -17,6 +17,7 @@ type LeaveInput struct {
 
 type LeaveStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
+	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	GetPlayParticipantByPlayAndUser(ctx context.Context, arg db.GetPlayParticipantByPlayAndUserParams) (db.PlayParticipant, error)
 	DeletePlayParticipantByPlayAndUser(ctx context.Context, arg db.DeletePlayParticipantByPlayAndUserParams) error
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
@@ -48,7 +49,7 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 			return nil, huma.Error409Conflict("play is cancelled")
 		}
 
-		_, err = store.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
+		participant, err := store.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
 			PlayID: input.ID,
 			UserID: &user.ID,
 		})
@@ -57,6 +58,13 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 		}
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to get participant")
+		}
+		if participant.UserID != nil {
+			if ok, err := isPlayHost(ctx, store, play.ID, *participant.UserID); err != nil {
+				return nil, err
+			} else if ok {
+				return nil, huma.Error409Conflict("host cannot leave roster")
+			}
 		}
 
 		if err := store.DeletePlayParticipantByPlayAndUser(ctx, db.DeletePlayParticipantByPlayAndUserParams{

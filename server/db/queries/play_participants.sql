@@ -20,7 +20,8 @@ WHERE play_id = ?
 ORDER BY
     CASE status
         WHEN 'confirmed' THEN 1
-        WHEN 'waitlisted' THEN 2
+        WHEN 'added' THEN 2
+        WHEN 'waitlisted' THEN 3
         ELSE 4
     END,
     created_at ASC,
@@ -88,6 +89,10 @@ WHERE play_id = ? AND status = ?;
 -- name: CountConfirmedPlayParticipants :one
 SELECT COUNT(*) FROM play_participants
 WHERE play_id = ? AND status = 'confirmed';
+
+-- name: CountReservedPlayParticipants :one
+SELECT COUNT(*) FROM play_participants
+WHERE play_id = ? AND status IN ('confirmed', 'added');
 
 -- name: UpdatePlayParticipantStatus :one
 UPDATE play_participants

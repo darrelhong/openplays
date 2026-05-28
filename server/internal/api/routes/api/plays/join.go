@@ -28,7 +28,7 @@ type JoinStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
 	GetPlayParticipantByPlayAndUser(ctx context.Context, arg db.GetPlayParticipantByPlayAndUserParams) (db.PlayParticipant, error)
 	CreatePlayParticipant(ctx context.Context, arg db.CreatePlayParticipantParams) (db.PlayParticipant, error)
-	CountConfirmedPlayParticipants(ctx context.Context, playID string) (int64, error)
+	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
 }
 
@@ -75,23 +75,23 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 			if syncErr := store.UpdatePlaySlotsLeft(ctx, input.ID); syncErr != nil {
 				return nil, huma.Error500InternalServerError("failed to update slots_left")
 			}
-			confirmedCount, countErr := store.CountConfirmedPlayParticipants(ctx, input.ID)
+			reservedCount, countErr := store.CountReservedPlayParticipants(ctx, input.ID)
 			if countErr != nil {
 				return nil, huma.Error500InternalServerError("failed to count participants")
 			}
-			slots := deriveSlotsLeft(*play.MaxPlayers, confirmedCount)
+			slots := deriveSlotsLeft(*play.MaxPlayers, reservedCount)
 			out := &JoinOutput{}
 			out.Body.Status = existing.Status
 			out.Body.SlotsLeft = &slots
 			return out, nil
 		}
 
-		confirmedCount, err := store.CountConfirmedPlayParticipants(ctx, input.ID)
+		reservedCount, err := store.CountReservedPlayParticipants(ctx, input.ID)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to count participants")
 		}
 
-		status, ratingCode, ratingOrd := resolveJoinStatus(play, user, confirmedCount)
+		status, ratingCode, ratingOrd := resolveJoinStatus(play, user, reservedCount)
 		if _, err := store.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
 			PlayID:     input.ID,
 			UserID:     &user.ID,
@@ -106,11 +106,11 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 			return nil, huma.Error500InternalServerError("failed to update slots_left")
 		}
 
-		finalConfirmedCount := confirmedCount
+		finalReservedCount := reservedCount
 		if status == model.ParticipantConfirmed {
-			finalConfirmedCount++
+			finalReservedCount++
 		}
-		slots := deriveSlotsLeft(*play.MaxPlayers, finalConfirmedCount)
+		slots := deriveSlotsLeft(*play.MaxPlayers, finalReservedCount)
 		out := &JoinOutput{}
 		out.Body.Status = status
 		out.Body.SlotsLeft = &slots
@@ -118,9 +118,9 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 	})
 }
 
-func resolveJoinStatus(play db.GetPlayByIDRow, user *auth.User, confirmedCount int64) (model.PlayParticipantStatus, *string, *int64) {
+func resolveJoinStatus(play db.GetPlayByIDRow, user *auth.User, reservedCount int64) (model.PlayParticipantStatus, *string, *int64) {
 	ratingCode, ratingOrd := userRating(play.Sport, user)
-	if confirmedCount >= *play.MaxPlayers || ratingOrd == nil || !ratingMatches(play, *ratingOrd) {
+	if reservedCount >= *play.MaxPlayers || ratingOrd == nil || !ratingMatches(play, *ratingOrd) {
 		return model.ParticipantWaitlisted, ratingCode, ratingOrd
 	}
 	return model.ParticipantConfirmed, ratingCode, ratingOrd

@@ -194,6 +194,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plays/{id}/participants/me/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm an added play spot
+         * @description Move the authenticated user from added to confirmed after a host offers them a spot.
+         */
+        post: operations["confirm-play-participant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plays/{id}/participants/{participantID}": {
         parameters: {
             query?: never;
@@ -206,7 +226,7 @@ export interface paths {
         post?: never;
         /**
          * Remove a play participant
-         * @description Remove a participant from the confirmed roster or waitlist. Requires the play host.
+         * @description Remove a participant from the confirmed roster, added list, or waitlist. Requires the play host.
          */
         delete: operations["remove-play-participant"];
         options?: never;
@@ -224,8 +244,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Accept a waitlisted participant
-         * @description Move a waitlisted participant into the confirmed roster. Requires the play host and an open slot.
+         * Add a waitlisted participant
+         * @description Move a waitlisted participant into an added state pending player confirmation. Requires the play host and an open slot.
          */
         post: operations["accept-play-participant"];
         delete?: never;
@@ -278,6 +298,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ConfirmParticipantOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ConfirmParticipantOutputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            slots_left?: number;
+            /** @enum {string} */
+            status: "confirmed" | "waitlisted" | "added";
+        };
         ContactMethod: {
             type: string;
             value: string;
@@ -449,7 +481,7 @@ export interface components {
             /** Format: int64 */
             slots_left?: number;
             /** @enum {string} */
-            status: "confirmed" | "waitlisted";
+            status: "confirmed" | "waitlisted" | "added";
         };
         JoinOutputBody: {
             /**
@@ -461,7 +493,7 @@ export interface components {
             /** Format: int64 */
             slots_left?: number;
             /** @enum {string} */
-            status: "confirmed" | "waitlisted";
+            status: "confirmed" | "waitlisted" | "added";
         };
         ListBody: {
             /**
@@ -526,6 +558,9 @@ export interface components {
              * @example https://example.com/schemas/PlayPublic.json
              */
             readonly $schema?: string;
+            /** Format: int64 */
+            added_count?: number;
+            added_participants?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
             can_manage?: boolean;
             cancelled_at?: string;
             /** Format: int64 */
@@ -585,7 +620,7 @@ export interface components {
             venue_name: string;
             venue_postal_code?: string;
             /** @enum {string} */
-            viewer_state?: "not_joined" | "confirmed" | "waitlisted" | "creator";
+            viewer_state?: "not_joined" | "confirmed" | "waitlisted" | "added" | "creator";
             waitlist?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
             /** Format: int64 */
             waitlist_count?: number;
@@ -1138,6 +1173,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "confirm-play-participant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Play ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmParticipantOutputBody"];
+                };
             };
             /** @description Error */
             default: {

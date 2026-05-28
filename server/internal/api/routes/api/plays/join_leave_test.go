@@ -31,6 +31,7 @@ func setupJoinLeaveTest(authStore *fakeAuthStore, store *db.Queries) *httptest.S
 	grp := huma.NewGroup(api, "/api/plays")
 	plays.RegisterJoin(grp, store, authmw.RequireAuth(api, svc))
 	plays.RegisterLeave(grp, store, authmw.RequireAuth(api, svc))
+	plays.RegisterConfirmParticipant(grp, store, authmw.RequireAuth(api, svc))
 
 	return httptest.NewServer(r)
 }
@@ -93,6 +94,54 @@ func TestJoinPlay_AutoWaitlistWhenFull(t *testing.T) {
 	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
 	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
 	seedConfirmedParticipant(t, ctx, queries, playID, existingID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	authStore := sessionWithProfile(joinerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/join", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		Status    string `json:"status"`
+		SlotsLeft *int64 `json:"slots_left"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.Status != string(model.ParticipantWaitlisted) {
+		t.Fatalf("status = %q, want waitlisted", out.Status)
+	}
+	if out.SlotsLeft == nil || *out.SlotsLeft != 0 {
+		t.Fatalf("slots_left = %v, want 0", out.SlotsLeft)
+	}
+}
+
+func TestJoinPlay_AutoWaitlistWhenAddedSpotReserved(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-added-reserved")
+	addedID := createRouteTestUser(t, ctx, queries, "added-reserved-player")
+	joinerID := createRouteTestUser(t, ctx, queries, "joiner-added-reserved")
+
+	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedAddedParticipant(t, ctx, queries, playID, addedID)
 	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
 		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
 	}
@@ -253,6 +302,134 @@ func TestLeavePlay_RemovesParticipantAndFreesSlot(t *testing.T) {
 	}
 }
 
+func TestLeavePlay_RejectsHostLeavingRoster(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-leave-host")
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+
+	authStore := sessionWithProfile(creatorID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/plays/"+playID+"/participants/me", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
+	}
+
+	if _, err := queries.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
+		PlayID: playID,
+		UserID: &creatorID,
+	}); err != nil {
+		t.Fatalf("expected host participant to remain: %v", err)
+	}
+}
+
+func TestConfirmParticipant_ChangesAddedToConfirmed(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "confirm-added-creator")
+	playerID := createRouteTestUser(t, ctx, queries, "confirm-added-player")
+
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedAddedParticipant(t, ctx, queries, playID, playerID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	authStore := sessionWithProfile(playerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/participants/me/confirm", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		Status    string `json:"status"`
+		SlotsLeft *int64 `json:"slots_left"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.Status != string(model.ParticipantConfirmed) {
+		t.Fatalf("status = %q, want confirmed", out.Status)
+	}
+	if out.SlotsLeft == nil || *out.SlotsLeft != 1 {
+		t.Fatalf("slots_left = %v, want 1", out.SlotsLeft)
+	}
+
+	participant, err := queries.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
+		PlayID: playID,
+		UserID: &playerID,
+	})
+	if err != nil {
+		t.Fatalf("GetPlayParticipantByPlayAndUser: %v", err)
+	}
+	if participant.Status != model.ParticipantConfirmed {
+		t.Fatalf("participant status = %q, want confirmed", participant.Status)
+	}
+}
+
+func TestConfirmParticipant_RejectsWaitlistedParticipant(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "confirm-waitlisted-creator")
+	playerID := createRouteTestUser(t, ctx, queries, "confirm-waitlisted-player")
+
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID: playID,
+		UserID: &playerID,
+		Status: model.ParticipantWaitlisted,
+	}); err != nil {
+		t.Fatalf("CreatePlayParticipant waitlisted: %v", err)
+	}
+
+	authStore := sessionWithProfile(playerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/participants/me/confirm", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
+	}
+}
+
 func createUserPlay(t *testing.T, ctx context.Context, queries *db.Queries, creatorID string, maxPlayers int64, levelMin, levelMax *string) string {
 	t.Helper()
 
@@ -296,6 +473,18 @@ func seedConfirmedParticipant(t *testing.T, ctx context.Context, queries *db.Que
 		Status: model.ParticipantConfirmed,
 	}); err != nil {
 		t.Fatalf("CreatePlayParticipant confirmed: %v", err)
+	}
+}
+
+func seedAddedParticipant(t *testing.T, ctx context.Context, queries *db.Queries, playID, userID string) {
+	t.Helper()
+
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID: playID,
+		UserID: &userID,
+		Status: model.ParticipantAdded,
+	}); err != nil {
+		t.Fatalf("CreatePlayParticipant added: %v", err)
 	}
 }
 

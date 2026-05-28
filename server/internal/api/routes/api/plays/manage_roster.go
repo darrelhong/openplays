@@ -33,7 +33,7 @@ type HostRosterStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	GetPlayParticipantByID(ctx context.Context, id int64) (db.PlayParticipant, error)
-	CountConfirmedPlayParticipants(ctx context.Context, playID string) (int64, error)
+	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdatePlayParticipantStatus(ctx context.Context, arg db.UpdatePlayParticipantStatusParams) (db.PlayParticipant, error)
 	DeletePlayParticipant(ctx context.Context, id int64) error
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
@@ -42,8 +42,8 @@ type HostRosterStore interface {
 func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddleware func(huma.Context, func(huma.Context))) {
 	huma.Register(api, huma.Operation{
 		OperationID: "accept-play-participant",
-		Summary:     "Accept a waitlisted participant",
-		Description: "Move a waitlisted participant into the confirmed roster. Requires the play host and an open slot.",
+		Summary:     "Add a waitlisted participant",
+		Description: "Move a waitlisted participant into an added state pending player confirmation. Requires the play host and an open slot.",
 		Method:      http.MethodPost,
 		Path:        "/{id}/participants/{participantID}/accept",
 		Tags:        []string{"Plays"},
@@ -61,27 +61,27 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 			return nil, huma.Error500InternalServerError("play is missing max_players")
 		}
 
-		confirmedCount, err := store.CountConfirmedPlayParticipants(ctx, input.ID)
+		reservedCount, err := store.CountReservedPlayParticipants(ctx, input.ID)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to count participants")
 		}
-		if confirmedCount >= *play.MaxPlayers {
+		if reservedCount >= *play.MaxPlayers {
 			return nil, huma.Error409Conflict("play roster is full")
 		}
 
 		updated, err := store.UpdatePlayParticipantStatus(ctx, db.UpdatePlayParticipantStatusParams{
 			ID:     participant.ID,
-			Status: model.ParticipantConfirmed,
+			Status: model.ParticipantAdded,
 		})
 		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to accept participant")
+			return nil, huma.Error500InternalServerError("failed to add participant")
 		}
 
 		if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {
 			return nil, huma.Error500InternalServerError("failed to update slots_left")
 		}
 
-		slots := deriveSlotsLeft(*play.MaxPlayers, confirmedCount+1)
+		slots := deriveSlotsLeft(*play.MaxPlayers, reservedCount+1)
 		out := &HostRosterOutput{}
 		out.Body.Status = updated.Status
 		out.Body.SlotsLeft = &slots
@@ -91,7 +91,7 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 	huma.Register(api, huma.Operation{
 		OperationID: "remove-play-participant",
 		Summary:     "Remove a play participant",
-		Description: "Remove a participant from the confirmed roster or waitlist. Requires the play host.",
+		Description: "Remove a participant from the confirmed roster, added list, or waitlist. Requires the play host.",
 		Method:      http.MethodDelete,
 		Path:        "/{id}/participants/{participantID}",
 		Tags:        []string{"Plays"},

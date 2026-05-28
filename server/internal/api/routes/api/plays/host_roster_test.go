@@ -32,7 +32,7 @@ func setupHostRosterTest(authStore *fakeAuthStore, store *db.Queries) *httptest.
 	return httptest.NewServer(r)
 }
 
-func TestHostAcceptWaitlistedParticipant_WhenSlotOpen(t *testing.T) {
+func TestHostAddWaitlistedParticipant_WhenSlotOpen(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
@@ -68,8 +68,8 @@ func TestHostAcceptWaitlistedParticipant_WhenSlotOpen(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if out.Status != string(model.ParticipantConfirmed) {
-		t.Fatalf("status = %q, want confirmed", out.Status)
+	if out.Status != string(model.ParticipantAdded) {
+		t.Fatalf("status = %q, want added", out.Status)
 	}
 	if out.SlotsLeft == nil || *out.SlotsLeft != 1 {
 		t.Fatalf("slots_left = %v, want 1", out.SlotsLeft)
@@ -79,12 +79,12 @@ func TestHostAcceptWaitlistedParticipant_WhenSlotOpen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPlayParticipantByID: %v", err)
 	}
-	if got.Status != model.ParticipantConfirmed {
-		t.Fatalf("participant status = %q, want confirmed", got.Status)
+	if got.Status != model.ParticipantAdded {
+		t.Fatalf("participant status = %q, want added", got.Status)
 	}
 }
 
-func TestHostAcceptWaitlistedParticipant_HostCanAcceptWithoutRosterSlot(t *testing.T) {
+func TestHostAddWaitlistedParticipant_HostCanAddWithoutRosterSlot(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
@@ -116,8 +116,8 @@ func TestHostAcceptWaitlistedParticipant_HostCanAcceptWithoutRosterSlot(t *testi
 	if err != nil {
 		t.Fatalf("GetPlayParticipantByID: %v", err)
 	}
-	if got.Status != model.ParticipantConfirmed {
-		t.Fatalf("participant status = %q, want confirmed", got.Status)
+	if got.Status != model.ParticipantAdded {
+		t.Fatalf("participant status = %q, want added", got.Status)
 	}
 }
 
@@ -171,7 +171,7 @@ func TestHostAcceptWaitlistedParticipant_RejectsWhenFull(t *testing.T) {
 	waitlistedID := createRouteTestUser(t, ctx, queries, "host-full-waitlisted")
 	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
 	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
-	seedConfirmedParticipant(t, ctx, queries, playID, existingID)
+	seedAddedParticipant(t, ctx, queries, playID, existingID)
 	waitlisted := seedWaitlistedParticipant(t, ctx, queries, playID, waitlistedID)
 	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
 		t.Fatalf("UpdatePlaySlotsLeft: %v", err)

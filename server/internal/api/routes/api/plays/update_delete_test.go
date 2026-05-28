@@ -185,16 +185,16 @@ func TestUpdatePlay_ClearsOptionalFields(t *testing.T) {
 	}
 }
 
-func TestUpdatePlay_RejectsLoweringMaxPlayersBelowConfirmedCount(t *testing.T) {
+func TestUpdatePlay_RejectsLoweringMaxPlayersBelowReservedCount(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
 	creatorID := createRouteTestUser(t, ctx, queries, "update-cap-host")
-	confirmedID := createRouteTestUser(t, ctx, queries, "update-cap-player")
+	addedID := createRouteTestUser(t, ctx, queries, "update-cap-player")
 	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
 	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
-	seedConfirmedParticipant(t, ctx, queries, playID, confirmedID)
+	seedAddedParticipant(t, ctx, queries, playID, addedID)
 
 	ts := setupHostPlayManagementTest(sessionWithProfile(creatorID, nil), queries)
 	defer ts.Close()
