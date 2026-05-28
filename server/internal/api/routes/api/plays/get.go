@@ -51,6 +51,7 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			StartsAt:           r.StartsAt.Format(time.RFC3339),
 			EndsAt:             r.EndsAt.Format(time.RFC3339),
 			Timezone:           r.Timezone,
+			CancelledAt:        publicOptionalTimestamp(r.CancelledAt),
 			Venue:              r.Venue,
 			VenueName:          r.VenueName,
 			VenueID:            r.VenueID,

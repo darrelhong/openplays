@@ -68,6 +68,9 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 		if play.CreatedBy == nil {
 			return nil, huma.Error422UnprocessableEntity("cannot update imported plays")
 		}
+		if play.CancelledAt != nil {
+			return nil, huma.Error409Conflict("play is cancelled")
+		}
 		if err := requirePlayHost(ctx, store, input.ID, user.ID); err != nil {
 			return nil, err
 		}
@@ -253,6 +256,7 @@ func publicPlayFromDB(play db.Play) PlayPublic {
 		StartsAt:    play.StartsAt.Format(time.RFC3339),
 		EndsAt:      play.EndsAt.Format(time.RFC3339),
 		Timezone:    play.Timezone,
+		CancelledAt: publicOptionalTimestamp(play.CancelledAt),
 		Venue:       play.Venue,
 		VenueName:   play.Venue,
 		VenueID:     play.VenueID,

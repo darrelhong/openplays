@@ -2,7 +2,6 @@ package plays_test
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -259,6 +258,39 @@ func TestUpdatePlay_HostCanUpdateWithoutRosterSlot(t *testing.T) {
 	}
 }
 
+func TestUpdatePlay_RejectsCancelledPlay(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "update-cancelled-host")
+	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
+	if _, err := queries.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{
+		ID:          playID,
+		CancelledBy: &creatorID,
+	}); err != nil {
+		t.Fatalf("CancelUserCreatedPlay: %v", err)
+	}
+
+	ts := setupHostPlayManagementTest(sessionWithProfile(creatorID, nil), queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPatch, ts.URL+"/api/plays/"+playID, strings.NewReader(`{"max_players":4}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusConflict {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, want 409, body=%s", resp.StatusCode, string(b))
+	}
+}
+
 func TestUpdatePlay_RejectsNonHost(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
@@ -286,13 +318,13 @@ func TestUpdatePlay_RejectsNonHost(t *testing.T) {
 	}
 }
 
-func TestDeletePlay_HostDeletesPlayAndRoster(t *testing.T) {
+func TestCancelPlay_HostMarksPlayCancelledAndKeepsRoster(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	creatorID := createRouteTestUser(t, ctx, queries, "delete-host")
-	waitlistedID := createRouteTestUser(t, ctx, queries, "delete-waitlisted")
+	creatorID := createRouteTestUser(t, ctx, queries, "cancel-host")
+	waitlistedID := createRouteTestUser(t, ctx, queries, "cancel-waitlisted")
 	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
 	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
 	seedWaitlistedParticipant(t, ctx, queries, playID, waitlistedID)
@@ -313,24 +345,34 @@ func TestDeletePlay_HostDeletesPlayAndRoster(t *testing.T) {
 		b, _ := io.ReadAll(resp.Body)
 		t.Fatalf("status = %d, want 204, body=%s", resp.StatusCode, string(b))
 	}
-	if _, err := queries.GetPlayByID(ctx, playID); err != sql.ErrNoRows {
-		t.Fatalf("GetPlayByID err = %v, want sql.ErrNoRows", err)
+	play, err := queries.GetPlayByID(ctx, playID)
+	if err != nil {
+		t.Fatalf("GetPlayByID: %v", err)
+	}
+	if play.CancelledAt == nil {
+		t.Fatal("cancelled_at = nil, want timestamp")
+	}
+	if play.CancelledBy == nil || *play.CancelledBy != creatorID {
+		t.Fatalf("cancelled_by = %v, want %s", play.CancelledBy, creatorID)
 	}
 	participants, err := queries.ListPlayParticipantsByPlay(ctx, playID)
 	if err != nil {
 		t.Fatalf("ListPlayParticipantsByPlay: %v", err)
 	}
-	if len(participants) != 0 {
-		t.Fatalf("participants len = %d, want 0", len(participants))
+	if len(participants) != 2 {
+		t.Fatalf("participants len = %d, want 2 preserved", len(participants))
+	}
+	if _, err := queries.GetPlayHost(ctx, db.GetPlayHostParams{PlayID: playID, UserID: creatorID}); err != nil {
+		t.Fatalf("GetPlayHost: %v", err)
 	}
 }
 
-func TestDeletePlay_HostDeletesWithoutRosterSlot(t *testing.T) {
+func TestCancelPlay_HostCancelsWithoutRosterSlot(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
 
-	creatorID := createRouteTestUser(t, ctx, queries, "delete-host-not-player")
+	creatorID := createRouteTestUser(t, ctx, queries, "cancel-host-not-player")
 	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
 
 	ts := setupHostPlayManagementTest(sessionWithProfile(creatorID, nil), queries)
@@ -349,12 +391,16 @@ func TestDeletePlay_HostDeletesWithoutRosterSlot(t *testing.T) {
 		b, _ := io.ReadAll(resp.Body)
 		t.Fatalf("status = %d, want 204, body=%s", resp.StatusCode, string(b))
 	}
-	if _, err := queries.GetPlayByID(ctx, playID); err != sql.ErrNoRows {
-		t.Fatalf("GetPlayByID err = %v, want sql.ErrNoRows", err)
+	play, err := queries.GetPlayByID(ctx, playID)
+	if err != nil {
+		t.Fatalf("GetPlayByID: %v", err)
+	}
+	if play.CancelledAt == nil {
+		t.Fatal("cancelled_at = nil, want timestamp")
 	}
 }
 
-func TestDeletePlay_RejectsNonHost(t *testing.T) {
+func TestCancelPlay_RejectsNonHost(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()

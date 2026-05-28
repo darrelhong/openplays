@@ -121,6 +121,46 @@ func TestHostAcceptWaitlistedParticipant_HostCanAcceptWithoutRosterSlot(t *testi
 	}
 }
 
+func TestHostAcceptWaitlistedParticipant_RejectsCancelledPlay(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "host-cancelled-creator")
+	waitlistedID := createRouteTestUser(t, ctx, queries, "host-cancelled-waitlisted")
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	waitlisted := seedWaitlistedParticipant(t, ctx, queries, playID, waitlistedID)
+	if _, err := queries.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{
+		ID:          playID,
+		CancelledBy: &creatorID,
+	}); err != nil {
+		t.Fatalf("CancelUserCreatedPlay: %v", err)
+	}
+
+	ts := setupHostRosterTest(sessionWithProfile(creatorID, nil), queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/plays/%s/participants/%d/accept", ts.URL, playID, waitlisted.ID), nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
+	}
+	got, err := queries.GetPlayParticipantByID(ctx, waitlisted.ID)
+	if err != nil {
+		t.Fatalf("GetPlayParticipantByID: %v", err)
+	}
+	if got.Status != model.ParticipantWaitlisted {
+		t.Fatalf("participant status = %q, want waitlisted", got.Status)
+	}
+}
+
 func TestHostAcceptWaitlistedParticipant_RejectsWhenFull(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

@@ -43,6 +43,8 @@ type Play struct {
 	SourceGroup          *string
 	SourceSenderName     *string
 	CreatedBy            *string
+	CancelledAt          *time.Time
+	CancelledBy          *string
 }
 
 type PlayHost struct {

@@ -207,6 +207,49 @@ func TestListUpcomingPlays_DateRange(t *testing.T) {
 	}
 }
 
+func TestListUpcomingPlays_ExcludesCancelled(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	userID := "cancel-list-host"
+	googleID := "google-" + userID
+	if _, err := queries.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		ID:          userID,
+		Email:       userID + "@example.com",
+		DisplayName: "Cancel List Host",
+		GoogleID:    &googleID,
+	}); err != nil {
+		t.Fatalf("UpsertUserByGoogleID: %v", err)
+	}
+
+	active, err := queries.CreatePlay(ctx, makeUserPlayParams("active-list-play", "Active Host", userID, futureTime()))
+	if err != nil {
+		t.Fatalf("CreatePlay active: %v", err)
+	}
+	cancelled, err := queries.CreatePlay(ctx, makeUserPlayParams("cancelled-list-play", "Cancelled Host", userID, futureTime().Add(time.Hour)))
+	if err != nil {
+		t.Fatalf("CreatePlay cancelled: %v", err)
+	}
+	if _, err := queries.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{
+		ID:          cancelled.ID,
+		CancelledBy: &userID,
+	}); err != nil {
+		t.Fatalf("CancelUserCreatedPlay: %v", err)
+	}
+
+	rows, err := queries.ListUpcomingPlays(ctx, db.ListUpcomingPlaysParams{PageSize: 100})
+	if err != nil {
+		t.Fatalf("ListUpcomingPlays: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows len = %d, want 1", len(rows))
+	}
+	if rows[0].ID != active.ID {
+		t.Fatalf("row id = %s, want active %s", rows[0].ID, active.ID)
+	}
+}
+
 func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.UpsertPlayParams {
 	source := "telegram"
 	levelMin := "LB"
@@ -225,6 +268,25 @@ func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.Up
 		LevelMax:    &levelMax,
 		Currency:    "SGD",
 		Source:      &source,
+	}
+}
+
+func makeUserPlayParams(id, host, creatorID string, startsAt time.Time) db.CreatePlayParams {
+	maxPlayers := int64(4)
+	slotsLeft := int64(4)
+	return db.CreatePlayParams{
+		ID:          id,
+		ListingType: model.ListingPlay,
+		Sport:       model.SportBadminton,
+		HostName:    host,
+		StartsAt:    startsAt,
+		EndsAt:      startsAt.Add(2 * time.Hour),
+		Timezone:    "Asia/Singapore",
+		Venue:       "SBH",
+		Currency:    "SGD",
+		MaxPlayers:  &maxPlayers,
+		SlotsLeft:   &slotsLeft,
+		CreatedBy:   &creatorID,
 	}
 }
 

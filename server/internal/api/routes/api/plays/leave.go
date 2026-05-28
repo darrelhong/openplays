@@ -44,6 +44,9 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to get play")
 		}
+		if play.CancelledAt != nil {
+			return nil, huma.Error409Conflict("play is cancelled")
+		}
 
 		_, err = store.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
 			PlayID: input.ID,

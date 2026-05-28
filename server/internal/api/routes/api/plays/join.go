@@ -57,6 +57,9 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 		if play.CreatedBy == nil {
 			return nil, huma.Error422UnprocessableEntity("cannot join imported plays")
 		}
+		if play.CancelledAt != nil {
+			return nil, huma.Error409Conflict("play is cancelled")
+		}
 		if play.MaxPlayers == nil {
 			return nil, huma.Error500InternalServerError("play is missing max_players")
 		}

@@ -139,6 +139,9 @@ func loadHostRosterTarget(ctx context.Context, store HostRosterStore, playID str
 	if play.CreatedBy == nil {
 		return db.GetPlayByIDRow{}, db.PlayParticipant{}, huma.Error422UnprocessableEntity("cannot manage imported plays")
 	}
+	if play.CancelledAt != nil {
+		return db.GetPlayByIDRow{}, db.PlayParticipant{}, huma.Error409Conflict("play is cancelled")
+	}
 	if err := requirePlayHost(ctx, store, playID, user.ID); err != nil {
 		return db.GetPlayByIDRow{}, db.PlayParticipant{}, err
 	}

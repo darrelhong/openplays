@@ -19,6 +19,7 @@ type PlayPublic struct {
 	StartsAt    string            `json:"starts_at"`
 	EndsAt      string            `json:"ends_at"`
 	Timezone    string            `json:"timezone"`
+	CancelledAt *string           `json:"cancelled_at,omitempty"`
 	Venue       string            `json:"venue" doc:"Raw venue name as extracted from the message"`
 	VenueName   string            `json:"venue_name" doc:"Display name: resolved venue name, or raw venue name, or 'No venue'"`
 	VenueID     *int64            `json:"venue_id,omitempty"`
@@ -71,6 +72,14 @@ func publicPlayTimestamps(createdBy *string, createdAt, updatedAt time.Time) (*s
 	created := createdAt.Format(time.RFC3339)
 	updated := updatedAt.Format(time.RFC3339)
 	return &created, &updated
+}
+
+func publicOptionalTimestamp(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.Format(time.RFC3339)
+	return &formatted
 }
 
 // PlayParticipantPreviewPublic is the compact roster data shown on play cards.

@@ -171,6 +171,39 @@ func TestJoinPlay_AutoWaitlistWhenRatingMissing(t *testing.T) {
 	}
 }
 
+func TestJoinPlay_RejectsCancelledPlay(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-cancelled-join")
+	joinerID := createRouteTestUser(t, ctx, queries, "joiner-cancelled")
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	if _, err := queries.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{
+		ID:          playID,
+		CancelledBy: &creatorID,
+	}); err != nil {
+		t.Fatalf("CancelUserCreatedPlay: %v", err)
+	}
+
+	authStore := sessionWithProfile(joinerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/join", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusConflict {
+		t.Fatalf("status = %d, want 409", resp.StatusCode)
+	}
+}
+
 func TestLeavePlay_RemovesParticipantAndFreesSlot(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

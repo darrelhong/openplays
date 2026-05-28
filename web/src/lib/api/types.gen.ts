@@ -141,8 +141,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Delete a hosted play
-         * @description Delete a user-created play and its roster. Requires the play host.
+         * Cancel a hosted play
+         * @description Mark a user-created play as cancelled. Requires the play host.
          */
         delete: operations["delete-play"];
         options?: never;
@@ -527,6 +527,7 @@ export interface components {
              */
             readonly $schema?: string;
             can_manage?: boolean;
+            cancelled_at?: string;
             /** Format: int64 */
             confirmed_count?: number;
             confirmed_participants?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;

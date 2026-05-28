@@ -292,6 +292,49 @@ func TestGetPlayDetail_HostCanManageWithoutRosterSlot(t *testing.T) {
 	}
 }
 
+func TestGetPlayDetail_CancelledPlayIncludesCancellation(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-cancelled-host")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+	if _, err := queries.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{
+		ID:          playID,
+		CancelledBy: &creatorID,
+	}); err != nil {
+		t.Fatalf("CancelUserCreatedPlay: %v", err)
+	}
+
+	ts := setupGetDetailTest(&fakeAuthStore{sessionErr: context.Canceled}, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		CancelledAt *string `json:"cancelled_at"`
+		CanManage   *bool   `json:"can_manage"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.CancelledAt == nil || *out.CancelledAt == "" {
+		t.Fatalf("cancelled_at = %v, want timestamp", out.CancelledAt)
+	}
+	if out.CanManage == nil || *out.CanManage {
+		t.Fatalf("can_manage = %v, want false for anonymous viewer", out.CanManage)
+	}
+}
+
 func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 	tests := []struct {
 		name          string

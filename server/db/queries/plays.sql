@@ -67,6 +67,7 @@ RETURNING *;
 -- name: GetUpcomingPlays :many
 SELECT * FROM plays
 WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND cancelled_at IS NULL
   AND listing_type = 'play'
 ORDER BY starts_at ASC;
 
@@ -79,7 +80,7 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id, p.created_by,
+    p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
@@ -91,6 +92,7 @@ FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
 LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -108,6 +110,7 @@ LIMIT sqlc.arg('page_size');
 -- Total count of upcoming listings matching the same filters.
 SELECT COUNT(*) FROM plays p
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -124,7 +127,7 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id, p.created_by,
+    p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
@@ -141,6 +144,7 @@ FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -167,6 +171,7 @@ LIMIT sqlc.arg('page_size');
 SELECT COUNT(*) FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -180,7 +185,7 @@ SELECT
     p.id, p.created_at, p.updated_at,
     p.listing_type, p.sport, p.game_type, p.host_name,
     p.starts_at, p.ends_at, p.timezone,
-    p.venue, p.venue_id, p.created_by,
+    p.venue, p.venue_id, p.created_by, p.cancelled_at, p.cancelled_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
     p.fee, p.currency, p.max_players, p.slots_left, p.courts,
     p.contacts, p.gender_pref, p.meta,
@@ -221,10 +226,15 @@ WHERE plays.id = sqlc.arg('id')
   AND plays.created_by IS NOT NULL
 RETURNING *;
 
--- name: DeleteUserCreatedPlay :exec
-DELETE FROM plays
-WHERE id = ?
-  AND created_by IS NOT NULL;
+-- name: CancelUserCreatedPlay :one
+UPDATE plays
+SET
+    cancelled_at = COALESCE(cancelled_at, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')),
+    cancelled_by = COALESCE(cancelled_by, sqlc.arg('cancelled_by')),
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE id = sqlc.arg('id')
+  AND created_by IS NOT NULL
+RETURNING *;
 
 -- name: UpdatePlaySlotsLeft :exec
 UPDATE plays

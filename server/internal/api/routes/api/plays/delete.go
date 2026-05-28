@@ -18,17 +18,15 @@ type DeletePlayInput struct {
 type DeletePlayStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
-	DeletePlayHostsByPlay(ctx context.Context, playID string) error
-	DeleteUserCreatedPlay(ctx context.Context, id string) error
-	DeletePlayParticipantsByPlay(ctx context.Context, playID string) error
+	CancelUserCreatedPlay(ctx context.Context, arg db.CancelUserCreatedPlayParams) (db.Play, error)
 }
 
 // RegisterDelete registers DELETE /plays/{id}.
 func RegisterDelete(api huma.API, store DeletePlayStore, authMiddleware func(huma.Context, func(huma.Context))) {
 	huma.Register(api, huma.Operation{
 		OperationID: "delete-play",
-		Summary:     "Delete a hosted play",
-		Description: "Delete a user-created play and its roster. Requires the play host.",
+		Summary:     "Cancel a hosted play",
+		Description: "Mark a user-created play as cancelled. Requires the play host.",
 		Method:      http.MethodDelete,
 		Path:        "/{id}",
 		Tags:        []string{"Plays"},
@@ -47,20 +45,18 @@ func RegisterDelete(api huma.API, store DeletePlayStore, authMiddleware func(hum
 			return nil, huma.Error500InternalServerError("failed to get play")
 		}
 		if play.CreatedBy == nil {
-			return nil, huma.Error422UnprocessableEntity("cannot delete imported plays")
+			return nil, huma.Error422UnprocessableEntity("cannot cancel imported plays")
 		}
 		if err := requirePlayHost(ctx, store, input.ID, user.ID); err != nil {
 			return nil, err
 		}
 
-		if err := store.DeletePlayParticipantsByPlay(ctx, input.ID); err != nil {
-			return nil, huma.Error500InternalServerError("failed to delete play roster")
-		}
-		if err := store.DeletePlayHostsByPlay(ctx, input.ID); err != nil {
-			return nil, huma.Error500InternalServerError("failed to delete play hosts")
-		}
-		if err := store.DeleteUserCreatedPlay(ctx, input.ID); err != nil {
-			return nil, huma.Error500InternalServerError("failed to delete play")
+		cancelledBy := user.ID
+		if _, err := store.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{
+			ID:          input.ID,
+			CancelledBy: &cancelledBy,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to cancel play")
 		}
 
 		return &struct{}{}, nil
