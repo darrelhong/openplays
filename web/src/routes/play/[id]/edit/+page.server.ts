@@ -49,7 +49,7 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 			selectedPlayResponse.error.detail ?? 'Failed to fetch play'
 		);
 	}
-	if (!selectedPlayResponse.data.can_manage) {
+	if (!selectedPlayResponse.data.can_manage || selectedPlayResponse.data.cancelled_at) {
 		redirect(303, `/play/${id}`);
 	}
 
@@ -164,11 +164,11 @@ export const actions: Actions = {
 
 		redirect(303, `/play/${id}/edit`);
 	},
-	deletePlay: async ({ params, cookies }) => {
+	cancelPlay: async ({ params, cookies }) => {
 		const id = params.id;
 		const sessionToken = cookies.get('session');
 		if (!sessionToken) {
-			return fail(401, { intent: 'delete' as const, error: 'Sign in to manage this game' });
+			return fail(401, { intent: 'cancel' as const, error: 'Sign in to manage this game' });
 		}
 
 		const { error: apiError } = await api.DELETE('/api/plays/{id}', {
@@ -177,11 +177,11 @@ export const actions: Actions = {
 		});
 		if (apiError) {
 			return fail(apiError.status ?? 500, {
-				intent: 'delete' as const,
-				error: apiError.detail ?? 'Failed to delete game'
+				intent: 'cancel' as const,
+				error: apiError.detail ?? 'Failed to cancel game'
 			});
 		}
 
-		redirect(303, '/');
+		redirect(303, `/play/${id}`);
 	}
 };

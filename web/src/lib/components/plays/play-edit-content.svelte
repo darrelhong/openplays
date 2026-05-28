@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Save from '@lucide/svelte/icons/save';
-	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import CircleX from '@lucide/svelte/icons/circle-x';
 	import Button from '$lib/components/ui/button.svelte';
 	import { BADMINTON_LEVELS, DURATIONS, GAME_TYPES, TENNIS_LEVELS } from '$lib/consts/index';
 	import { formatDate, formatTime } from '$lib/utils/formatting';
@@ -21,7 +21,7 @@
 		courts: string;
 	};
 	type ActionForm =
-		| { error?: string; intent?: 'update' | 'delete'; values?: EditFormValues }
+		| { error?: string; intent?: 'update' | 'cancel'; values?: EditFormValues }
 		| null
 		| undefined;
 
@@ -33,7 +33,7 @@
 	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
 	const editValues = $derived(form?.values ?? editFormValuesFromPlay(play));
 	const editError = $derived(
-		form?.intent === 'update' || form?.intent === 'delete' ? form.error : undefined
+		form?.intent === 'update' || form?.intent === 'cancel' ? form.error : undefined
 	);
 	const levelOptions = $derived(levelOptionsForSport(play.sport));
 	const minPlayers = $derived(Math.max(confirmedCount, 1));
@@ -114,8 +114,8 @@
 		}
 	}
 
-	function confirmDelete(event: SubmitEvent) {
-		if (!globalThis.confirm('Cancel this game?')) {
+	function confirmCancel(event: SubmitEvent) {
+		if (!globalThis.confirm('Cancel this game? Players will no longer be able to join.')) {
 			event.preventDefault();
 		}
 	}
@@ -271,12 +271,12 @@
 
 		<form
 			method="POST"
-			action="?/deletePlay"
-			onsubmit={confirmDelete}
+			action="?/cancelPlay"
+			onsubmit={confirmCancel}
 			class="mt-4 pt-4 border-t border-border"
 		>
 			<Button type="submit" size="sm" variant="outline" class="gap-1.5">
-				<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
+				<CircleX class="h-3.5 w-3.5" aria-hidden="true" />
 				Cancel game
 			</Button>
 		</form>

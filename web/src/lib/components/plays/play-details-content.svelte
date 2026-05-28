@@ -36,10 +36,12 @@
 	);
 	const waitlist = $derived(play.waitlist ?? []);
 	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
-	const openSlots = $derived(Math.max(play.slots_left ?? 0, 0));
+	const isCancelled = $derived(play.cancelled_at != null);
+	const openSlots = $derived(isCancelled ? 0 : Math.max(play.slots_left ?? 0, 0));
 	const openSlotRows = $derived(
 		Array.from({ length: Math.min(openSlots, 12) }, (_, index) => confirmedCount + index + 1)
 	);
+	const slotsLeftLabel = $derived(isCancelled ? '0' : (play.slots_left ?? '-'));
 	const hiddenOpenSlotCount = $derived(Math.max(openSlots - openSlotRows.length, 0));
 	const playerCountLabel = $derived(
 		play.max_players == null ? String(confirmedCount) : `${confirmedCount}/${play.max_players}`
@@ -56,6 +58,7 @@
 	const sourceLabel = $derived(isUserCreated ? 'User created' : 'Auto-created from Telegram');
 	const viewerState = $derived(play.viewer_state ?? 'not_joined');
 	const canManage = $derived(play.can_manage ?? false);
+	const canManageActive = $derived(canManage && !isCancelled);
 	const waitlistCount = $derived(play.waitlist_count ?? waitlist.length);
 	const joinLabel = $derived(getPlayJoinLabel(play, user));
 
@@ -102,7 +105,7 @@
 		</div>
 		<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
 			{@render confirmedBadge()}
-			{#if canManage && !participant.is_host}
+			{#if canManageActive && !participant.is_host}
 				<form method="POST" action="?/removeParticipant">
 					<input type="hidden" name="participant_id" value={participant.id} />
 					<Button
@@ -135,7 +138,7 @@
 				{/if}
 			</div>
 		</div>
-		{#if canManage}
+		{#if canManageActive}
 			<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
 				<form method="POST" action="?/acceptParticipant">
 					<input type="hidden" name="participant_id" value={participant.id} />
@@ -210,6 +213,9 @@
 				<Badge variant={isUserCreated ? 'info' : 'muted'}>
 					{sourceLabel}
 				</Badge>
+				{#if isCancelled}
+					<Badge variant="warning">Cancelled</Badge>
+				{/if}
 			</div>
 			<h1 class="text-2xl font-semibold pe-6">{play.venue_name}</h1>
 			{#if hasVenueCoordinates}
@@ -252,7 +258,7 @@
 			</div>
 			<div class="flex gap-4">
 				<dt class="text-muted w-24">Slots</dt>
-				<dd>{play.slots_left ?? '-'} / {play.max_players ?? '-'}</dd>
+				<dd>{slotsLeftLabel} / {play.max_players ?? '-'}</dd>
 			</div>
 			{#if play.courts != null}
 				<div class="flex gap-4">
@@ -271,7 +277,7 @@
 								{playerCountLabel} • {confirmedCount} confirmed • {waitlistCount} waitlisted
 							</p>
 						</div>
-						{#if canManage}
+						{#if canManageActive}
 							<Button href={`/play/${play.id}/edit`} size="sm" variant="outline">Edit</Button>
 						{/if}
 					</div>
@@ -296,14 +302,16 @@
 						{/if}
 					</ul>
 
-					{#if canManage}
+					{#if canManageActive}
 						<div class="mt-4">
 							{@render rosterSection('Waitlist', waitlist)}
 						</div>
 					{/if}
 
 					<div class="mt-4 flex flex-wrap gap-2 items-center justify-start">
-						{#if !user}
+						{#if isCancelled}
+							<Badge variant="warning" size="sm">Cancelled</Badge>
+						{:else if !user}
 							<Button href="/login" size="sm">Sign in to join</Button>
 						{:else if viewerState === 'creator'}
 							<Badge variant="info" size="sm">Hosting</Badge>
