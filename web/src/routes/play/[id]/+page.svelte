@@ -6,5 +6,11 @@
 </script>
 
 <div class="pb-8 w-full">
-	<PlayDetailsContent play={data.play} user={data.user} {form} dialog={false} />
+	<PlayDetailsContent
+		play={data.play}
+		user={data.user}
+		{form}
+		dialog={false}
+		joinResult={data.joinResult}
+	/>
 </div>

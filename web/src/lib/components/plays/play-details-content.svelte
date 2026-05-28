@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import Check from '@lucide/svelte/icons/check';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import * as Dialog from '$lib/components/ui/dialog/index';
@@ -21,21 +22,31 @@
 	type User = components['schemas']['User'];
 	type Participant = components['schemas']['PlayParticipantPreviewPublic'];
 	type ActionForm = { error?: string } | null | undefined;
+	type JoinResult = 'confirmed' | 'waitlisted' | 'added' | null;
 
 	let {
 		play,
 		user = null,
 		form = null,
-		dialog = true
-	}: { play: Play; user?: User | null; form?: ActionForm; dialog?: boolean } = $props();
+		dialog = true,
+		joinResult = null
+	}: {
+		play: Play;
+		user?: User | null;
+		form?: ActionForm;
+		dialog?: boolean;
+		joinResult?: JoinResult;
+	} = $props();
 
 	const knownMetaKeys = ['fee_male', 'fee_female', 'shuttle', 'air_con', 'details'];
 	const meta = $derived(play.meta ?? {});
 	const confirmedParticipants = $derived(
 		play.confirmed_participants ?? play.participant_preview ?? []
 	);
+	const addedParticipants = $derived(play.added_participants ?? []);
 	const waitlist = $derived(play.waitlist ?? []);
 	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
+	const addedCount = $derived(play.added_count ?? addedParticipants.length);
 	const isCancelled = $derived(play.cancelled_at != null);
 	const openSlots = $derived(isCancelled ? 0 : Math.max(play.slots_left ?? 0, 0));
 	const openSlotRows = $derived(
@@ -60,11 +71,49 @@
 	const canManage = $derived(play.can_manage ?? false);
 	const canManageActive = $derived(canManage && !isCancelled);
 	const waitlistCount = $derived(play.waitlist_count ?? waitlist.length);
+	const rosterSummary = $derived(
+		`${confirmedCount} confirmed${addedCount > 0 ? ` • ${addedCount} added` : ''} • ${waitlistCount} waitlisted`
+	);
 	const joinLabel = $derived(getPlayJoinLabel(play, user));
+	let shownJoinResult = $state<JoinResult>(null);
 
 	function participantName(participant: Participant) {
 		return participant.display_name ?? (participant.is_guest ? 'Guest player' : 'Player');
 	}
+
+	function joinResultMessage(result: JoinResult) {
+		switch (result) {
+			case 'confirmed':
+				return 'You are confirmed for this game.';
+			case 'waitlisted':
+				return 'You joined the waitlist.';
+			case 'added':
+				return 'The host added you. Confirm your spot to join the roster.';
+			default:
+				return '';
+		}
+	}
+
+	function cleanJoinResultURL() {
+		const url = new URL(globalThis.location.href);
+		url.searchParams.delete('join_result');
+		globalThis.history.replaceState(globalThis.history.state, '', url);
+	}
+
+	function confirmSpot(event: SubmitEvent) {
+		if (!globalThis.confirm('Confirm your spot in this game?')) {
+			event.preventDefault();
+		}
+	}
+
+	$effect(() => {
+		if (!browser || !joinResult || shownJoinResult === joinResult) {
+			return;
+		}
+		shownJoinResult = joinResult;
+		globalThis.alert(joinResultMessage(joinResult));
+		cleanJoinResultURL();
+	});
 </script>
 
 {#snippet confirmedBadge()}
@@ -73,6 +122,10 @@
 
 {#snippet waitlistBadge()}
 	<Badge variant="warning" size="sm">On waitlist</Badge>
+{/snippet}
+
+{#snippet addedBadge()}
+	<Badge variant="info" size="sm">Added</Badge>
 {/snippet}
 
 {#snippet playerAvatar(participant: Participant)}
@@ -125,6 +178,43 @@
 	</li>
 {/snippet}
 
+{#snippet addedPlayer(participant: Participant)}
+	<li class="py-2 flex gap-3 items-center justify-between">
+		<div class="flex gap-3 min-w-0 items-center">
+			{@render playerAvatar(participant)}
+			<div class="min-w-0">
+				<p class="text-sm text-foreground font-medium break-words">
+					{participantName(participant)}
+				</p>
+				{#if participant.is_guest}
+					<p class="text-xs text-muted">Guest</p>
+				{:else}
+					<p class="text-xs text-muted">Needs player confirmation</p>
+				{/if}
+			</div>
+		</div>
+		<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
+			{@render addedBadge()}
+			{#if canManageActive}
+				<form method="POST" action="?/removeParticipant">
+					<input type="hidden" name="participant_id" value={participant.id} />
+					<Button
+						type="submit"
+						size="xs"
+						variant="outline"
+						aria-label={`Remove ${participantName(participant)}`}
+						title="Remove player"
+						class="gap-1.5"
+					>
+						<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
+						Remove
+					</Button>
+				</form>
+			{/if}
+		</div>
+	</li>
+{/snippet}
+
 {#snippet waitlistPlayer(participant: Participant)}
 	<li class="py-2 flex gap-3 items-center justify-between">
 		<div class="flex gap-3 min-w-0 items-center">
@@ -147,12 +237,12 @@
 						size="xs"
 						variant="secondary"
 						disabled={openSlots <= 0}
-						aria-label={`Accept ${participantName(participant)}`}
-						title={openSlots > 0 ? 'Accept player' : 'No open slots'}
+						aria-label={`Add ${participantName(participant)}`}
+						title={openSlots > 0 ? 'Add player' : 'No open slots'}
 						class="gap-1.5"
 					>
 						<Check class="h-3.5 w-3.5" aria-hidden="true" />
-						Accept
+						Add
 					</Button>
 				</form>
 				<form method="POST" action="?/removeParticipant">
@@ -181,6 +271,26 @@
 		</div>
 		<Badge variant="outline" class="h-6">Open</Badge>
 	</li>
+{/snippet}
+
+{#snippet addedRosterSection()}
+	<section>
+		<div class="mb-2 flex gap-3 items-center justify-between">
+			<h2 class="text-sm text-foreground font-semibold">Added</h2>
+			<span class="text-xs text-muted">{addedParticipants.length}</span>
+		</div>
+		{#if addedParticipants.length > 0}
+			<ul class="px-3 border border-border rounded-md divide-border divide-y">
+				{#each addedParticipants as participant (participant.id)}
+					{@render addedPlayer(participant)}
+				{/each}
+			</ul>
+		{:else}
+			<p class="text-sm text-muted px-3 py-3 border border-border rounded-md border-dashed">
+				None yet
+			</p>
+		{/if}
+	</section>
 {/snippet}
 
 {#snippet rosterSection(title: string, participants: Participant[])}
@@ -274,7 +384,7 @@
 						<div>
 							<h2 class="text-sm text-foreground font-semibold">Players</h2>
 							<p class="text-sm text-muted">
-								{playerCountLabel} • {confirmedCount} confirmed • {waitlistCount} waitlisted
+								{playerCountLabel} • {rosterSummary}
 							</p>
 						</div>
 						{#if canManageActive}
@@ -303,7 +413,8 @@
 					</ul>
 
 					{#if canManageActive}
-						<div class="mt-4">
+						<div class="mt-4 space-y-4">
+							{@render addedRosterSection()}
 							{@render rosterSection('Waitlist', waitlist)}
 						</div>
 					{/if}
@@ -324,6 +435,14 @@
 							{@render waitlistBadge()}
 							<form method="POST" action="?/leave">
 								<Button type="submit" size="sm" variant="outline">Leave waitlist</Button>
+							</form>
+						{:else if viewerState === 'added'}
+							{@render addedBadge()}
+							<form method="POST" action="?/confirmParticipant" onsubmit={confirmSpot}>
+								<Button type="submit" size="sm">Confirm spot</Button>
+							</form>
+							<form method="POST" action="?/leave">
+								<Button type="submit" size="sm" variant="outline">Decline spot</Button>
 							</form>
 						{:else}
 							<form method="POST" action="?/join">
