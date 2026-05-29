@@ -162,7 +162,7 @@ export const actions: Actions = {
 			return failUpdate(apiError.status ?? 500, apiError.detail ?? 'Failed to update game', values);
 		}
 
-		redirect(303, `/play/${id}/edit`);
+		redirect(303, `/play/${id}`);
 	},
 	cancelPlay: async ({ params, cookies }) => {
 		const id = params.id;

@@ -2,7 +2,9 @@
 	import Save from '@lucide/svelte/icons/save';
 	import CircleX from '@lucide/svelte/icons/circle-x';
 	import Button from '$lib/components/ui/button.svelte';
-	import { BADMINTON_LEVELS, DURATIONS, GAME_TYPES, TENNIS_LEVELS } from '$lib/consts/index';
+	import ActionConfirmDialog from '$lib/components/ui/dialog/action-confirm-dialog.svelte';
+	import { TennisSlider } from '$lib/components/ui/slider/index';
+	import { BADMINTON_LEVELS, DURATIONS, GAME_TYPES } from '$lib/consts/index';
 	import { formatDate, formatTime } from '$lib/utils/formatting';
 	import type { Play } from './types';
 
@@ -31,12 +33,14 @@
 		play.confirmed_participants ?? play.participant_preview ?? []
 	);
 	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
-	const editValues = $derived(form?.values ?? editFormValuesFromPlay(play));
+	const minPlayers = $derived(Math.max(confirmedCount, 1));
+	const TZ_OFFSET = '+08:00';
+	const initialEditValues = initialEditFormValues();
+	const editValues = $derived(form?.values ?? initialEditValues);
 	const editError = $derived(
 		form?.intent === 'update' || form?.intent === 'cancel' ? form.error : undefined
 	);
 	const levelOptions = $derived(levelOptionsForSport(play.sport));
-	const minPlayers = $derived(Math.max(confirmedCount, 1));
 	const durationItems = $derived(
 		DURATIONS.some((item) => item.value === editValues.duration_minutes)
 			? DURATIONS
@@ -45,10 +49,16 @@
 					...DURATIONS
 				]
 	);
+	let tennisRange = $state(tennisRangeFromValues(initialEditValues));
+	const tennisLevelMin = $derived(tennisRange[0]?.toFixed(1) ?? '');
+	const tennisLevelMax = $derived(tennisRange[1]?.toFixed(1) ?? '');
 
-	const TZ_OFFSET = '+08:00';
 	const fieldClass =
 		'text-sm text-foreground px-3 border border-input-border rounded-lg bg-input h-9 w-full placeholder:text-muted-foreground focus:outline-none focus:border-ring';
+
+	function initialEditFormValues() {
+		return form?.values ?? editFormValuesFromPlay(play);
+	}
 
 	function editFormValuesFromPlay(currentPlay: Play): EditFormValues {
 		const startsAt = localDateTimeParts(currentPlay.starts_at, currentPlay.timezone);
@@ -107,17 +117,15 @@
 		switch (sport) {
 			case 'badminton':
 				return BADMINTON_LEVELS;
-			case 'tennis':
-				return TENNIS_LEVELS;
 			default:
 				return [];
 		}
 	}
 
-	function confirmCancel(event: SubmitEvent) {
-		if (!globalThis.confirm('Cancel this game? Players will no longer be able to join.')) {
-			event.preventDefault();
-		}
+	function tennisRangeFromValues(values: EditFormValues) {
+		const min = Number(values.level_min);
+		const max = Number(values.level_max);
+		return Number.isFinite(min) && Number.isFinite(max) ? [min, max] : [3, 4];
 	}
 </script>
 
@@ -192,7 +200,13 @@
 				</label>
 			</div>
 
-			{#if levelOptions.length > 0}
+			{#if play.sport === 'tennis'}
+				<div>
+					<input type="hidden" name="level_min" value={tennisLevelMin} />
+					<input type="hidden" name="level_max" value={tennisLevelMax} />
+					<TennisSlider bind:value={tennisRange} label="Level restriction" />
+				</div>
+			{:else if levelOptions.length > 0}
 				<div class="gap-3 grid grid-cols-1 sm:grid-cols-2">
 					<label for="edit-level-min" class="text-sm text-muted block">
 						Min level
@@ -269,16 +283,22 @@
 			</Button>
 		</form>
 
-		<form
-			method="POST"
-			action="?/cancelPlay"
-			onsubmit={confirmCancel}
-			class="mt-4 pt-4 border-t border-border"
-		>
-			<Button type="submit" size="sm" variant="outline" class="gap-1.5">
-				<CircleX class="h-3.5 w-3.5" aria-hidden="true" />
-				Cancel game
-			</Button>
-		</form>
+		<div class="mt-4 pt-4 border-t border-border">
+			<ActionConfirmDialog
+				title="Cancel game?"
+				description="This action cannot be undone."
+				action="?/cancelPlay"
+				confirmLabel="Cancel game"
+				confirmVariant="destructive"
+				cancelLabel="Keep game"
+			>
+				{#snippet trigger({ props })}
+					<Button type="button" size="sm" variant="outline" class="gap-1.5" {...props}>
+						<CircleX class="h-3.5 w-3.5" aria-hidden="true" />
+						Cancel game
+					</Button>
+				{/snippet}
+			</ActionConfirmDialog>
+		</div>
 	</section>
 </div>
