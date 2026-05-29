@@ -32,7 +32,10 @@ export default defineConfig({
 				DEFAULT: 'var(--color-accent)',
 				foreground: 'var(--color-accent-foreground)'
 			},
-			destructive: 'var(--color-destructive)',
+			destructive: {
+				DEFAULT: 'var(--color-destructive)',
+				foreground: 'var(--color-destructive-foreground)'
+			},
 			success: 'var(--color-success)',
 			ring: 'var(--color-ring)'
 		},

@@ -3,7 +3,7 @@
 	import { Button, type ButtonRootProps } from 'bits-ui';
 	import { cn } from '$lib/utils/cn';
 
-	type Variant = 'default' | 'secondary' | 'outline' | 'ghost';
+	type Variant = 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 	type Size = 'xs' | 'sm' | 'md' | 'lg';
 
 	type Props = ButtonRootProps & {
@@ -18,7 +18,8 @@
 		default: 'text-primary-foreground bg-primary hover:bg-primary/85',
 		secondary: 'text-foreground bg-accent hover:bg-accent/70',
 		outline: 'text-foreground border border-border bg-card shadow-sm hover:bg-accent/70',
-		ghost: 'text-foreground hover:bg-card'
+		ghost: 'text-foreground hover:bg-card',
+		destructive: 'text-destructive-foreground bg-destructive hover:bg-destructive/85'
 	};
 
 	const sizeClasses: Record<Size, string> = {
