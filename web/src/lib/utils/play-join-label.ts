@@ -1,6 +1,4 @@
 import type { components } from '$lib/api/types.gen';
-import { BADMINTON_LEVELS, TENNIS_LEVELS, levelIndex } from '$lib/consts/levels';
-import type { SelectItem } from '$lib/consts/sports';
 
 type PlayPublic = components['schemas']['PlayPublic'];
 type User = components['schemas']['User'];
@@ -18,39 +16,56 @@ export function canDirectJoin(play: PlayJoinLabelInput, user: UserJoinLabelInput
 		return false;
 	}
 
-	const levels = levelsForSport(play.sport);
 	const userLevel = userLevelForSport(user?.sports_profile, play.sport);
-	if (!levels || !userLevel) {
+	const userOrd = userLevel ? levelOrd(play.sport, userLevel) : null;
+	if (userOrd == null) {
 		return false;
 	}
 
-	const userIndex = levelIndex(levels, userLevel);
-	if (userIndex < 0) {
+	const minOrd = play.level_min ? levelOrd(play.sport, play.level_min) : null;
+	if (minOrd != null && userOrd < minOrd) {
 		return false;
 	}
 
-	const minIndex = play.level_min ? levelIndex(levels, play.level_min) : -1;
-	if (minIndex >= 0 && userIndex < minIndex) {
-		return false;
-	}
-
-	const maxIndex = play.level_max ? levelIndex(levels, play.level_max) : -1;
-	if (maxIndex >= 0 && userIndex > maxIndex) {
+	const maxOrd = play.level_max ? levelOrd(play.sport, play.level_max) : null;
+	if (maxOrd != null && userOrd > maxOrd) {
 		return false;
 	}
 
 	return true;
 }
 
-function levelsForSport(sport: PlayPublic['sport']): SelectItem[] | null {
+const BADMINTON_LEVEL_ORD: Record<string, number> = {
+	LB: 10,
+	MB: 20,
+	HB: 30,
+	LI: 40,
+	MI: 50,
+	HI: 60,
+	A: 70
+};
+
+function levelOrd(sport: PlayPublic['sport'], code: string): number | null {
+	const trimmed = code.trim();
 	switch (sport) {
 		case 'badminton':
-			return BADMINTON_LEVELS;
+			return BADMINTON_LEVEL_ORD[trimmed] ?? null;
 		case 'tennis':
-			return TENNIS_LEVELS;
+			return tennisLevelOrd(trimmed);
 		default:
 			return null;
 	}
+}
+
+function tennisLevelOrd(code: string): number | null {
+	const level = Number(code);
+	if (!Number.isFinite(level) || level < 1 || level > 7) {
+		return null;
+	}
+
+	const scaled = level * 10;
+	const rounded = Math.round(scaled);
+	return Math.abs(scaled - rounded) <= 1e-9 ? rounded : null;
 }
 
 function userLevelForSport(profile: SportsProfile | undefined, sport: PlayPublic['sport']) {

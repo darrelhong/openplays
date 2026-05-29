@@ -86,6 +86,32 @@ describe('canDirectJoin', () => {
 		).toBe(true);
 	});
 
+	it('uses fine-grained tennis ordinals like the backend', () => {
+		expect(
+			getPlayJoinLabel(
+				{
+					sport: 'tennis',
+					level_min: '3.0',
+					level_max: '3.4',
+					slots_left: 2
+				},
+				{ sports_profile: { tennis: { level: '3.5' } } }
+			)
+		).toBe('Join waitlist');
+
+		expect(
+			canDirectJoin(
+				{
+					sport: 'tennis',
+					level_min: '3.0',
+					level_max: '3.4',
+					slots_left: 2
+				},
+				{ sports_profile: { tennis: { level: '3.4' } } }
+			)
+		).toBe(true);
+	});
+
 	it('treats unsupported sport profiles as waitlist-only', () => {
 		expect(
 			canDirectJoin(
