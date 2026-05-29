@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
 	import Check from '@lucide/svelte/icons/check';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import * as Dialog from '$lib/components/ui/dialog/index';
+	import ActionConfirmDialog from '$lib/components/ui/dialog/action-confirm-dialog.svelte';
 	import BaseAvatar from '$lib/components/ui/avatar/base-avatar.svelte';
 	import { Badge, RatingBadge } from '$lib/components/ui/badge/index';
 	import Button from '$lib/components/ui/button.svelte';
@@ -15,27 +15,24 @@
 		formatLevel,
 		formatTime
 	} from '$lib/utils/formatting';
-	import { getPlayJoinLabel } from '$lib/utils/play-join-label';
+	import { canDirectJoin, getPlayJoinLabel } from '$lib/utils/play-join-label';
 	import type { components } from '$lib/api/types.gen';
 	import type { Play } from './types';
 
 	type User = components['schemas']['User'];
 	type Participant = components['schemas']['PlayParticipantPreviewPublic'];
 	type ActionForm = { error?: string } | null | undefined;
-	type JoinResult = 'confirmed' | 'waitlisted' | 'added' | null;
 
 	let {
 		play,
 		user = null,
 		form = null,
-		dialog = true,
-		joinResult = null
+		dialog = true
 	}: {
 		play: Play;
 		user?: User | null;
 		form?: ActionForm;
 		dialog?: boolean;
-		joinResult?: JoinResult;
 	} = $props();
 
 	const knownMetaKeys = ['fee_male', 'fee_female', 'shuttle', 'air_con', 'details'];
@@ -74,58 +71,78 @@
 	const rosterSummary = $derived(
 		`${confirmedCount} confirmed${addedCount > 0 ? ` • ${addedCount} added` : ''} • ${waitlistCount} waitlisted`
 	);
+	const joinsWaitlist = $derived(!canDirectJoin(play, user));
 	const joinLabel = $derived(getPlayJoinLabel(play, user));
-	let shownJoinResult = $state<JoinResult>(null);
-
 	function participantName(participant: Participant) {
 		return participant.display_name ?? (participant.is_guest ? 'Guest player' : 'Player');
 	}
-
-	function joinResultMessage(result: JoinResult) {
-		switch (result) {
-			case 'confirmed':
-				return 'You are confirmed for this game.';
-			case 'waitlisted':
-				return 'You joined the waitlist.';
-			case 'added':
-				return 'The host added you. Confirm your spot to join the roster.';
-			default:
-				return '';
-		}
-	}
-
-	function cleanJoinResultURL() {
-		const url = new URL(globalThis.location.href);
-		url.searchParams.delete('join_result');
-		globalThis.history.replaceState(globalThis.history.state, '', url);
-	}
-
-	function confirmSpot(event: SubmitEvent) {
-		if (!globalThis.confirm('Confirm your spot in this game?')) {
-			event.preventDefault();
-		}
-	}
-
-	$effect(() => {
-		if (!browser || !joinResult || shownJoinResult === joinResult) {
-			return;
-		}
-		shownJoinResult = joinResult;
-		globalThis.alert(joinResultMessage(joinResult));
-		cleanJoinResultURL();
-	});
 </script>
 
 {#snippet confirmedBadge()}
-	<Badge variant="success" class="font-semibold h-6">Confirmed</Badge>
+	<Badge variant="success" class="font-semibold">Confirmed</Badge>
 {/snippet}
 
 {#snippet waitlistBadge()}
-	<Badge variant="warning" size="sm">On waitlist</Badge>
+	<Badge variant="warning">On waitlist</Badge>
 {/snippet}
 
 {#snippet addedBadge()}
-	<Badge variant="info" size="sm">Added</Badge>
+	<Badge variant="info">Added</Badge>
+{/snippet}
+
+{#snippet addParticipantDialog(participant: Participant)}
+	<ActionConfirmDialog
+		title={`Add ${participantName(participant)}?`}
+		description="They will be added to the game and can confirm or decline their spot."
+		action="?/acceptParticipant"
+		confirmLabel="Add player"
+	>
+		{#snippet trigger({ props })}
+			<Button
+				type="button"
+				size="xs"
+				variant="secondary"
+				disabled={openSlots <= 0}
+				aria-label={`Add ${participantName(participant)}`}
+				title={openSlots > 0 ? 'Add player' : 'No open slots'}
+				class="gap-1.5"
+				{...props}
+			>
+				<Check class="h-3.5 w-3.5" aria-hidden="true" />
+				Add
+			</Button>
+		{/snippet}
+		{#snippet fields()}
+			<input type="hidden" name="participant_id" value={participant.id} />
+		{/snippet}
+	</ActionConfirmDialog>
+{/snippet}
+
+{#snippet removeParticipantDialog(participant: Participant)}
+	<ActionConfirmDialog
+		title={`Remove ${participantName(participant)}?`}
+		action="?/removeParticipant"
+		confirmLabel="Remove player"
+		confirmVariant="destructive"
+	>
+		{#snippet trigger({ props })}
+			<Button
+				type="button"
+				size="xs"
+				variant="outline"
+				aria-label={`Remove ${participantName(participant)}`}
+				title="Remove player"
+				class="gap-1.5"
+				{...props}
+			>
+				<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
+				Remove
+			</Button>
+		{/snippet}
+		{#snippet fields()}
+			<input type="hidden" name="participant_id" value={participant.id} />
+		{/snippet}
+	</ActionConfirmDialog>
 {/snippet}
 
 {#snippet playerAvatar(participant: Participant)}
@@ -159,59 +176,62 @@
 		<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
 			{@render confirmedBadge()}
 			{#if canManageActive && !participant.is_host}
-				<form method="POST" action="?/removeParticipant">
-					<input type="hidden" name="participant_id" value={participant.id} />
-					<Button
-						type="submit"
-						size="xs"
-						variant="outline"
-						aria-label={`Remove ${participantName(participant)}`}
-						title="Remove player"
-						class="gap-1.5"
-					>
-						<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
-						Remove
-					</Button>
-				</form>
+				{@render removeParticipantDialog(participant)}
 			{/if}
 		</div>
 	</li>
 {/snippet}
 
 {#snippet addedPlayer(participant: Participant)}
-	<li class="py-2 flex gap-3 items-center justify-between">
-		<div class="flex gap-3 min-w-0 items-center">
-			{@render playerAvatar(participant)}
-			<div class="min-w-0">
-				<p class="text-sm text-foreground font-medium break-words">
-					{participantName(participant)}
-				</p>
-				{#if participant.is_guest}
-					<p class="text-xs text-muted">Guest</p>
-				{:else}
-					<p class="text-xs text-muted">Needs player confirmation</p>
-				{/if}
+	<li class="py-2">
+		<div class="flex gap-3 items-center justify-between">
+			<div class="flex gap-3 min-w-0 items-center">
+				{@render playerAvatar(participant)}
+				<div class="min-w-0">
+					<p class="text-sm text-foreground font-medium break-words">
+						{participantName(participant)}
+					</p>
+					{#if participant.is_guest}
+						<p class="text-xs text-muted">Guest</p>
+					{:else}
+						<p class="text-xs text-muted">Awaiting player confirmation</p>
+					{/if}
+				</div>
+			</div>
+			<div class="shrink-0">
+				{@render addedBadge()}
 			</div>
 		</div>
-		<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
-			{@render addedBadge()}
-			{#if canManageActive}
-				<form method="POST" action="?/removeParticipant">
-					<input type="hidden" name="participant_id" value={participant.id} />
-					<Button
-						type="submit"
-						size="xs"
-						variant="outline"
-						aria-label={`Remove ${participantName(participant)}`}
-						title="Remove player"
-						class="gap-1.5"
-					>
-						<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
-						Remove
-					</Button>
-				</form>
-			{/if}
-		</div>
+
+		{#if canManageActive}
+			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
+				{@render removeParticipantDialog(participant)}
+			</div>
+		{:else if viewerState === 'added'}
+			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
+				<ActionConfirmDialog
+					title="Confirm spot?"
+					description="You will join the roster for this game."
+					action="?/confirmParticipant"
+					confirmLabel="Confirm spot"
+				>
+					{#snippet trigger({ props })}
+						<Button type="button" size="xs" {...props}>Confirm spot</Button>
+					{/snippet}
+				</ActionConfirmDialog>
+				<ActionConfirmDialog
+					title="Decline spot?"
+					description="You will be removed from this game."
+					action="?/leave"
+					confirmLabel="Decline"
+					confirmVariant="destructive"
+				>
+					{#snippet trigger({ props })}
+						<Button type="button" size="xs" variant="outline" {...props}>Decline</Button>
+					{/snippet}
+				</ActionConfirmDialog>
+			</div>
+		{/if}
 	</li>
 {/snippet}
 
@@ -230,35 +250,12 @@
 		</div>
 		{#if canManageActive}
 			<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
-				<form method="POST" action="?/acceptParticipant">
-					<input type="hidden" name="participant_id" value={participant.id} />
-					<Button
-						type="submit"
-						size="xs"
-						variant="secondary"
-						disabled={openSlots <= 0}
-						aria-label={`Add ${participantName(participant)}`}
-						title={openSlots > 0 ? 'Add player' : 'No open slots'}
-						class="gap-1.5"
-					>
-						<Check class="h-3.5 w-3.5" aria-hidden="true" />
-						Add
-					</Button>
-				</form>
-				<form method="POST" action="?/removeParticipant">
-					<input type="hidden" name="participant_id" value={participant.id} />
-					<Button
-						type="submit"
-						size="xs"
-						variant="outline"
-						aria-label={`Remove ${participantName(participant)}`}
-						title="Remove player"
-						class="gap-1.5"
-					>
-						<Trash2 class="h-3.5 w-3.5" aria-hidden="true" />
-						Remove
-					</Button>
-				</form>
+				{@render addParticipantDialog(participant)}
+				{@render removeParticipantDialog(participant)}
+			</div>
+		{:else}
+			<div class="shrink-0">
+				{@render waitlistBadge()}
 			</div>
 		{/if}
 	</li>
@@ -412,10 +409,14 @@
 						{/if}
 					</ul>
 
-					{#if canManageActive}
+					{#if canManageActive || addedParticipants.length > 0 || waitlist.length > 0}
 						<div class="mt-4 space-y-4">
-							{@render addedRosterSection()}
-							{@render rosterSection('Waitlist', waitlist)}
+							{#if canManageActive || addedParticipants.length > 0}
+								{@render addedRosterSection()}
+							{/if}
+							{#if canManageActive || waitlist.length > 0}
+								{@render rosterSection('Waitlist', waitlist)}
+							{/if}
 						</div>
 					{/if}
 
@@ -428,26 +429,53 @@
 							<Badge variant="info" size="sm">Hosting</Badge>
 						{:else if viewerState === 'confirmed'}
 							{@render confirmedBadge()}
-							<form method="POST" action="?/leave">
-								<Button type="submit" size="sm" variant="outline">Leave game</Button>
-							</form>
+							<ActionConfirmDialog
+								title="Leave game?"
+								action="?/leave"
+								confirmLabel="Leave game"
+								confirmVariant="destructive"
+							>
+								{#snippet trigger({ props })}
+									<Button type="button" size="sm" variant="outline" {...props}>Leave game</Button>
+								{/snippet}
+							</ActionConfirmDialog>
 						{:else if viewerState === 'waitlisted'}
-							{@render waitlistBadge()}
-							<form method="POST" action="?/leave">
-								<Button type="submit" size="sm" variant="outline">Leave waitlist</Button>
-							</form>
+							<ActionConfirmDialog
+								title="Leave waitlist?"
+								action="?/leave"
+								confirmLabel="Leave waitlist"
+								confirmVariant="destructive"
+							>
+								{#snippet trigger({ props })}
+									<Button type="button" size="sm" variant="outline" {...props}
+										>Leave waitlist</Button
+									>
+								{/snippet}
+							</ActionConfirmDialog>
 						{:else if viewerState === 'added'}
 							{@render addedBadge()}
-							<form method="POST" action="?/confirmParticipant" onsubmit={confirmSpot}>
-								<Button type="submit" size="sm">Confirm spot</Button>
-							</form>
-							<form method="POST" action="?/leave">
-								<Button type="submit" size="sm" variant="outline">Decline spot</Button>
-							</form>
+						{:else if joinsWaitlist}
+							<ActionConfirmDialog
+								title="Join waitlist?"
+								description="Please double-check your availability before joining. Hosts can then add you into the game."
+								action="?/join"
+								confirmLabel="Join waitlist"
+							>
+								{#snippet trigger({ props })}
+									<Button type="button" size="sm" {...props}>{joinLabel}</Button>
+								{/snippet}
+							</ActionConfirmDialog>
 						{:else}
-							<form method="POST" action="?/join">
-								<Button type="submit" size="sm">{joinLabel}</Button>
-							</form>
+							<ActionConfirmDialog
+								title="Join game?"
+								description="Please double-check your availability before joining."
+								action="?/join"
+								confirmLabel="Join game"
+							>
+								{#snippet trigger({ props })}
+									<Button type="button" size="sm" {...props}>{joinLabel}</Button>
+								{/snippet}
+							</ActionConfirmDialog>
 						{/if}
 					</div>
 				</section>

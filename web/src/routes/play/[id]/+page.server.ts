@@ -2,20 +2,7 @@ import { api } from '$lib/api/client';
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-type JoinResult = 'confirmed' | 'waitlisted' | 'added' | null;
-
-function joinResultFrom(value: string | null): JoinResult {
-	switch (value) {
-		case 'confirmed':
-		case 'waitlisted':
-		case 'added':
-			return value;
-		default:
-			return null;
-	}
-}
-
-export const load: PageServerLoad = async ({ params, cookies, locals, url }) => {
+export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 	const id = params.id;
 
 	if (!id) {
@@ -44,12 +31,9 @@ export const load: PageServerLoad = async ({ params, cookies, locals, url }) => 
 		);
 	}
 
-	const joinResult = joinResultFrom(url.searchParams.get('join_result'));
-
 	return {
 		play: selectedPlayResponse.data,
-		user: locals.user,
-		joinResult
+		user: locals.user
 	};
 };
 
@@ -67,7 +51,7 @@ export const actions: Actions = {
 			return fail(401, { error: 'Sign in to join this game' });
 		}
 
-		const { data, error: apiError } = await api.POST('/api/plays/{id}/join', {
+		const { error: apiError } = await api.POST('/api/plays/{id}/join', {
 			headers: { Cookie: `session=${sessionToken}` },
 			params: { path: { id } }
 		});
@@ -77,8 +61,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const status = data?.status ?? 'waitlisted';
-		redirect(303, `/play/${id}?join_result=${status}`);
+		redirect(303, `/play/${id}`);
 	},
 	confirmParticipant: async ({ params, cookies }) => {
 		const id = params.id;
@@ -87,7 +70,7 @@ export const actions: Actions = {
 			return fail(401, { error: 'Sign in to confirm your spot' });
 		}
 
-		const { data, error: apiError } = await api.POST('/api/plays/{id}/participants/me/confirm', {
+		const { error: apiError } = await api.POST('/api/plays/{id}/participants/me/confirm', {
 			headers: { Cookie: `session=${sessionToken}` },
 			params: { path: { id } }
 		});
@@ -97,8 +80,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const status = data?.status ?? 'confirmed';
-		redirect(303, `/play/${id}?join_result=${status}`);
+		redirect(303, `/play/${id}`);
 	},
 	leave: async ({ params, cookies }) => {
 		const id = params.id;
