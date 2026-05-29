@@ -80,7 +80,9 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		}
 		viewerState := "not_joined"
 		canManage := false
+		var viewerID *string
 		if viewer := authmw.UserFromContext(ctx); viewer != nil {
+			viewerID = &viewer.ID
 			if ok, err := isPlayHost(ctx, queries, item.ID, viewer.ID); err != nil {
 				return nil, err
 			} else if ok {
@@ -136,18 +138,28 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		}
 		item.WaitlistCount = &waitlistCount
 
-		if canManage {
+		if canManage || viewerState == "added" {
 			added, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantAdded, true)
 			if err != nil {
 				return nil, huma.Error500InternalServerError("failed to get added participants", err)
 			}
-			item.AddedParticipants = added
+			if canManage {
+				item.AddedParticipants = added
+			} else if viewerID != nil {
+				item.AddedParticipants = participantPreviewsForUser(added, *viewerID)
+			}
+		}
 
+		if canManage || viewerState == "waitlisted" {
 			waitlist, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantWaitlisted, true)
 			if err != nil {
 				return nil, huma.Error500InternalServerError("failed to get waitlisted participants", err)
 			}
-			item.Waitlist = waitlist
+			if canManage {
+				item.Waitlist = waitlist
+			} else if viewerID != nil {
+				item.Waitlist = participantPreviewsForUser(waitlist, *viewerID)
+			}
 		}
 
 		if item.CreatedBy != nil && item.MaxPlayers != nil {
@@ -160,4 +172,14 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 
 		return &GetOutput{Body: item}, nil
 	})
+}
+
+func participantPreviewsForUser(participants []PlayParticipantPreviewPublic, userID string) []PlayParticipantPreviewPublic {
+	out := make([]PlayParticipantPreviewPublic, 0, 1)
+	for _, participant := range participants {
+		if participant.UserID != nil && *participant.UserID == userID {
+			out = append(out, participant)
+		}
+	}
+	return out
 }

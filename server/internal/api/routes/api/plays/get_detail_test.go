@@ -340,6 +340,124 @@ func TestGetPlayDetail_HostCanSeeAddedParticipantsAndReservedSlots(t *testing.T)
 	}
 }
 
+func TestGetPlayDetail_AddedViewerSeesOnlyOwnAddedParticipant(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-own-added-host")
+	viewerID := createRouteTestUser(t, ctx, queries, "detail-own-added-viewer")
+	otherAddedID := createRouteTestUser(t, ctx, queries, "detail-own-added-other")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedAddedParticipant(t, ctx, queries, playID, viewerID)
+	seedAddedParticipant(t, ctx, queries, playID, otherAddedID)
+
+	authStore := sessionWithProfile(viewerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupGetDetailTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		AddedParticipants []struct {
+			DisplayName *string `json:"display_name"`
+		} `json:"added_participants"`
+		ViewerState *string `json:"viewer_state"`
+		CanManage   *bool   `json:"can_manage"`
+		AddedCount  *int64  `json:"added_count"`
+		SlotsLeft   *int64  `json:"slots_left"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ViewerState == nil || *out.ViewerState != "added" {
+		t.Fatalf("viewer_state = %v, want added", out.ViewerState)
+	}
+	if out.CanManage == nil || *out.CanManage {
+		t.Fatalf("can_manage = %v, want false", out.CanManage)
+	}
+	if len(out.AddedParticipants) != 1 {
+		t.Fatalf("added_participants len = %d, want own row only", len(out.AddedParticipants))
+	}
+	if out.AddedParticipants[0].DisplayName == nil || *out.AddedParticipants[0].DisplayName != "Test "+viewerID {
+		t.Fatalf("added participant display_name = %v, want viewer", out.AddedParticipants[0].DisplayName)
+	}
+	if out.AddedCount == nil || *out.AddedCount != 2 {
+		t.Fatalf("added_count = %v, want 2", out.AddedCount)
+	}
+	if out.SlotsLeft == nil || *out.SlotsLeft != 1 {
+		t.Fatalf("slots_left = %v, want 1", out.SlotsLeft)
+	}
+}
+
+func TestGetPlayDetail_WaitlistedViewerSeesOnlyOwnWaitlistParticipant(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-own-waitlist-host")
+	viewerID := createRouteTestUser(t, ctx, queries, "detail-own-waitlist-viewer")
+	otherWaitlistedID := createRouteTestUser(t, ctx, queries, "detail-own-waitlist-other")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedWaitlistedParticipant(t, ctx, queries, playID, viewerID)
+	seedWaitlistedParticipant(t, ctx, queries, playID, otherWaitlistedID)
+
+	authStore := sessionWithProfile(viewerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupGetDetailTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		Waitlist []struct {
+			DisplayName *string `json:"display_name"`
+		} `json:"waitlist"`
+		ViewerState   *string `json:"viewer_state"`
+		CanManage     *bool   `json:"can_manage"`
+		WaitlistCount *int64  `json:"waitlist_count"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ViewerState == nil || *out.ViewerState != "waitlisted" {
+		t.Fatalf("viewer_state = %v, want waitlisted", out.ViewerState)
+	}
+	if out.CanManage == nil || *out.CanManage {
+		t.Fatalf("can_manage = %v, want false", out.CanManage)
+	}
+	if len(out.Waitlist) != 1 {
+		t.Fatalf("waitlist len = %d, want own row only", len(out.Waitlist))
+	}
+	if out.Waitlist[0].DisplayName == nil || *out.Waitlist[0].DisplayName != "Test "+viewerID {
+		t.Fatalf("waitlist display_name = %v, want viewer", out.Waitlist[0].DisplayName)
+	}
+	if out.WaitlistCount == nil || *out.WaitlistCount != 2 {
+		t.Fatalf("waitlist_count = %v, want 2", out.WaitlistCount)
+	}
+}
+
 func TestGetPlayDetail_CancelledPlayIncludesCancellation(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
@@ -385,12 +503,13 @@ func TestGetPlayDetail_CancelledPlayIncludesCancellation(t *testing.T) {
 
 func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 	tests := []struct {
-		name          string
-		participantSt model.PlayParticipantStatus
-		wantState     string
+		name            string
+		participantSt   model.PlayParticipantStatus
+		wantState       string
+		wantWaitlistLen int
 	}{
 		{name: "confirmed", participantSt: model.ParticipantConfirmed, wantState: "confirmed"},
-		{name: "waitlisted", participantSt: model.ParticipantWaitlisted, wantState: "waitlisted"},
+		{name: "waitlisted", participantSt: model.ParticipantWaitlisted, wantState: "waitlisted", wantWaitlistLen: 1},
 		{name: "added", participantSt: model.ParticipantAdded, wantState: "added"},
 	}
 
@@ -453,8 +572,8 @@ func TestGetPlayDetail_ViewerStateByParticipantStatus(t *testing.T) {
 			if out.CanManage == nil || *out.CanManage {
 				t.Fatalf("can_manage = %v, want false", out.CanManage)
 			}
-			if len(out.Waitlist) != 0 {
-				t.Fatalf("waitlist len = %d, want 0 for non-creator viewer", len(out.Waitlist))
+			if len(out.Waitlist) != tc.wantWaitlistLen {
+				t.Fatalf("waitlist len = %d, want %d", len(out.Waitlist), tc.wantWaitlistLen)
 			}
 			if out.WaitlistCount == nil || *out.WaitlistCount != 1 {
 				t.Fatalf("waitlist_count = %v, want 1", out.WaitlistCount)
