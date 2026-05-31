@@ -13,6 +13,11 @@
 			"nvmVersion": "latest"
 		}
 	},
+	"postAttachCommand": {
+		"web-dev": "cd /workspaces/openplays/web && pnpm run dev",
+		"api-dev": "cd /workspaces/openplays/server && air"
+	},
+	"postCreateCommand": "bash -lc 'set -euo pipefail; go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest; go install github.com/pressly/goose/v3/cmd/goose@latest; go install github.com/air-verse/air@latest'",
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
