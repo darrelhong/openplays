@@ -104,6 +104,13 @@ func activeSession() *fakeAuthStore {
 	}
 }
 
+// futureStart returns a stable start time safely in the future, on a whole hour
+// in UTC. The create handler rejects non-future starts_at, so request bodies
+// must be built relative to now rather than a hardcoded date.
+func futureStart() time.Time {
+	return time.Now().UTC().Add(24 * time.Hour).Truncate(time.Hour)
+}
+
 func TestCreatePlay_Success(t *testing.T) {
 	now := time.Now()
 	playStore := &fakeCreatePlayStore{
@@ -115,7 +122,8 @@ func TestCreatePlay_Success(t *testing.T) {
 	ts := setupCreateTest(activeSession(), playStore)
 	defer ts.Close()
 
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+		futureStart().Format(time.RFC3339))
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -227,7 +235,9 @@ func TestCreatePlay_StartsAtStoredAsUTC(t *testing.T) {
 	defer ts.Close()
 
 	// Send time with +08:00 offset
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
+	start := futureStart()
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+		start.In(time.FixedZone("SGT", 8*60*60)).Format(time.RFC3339))
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -242,13 +252,12 @@ func TestCreatePlay_StartsAtStoredAsUTC(t *testing.T) {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 
-	// Verify stored time is UTC (02:00 UTC = 10:00 +08:00)
+	// Sent with a +08:00 offset; handler must normalise and store as UTC.
 	if playStore.lastArgs.StartsAt.Location() != time.UTC {
 		t.Errorf("starts_at location = %v, want UTC", playStore.lastArgs.StartsAt.Location())
 	}
-	expected := time.Date(2026, 6, 1, 2, 0, 0, 0, time.UTC)
-	if !playStore.lastArgs.StartsAt.Equal(expected) {
-		t.Errorf("starts_at = %v, want %v", playStore.lastArgs.StartsAt, expected)
+	if !playStore.lastArgs.StartsAt.Equal(start) {
+		t.Errorf("starts_at = %v, want %v", playStore.lastArgs.StartsAt, start)
 	}
 }
 
@@ -264,7 +273,9 @@ func TestCreatePlay_EndsAtComputedFromDuration(t *testing.T) {
 	defer ts.Close()
 
 	// 90 minutes duration
-	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
+	start := futureStart()
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","starts_at":"%s","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+		start.Format(time.RFC3339))
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -279,8 +290,8 @@ func TestCreatePlay_EndsAtComputedFromDuration(t *testing.T) {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
 
-	// starts_at: 02:00 UTC, duration: 90 min → ends_at: 03:30 UTC
-	expectedEnd := time.Date(2026, 6, 1, 3, 30, 0, 0, time.UTC)
+	// ends_at = starts_at + 90 minutes
+	expectedEnd := start.Add(90 * time.Minute)
 	if !playStore.lastArgs.EndsAt.Equal(expectedEnd) {
 		t.Errorf("ends_at = %v, want %v", playStore.lastArgs.EndsAt, expectedEnd)
 	}
@@ -297,7 +308,8 @@ func TestCreatePlay_TennisLevelsMappedToOrdinals(t *testing.T) {
 	ts := setupCreateTest(activeSession(), playStore)
 	defer ts.Close()
 
-	body := `{"sport":"tennis","venue":"Kallang Tennis Centre","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","max_players":4,"level_min":"3.0","level_max":"4.0"}`
+	body := fmt.Sprintf(`{"sport":"tennis","venue":"Kallang Tennis Centre","starts_at":"%s","duration_minutes":90,"timezone":"Asia/Singapore","currency":"SGD","max_players":4,"level_min":"3.0","level_max":"4.0"}`,
+		futureStart().Format(time.RFC3339))
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
