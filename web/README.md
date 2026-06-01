@@ -59,6 +59,43 @@ pnpm gen:types
 
 This fetches `http://localhost:8080/openapi.json` and generates typed request/response interfaces. The config is in `redocly.yaml`.
 
+## Testing
+
+Unit tests (Vitest):
+
+```sh
+pnpm test:unit
+```
+
+End-to-end tests (Playwright). First install the browser once:
+
+```sh
+pnpm exec playwright install chromium
+```
+
+The e2e specs do **not** need the Go API running — they mock the backend
+in-process. Each spec starts a small `node:http` server (see
+`src/lib/testing/mock-api.ts`) on the same port the SvelteKit build talks to,
+serving `/api/me/`, play details, and the join/leave/roster actions. Auth is a
+cookie whose value is the seed user id. Specs live next to the route they cover
+as `*.e2e.ts` (e.g. `src/routes/play/[id]/page.roster.e2e.ts`).
+
+```sh
+pnpm test:e2e          # headless run (build + preview happens automatically)
+pnpm test:e2e:ui       # interactive UI mode (watch, step, time-travel)
+```
+
+`API_BASE_URL` is baked at build time (defaults to `http://localhost:8080`), and
+the mock listens on that same port. **If your Go API is already running on
+8080**, point both at a free port so they don't collide:
+
+```sh
+API_BASE_URL=http://localhost:8099 COOKIE_SECURE=false MOCK_API_PORT=8099 pnpm test:e2e:ui
+```
+
+Add `--headed` to watch the browser, or scope to a file by name, e.g.
+`pnpm test:e2e page.roster`.
+
 ## Building
 
 To create a production version of your app:
