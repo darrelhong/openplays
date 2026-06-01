@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
 /**
- * Reusable in-process mock of the OpenPlays backend for e2e specs.
+ * Configurable in-process mock of the OpenPlays backend for e2e specs.
  *
  * The web app is SSR + server form actions: the `/api/me/` probe in
  * hooks.server.ts, each page `load`, and the join/leave/accept/remove actions
@@ -10,13 +10,12 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
  * SvelteKit server talks to by listening on the baked `API_BASE_URL` port
  * (8080 in CI via .env.example).
  *
- * Each spec starts its own instance in `beforeAll` and closes it in `afterAll`,
- * mirroring the pattern in `src/routes/page.timezone.e2e.ts`. State is held in
- * memory and mutated by the action endpoints, so a join/leave/accept is
- * reflected on the next page `load`, exercising the full UI round-trip.
- *
- * Auth convention: the `session` cookie value IS the seed user id
- * (e.g. `session=seed-advanced`); `/api/me/` resolves the user from it.
+ * Design: the mock holds NO business logic. Each test declares what its
+ * endpoints return — the current user (`setUser`), the play served by `load`
+ * (`setPlay`), and what an action does (`action`, which optionally transitions
+ * the play for the post-action reload). Only the shared fixtures and the two
+ * read endpoints every test needs are centralised here. Register one instance
+ * per spec in `beforeAll`, `reset()` in `beforeEach`, `close()` in `afterAll`.
  */
 
 export type Participant = {
@@ -30,6 +29,8 @@ export type Participant = {
 export type Play = {
 	id: string;
 	created_by: string | null;
+	can_manage: boolean;
+	viewer_state: string;
 	confirmed_participants: Participant[];
 	added_participants: Participant[];
 	waitlist: Participant[];
@@ -37,7 +38,6 @@ export type Play = {
 	added_count: number;
 	waitlist_count: number;
 	slots_left: number;
-	viewer_state: string;
 	[key: string]: unknown;
 };
 
@@ -51,6 +51,10 @@ export type SeedUser = {
 	created_at: string;
 	updated_at: string;
 };
+
+// ---------------------------------------------------------------------------
+// Shared fixtures (centralised — reused across specs)
+// ---------------------------------------------------------------------------
 
 export const SEED_USERS: Record<string, SeedUser> = {
 	'seed-advanced': {
@@ -85,11 +89,36 @@ export const SEED_USERS: Record<string, SeedUser> = {
 	}
 };
 
+/** The standard host roster row used by `makePlay`. */
+export const HOST: Participant = {
+	id: 39,
+	display_name: 'Seed Host',
+	rating_code: 'HB',
+	is_guest: false,
+	is_host: true
+};
+
 let nextParticipantId = 100;
 
-/** A user-created play. Defaults are eligible for a direct join by Seed Advanced (LB–A). */
-export function makePlay(overrides: Partial<Play> = {}): Play {
+/** Build a participant row from a seed user (badminton rating). */
+export function participantFor(user: SeedUser, overrides: Partial<Participant> = {}): Participant {
 	return {
+		id: nextParticipantId++,
+		display_name: user.display_name,
+		rating_code: user.sports_profile.badminton?.level ?? null,
+		is_guest: false,
+		is_host: false,
+		...overrides
+	};
+}
+
+/**
+ * A user-created play. Defaults: hosted by Seed Host, LB–A, open slots, viewer
+ * not joined. Counts are derived from the roster arrays so callers only set the
+ * arrays. Override anything (e.g. `viewer_state`, `can_manage`, `waitlist`).
+ */
+export function makePlay(overrides: Partial<Play> = {}): Play {
+	const play: Play = {
 		id: 'play-1',
 		listing_type: 'play',
 		sport: 'badminton',
@@ -113,217 +142,136 @@ export function makePlay(overrides: Partial<Play> = {}): Play {
 		created_by: 'seed-host',
 		creator_display_name: 'Seed Host',
 		creator_username: 'seedhost',
-		confirmed_participants: [
-			{ id: 39, display_name: 'Seed Host', rating_code: 'HB', is_guest: false, is_host: true }
-		],
+		can_manage: false,
+		viewer_state: 'not_joined',
+		confirmed_participants: [HOST],
 		added_participants: [],
 		waitlist: [],
-		viewer_state: 'not_joined',
-		can_manage: false,
-		confirmed_count: 1,
+		confirmed_count: 0,
 		added_count: 0,
 		waitlist_count: 0,
 		...overrides
 	};
+	play.confirmed_count = play.confirmed_participants.length;
+	play.added_count = play.added_participants.length;
+	play.waitlist_count = play.waitlist.length;
+	return play;
 }
 
-/** Build a participant row from a seed user (badminton rating). */
-export function participantFor(user: SeedUser, overrides: Partial<Participant> = {}): Participant {
-	return {
-		id: nextParticipantId++,
-		display_name: user.display_name,
-		rating_code: user.sports_profile.badminton?.level ?? null,
-		is_guest: false,
-		is_host: false,
-		...overrides
-	};
-}
+// ---------------------------------------------------------------------------
+// Configurable server
+// ---------------------------------------------------------------------------
+
+export type MockResponse = { status?: number; json?: unknown };
+export type RequestCtx = { params: Record<string, string>; url: URL; req: IncomingMessage };
+export type Responder = MockResponse | ((ctx: RequestCtx) => MockResponse | void);
 
 export type MockApi = {
-	/** Mutable play store, keyed by id. Seed/inspect directly in tests. */
-	plays: Map<string, Play>;
-	close: () => Promise<void>;
+	/** Register/override a route. Patterns support `:param` segments. Last match wins. */
+	on(method: string, path: string, responder: Responder): MockApi;
+	/** What `GET /api/me/` returns (null → 401, i.e. signed out). */
+	setUser(user: SeedUser | null): MockApi;
+	/** What `GET /api/plays/:id` returns for the current load/reload. */
+	setPlay(play: Play | null): MockApi;
+	/**
+	 * Register an action endpoint. Responds `status` (default 200); if `then` is
+	 * given, the served play transitions to it so the post-action reload reflects it.
+	 */
+	action(method: string, path: string, opts?: { status?: number; then?: Play }): MockApi;
+	/** Clear per-test overrides and reset served user/play. Call in `beforeEach`. */
+	reset(): MockApi;
+	close(): Promise<void>;
 };
 
-// Badminton skill ladder, mirrors the frontend's canDirectJoin ordering.
-const BADMINTON_ORD: Record<string, number> = {
-	LB: 10,
-	MB: 20,
-	HB: 30,
-	LI: 40,
-	MI: 50,
-	HI: 60,
-	A: 70
-};
+type Route = { method: string; path: string; responder: Responder };
 
-function cookieUserId(req: IncomingMessage): string | null {
-	const value = (req.headers.cookie ?? '').match(/(?:^|;\s*)session=([^;]+)/)?.[1];
-	return value ? decodeURIComponent(value) : null;
-}
-
-function sendJSON(res: ServerResponse, status: number, body: unknown) {
-	res.writeHead(status, { 'content-type': 'application/json' });
-	res.end(body === undefined ? '' : JSON.stringify(body));
-}
-
-function problem(res: ServerResponse, status: number, detail: string) {
-	res.writeHead(status, { 'content-type': 'application/problem+json' });
-	res.end(JSON.stringify({ status, detail, title: detail }));
-}
-
-/** Whether the user can join directly (badminton only — the sport used in tests). */
-function canDirectJoin(play: Play, user: SeedUser): boolean {
-	if (play.slots_left <= 0) return false;
-	const level = user.sports_profile.badminton?.level;
-	const ord = level ? BADMINTON_ORD[level] : undefined;
-	if (ord == null) return false;
-	const min = typeof play.level_min === 'string' ? BADMINTON_ORD[play.level_min] : undefined;
-	if (min != null && ord < min) return false;
-	const max = typeof play.level_max === 'string' ? BADMINTON_ORD[play.level_max] : undefined;
-	if (max != null && ord > max) return false;
-	return true;
-}
-
-/** Project a stored play for a viewer: derive counts, and mark creators as managers. */
-function viewerProjection(play: Play, userId: string | null): Play {
-	const view = structuredClone(play);
-	view.confirmed_count = view.confirmed_participants.length;
-	view.added_count = view.added_participants.length;
-	view.waitlist_count = view.waitlist.length;
-	if (userId && userId === play.created_by) {
-		view.can_manage = true;
-		view.viewer_state = 'creator';
+/** Match `/api/plays/:id` against a concrete path, capturing params; null if no match. */
+function matchPath(pattern: string, pathname: string): Record<string, string> | null {
+	const pat = pattern.split('/');
+	const seg = pathname.split('/');
+	if (pat.length !== seg.length) return null;
+	const params: Record<string, string> = {};
+	for (let i = 0; i < pat.length; i++) {
+		const p = pat[i]!;
+		const s = seg[i]!;
+		if (p.startsWith(':')) params[p.slice(1)] = s;
+		else if (p !== s) return null;
 	}
-	return view;
-}
-
-/** Remove a participant by id from every roster bucket; returns the bucket it was in. */
-function removeParticipantById(
-	play: Play,
-	id: number
-): 'confirmed_participants' | 'added_participants' | 'waitlist' | null {
-	for (const bucket of ['confirmed_participants', 'added_participants', 'waitlist'] as const) {
-		const idx = play[bucket].findIndex((p) => p.id === id);
-		if (idx >= 0) {
-			play[bucket].splice(idx, 1);
-			return bucket;
-		}
-	}
-	return null;
+	return params;
 }
 
 export function startMockApi(port = Number(process.env.MOCK_API_PORT ?? 8080)): Promise<MockApi> {
-	const plays = new Map<string, Play>();
+	const state: { user: SeedUser | null; play: Play | null } = { user: null, play: null };
+	const overrides: Route[] = [];
+
+	// The two reads every spec needs; lowest priority, overridable via `on`.
+	const defaults: Route[] = [
+		{ method: 'GET', path: '/api/me/', responder: () => (state.user ? { json: state.user } : { status: 401 }) },
+		{ method: 'GET', path: '/api/plays/:id', responder: () => (state.play ? { json: state.play } : { status: 404 }) }
+	];
+
+	function resolve(method: string, pathname: string): { responder: Responder; params: Record<string, string> } | null {
+		for (let i = overrides.length - 1; i >= 0; i--) {
+			const route = overrides[i]!;
+			if (route.method !== method) continue;
+			const params = matchPath(route.path, pathname);
+			if (params) return { responder: route.responder, params };
+		}
+		for (const route of defaults) {
+			if (route.method !== method) continue;
+			const params = matchPath(route.path, pathname);
+			if (params) return { responder: route.responder, params };
+		}
+		return null;
+	}
 
 	const server: Server = createServer((req, res) => {
-		const { pathname } = new URL(req.url ?? '', `http://localhost:${port}`);
-		const userId = cookieUserId(req);
-		const user = userId ? SEED_USERS[userId] : null;
-
-		if (req.method === 'GET' && pathname === '/api/me/') {
-			return user ? sendJSON(res, 200, user) : problem(res, 401, 'unauthenticated');
-		}
-
-		// Current-user roster actions ----------------------------------------
-		const confirmMe = pathname.match(/^\/api\/plays\/([^/]+)\/participants\/me\/confirm$/);
-		if (req.method === 'POST' && confirmMe) {
-			const play = plays.get(confirmMe[1]!);
-			if (!play) return problem(res, 404, 'play not found');
-			if (!user) return problem(res, 401, 'unauthenticated');
-			const idx = play.added_participants.findIndex((p) => p.display_name === user.display_name);
-			if (idx < 0) return problem(res, 404, 'not an added participant');
-			const [participant] = play.added_participants.splice(idx, 1);
-			play.confirmed_participants.push(participant!);
-			play.slots_left = Math.max(play.slots_left - 1, 0);
-			play.viewer_state = 'confirmed';
-			return sendJSON(res, 200, {});
-		}
-
-		const leaveMe = pathname.match(/^\/api\/plays\/([^/]+)\/participants\/me$/);
-		if (req.method === 'DELETE' && leaveMe) {
-			const play = plays.get(leaveMe[1]!);
-			if (!play) return problem(res, 404, 'play not found');
-			if (!user) return problem(res, 401, 'unauthenticated');
-			const wasConfirmed = play.confirmed_participants.some(
-				(p) => p.display_name === user.display_name
-			);
-			for (const bucket of ['confirmed_participants', 'added_participants', 'waitlist'] as const) {
-				play[bucket] = play[bucket].filter((p) => p.display_name !== user.display_name);
-			}
-			if (wasConfirmed) play.slots_left += 1;
-			play.viewer_state = 'not_joined';
-			return sendJSON(res, 200, {});
-		}
-
-		// Host roster management ----------------------------------------------
-		const accept = pathname.match(/^\/api\/plays\/([^/]+)\/participants\/(\d+)\/accept$/);
-		if (req.method === 'POST' && accept) {
-			const play = plays.get(accept[1]!);
-			if (!play) return problem(res, 404, 'play not found');
-			const id = Number(accept[2]);
-			const idx = play.waitlist.findIndex((p) => p.id === id);
-			if (idx < 0) return problem(res, 404, 'not on waitlist');
-			const [participant] = play.waitlist.splice(idx, 1);
-			play.added_participants.push(participant!);
-			return sendJSON(res, 200, {});
-		}
-
-		const removeById = pathname.match(/^\/api\/plays\/([^/]+)\/participants\/(\d+)$/);
-		if (req.method === 'DELETE' && removeById) {
-			const play = plays.get(removeById[1]!);
-			if (!play) return problem(res, 404, 'play not found');
-			const bucket = removeParticipantById(play, Number(removeById[2]));
-			if (!bucket) return problem(res, 404, 'participant not found');
-			if (bucket === 'confirmed_participants') play.slots_left += 1;
-			return sendJSON(res, 200, {});
-		}
-
-		// Join (direct or waitlist, decided by eligibility) -------------------
-		const join = pathname.match(/^\/api\/plays\/([^/]+)\/join$/);
-		if (req.method === 'POST' && join) {
-			const play = plays.get(join[1]!);
-			if (!play) return problem(res, 404, 'play not found');
-			if (!user) return problem(res, 401, 'unauthenticated');
-			if (canDirectJoin(play, user)) {
-				play.confirmed_participants.push(participantFor(user));
-				play.slots_left = Math.max(play.slots_left - 1, 0);
-				play.viewer_state = 'confirmed';
-			} else {
-				play.waitlist.push(participantFor(user));
-				play.viewer_state = 'waitlisted';
-			}
-			return sendJSON(res, 200, {});
-		}
-
-		// Cancel a play (host) ------------------------------------------------
-		const cancel = pathname.match(/^\/api\/plays\/([^/]+)$/);
-		if (req.method === 'DELETE' && cancel) {
-			const play = plays.get(cancel[1]!);
-			if (!play) return problem(res, 404, 'play not found');
-			play.cancelled_at = '2026-06-01T00:00:00Z';
-			return sendJSON(res, 200, {});
-		}
-
-		// Play details --------------------------------------------------------
-		const playId = pathname.match(/^\/api\/plays\/([^/]+)$/)?.[1];
-		if (req.method === 'GET' && playId) {
-			const play = plays.get(playId);
-			return play
-				? sendJSON(res, 200, viewerProjection(play, userId))
-				: problem(res, 404, 'play not found');
-		}
-
-		return problem(res, 404, `no mock route for ${req.method} ${pathname}`);
+		const url = new URL(req.url ?? '', `http://localhost:${port}`);
+		const match = resolve(req.method ?? 'GET', url.pathname);
+		if (!match) return send(res, 404, { detail: `no mock route for ${req.method} ${url.pathname}` });
+		const out =
+			typeof match.responder === 'function'
+				? match.responder({ params: match.params, url, req })
+				: match.responder;
+		const response = out ?? {};
+		send(res, response.status ?? 200, response.json ?? {});
 	});
+
+	function send(res: ServerResponse, status: number, json: unknown) {
+		res.writeHead(status, { 'content-type': 'application/json' });
+		res.end(JSON.stringify(json));
+	}
+
+	const api: MockApi = {
+		on(method, path, responder) {
+			overrides.push({ method, path, responder });
+			return api;
+		},
+		setUser(user) {
+			state.user = user;
+			return api;
+		},
+		setPlay(play) {
+			state.play = play;
+			return api;
+		},
+		action(method, path, opts = {}) {
+			return api.on(method, path, () => {
+				if (opts.then !== undefined) state.play = opts.then;
+				return { status: opts.status ?? 200 };
+			});
+		},
+		reset() {
+			overrides.length = 0;
+			state.user = null;
+			state.play = null;
+			return api;
+		},
+		close: () => new Promise<void>((res, rej) => server.close((err) => (err ? rej(err) : res())))
+	};
 
 	return new Promise<MockApi>((resolve, reject) => {
 		server.once('error', reject);
-		server.listen(port, () => {
-			resolve({
-				plays,
-				close: () =>
-					new Promise<void>((res, rej) => server.close((err) => (err ? rej(err) : res())))
-			});
-		});
+		server.listen(port, () => resolve(api));
 	});
 }
