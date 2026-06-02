@@ -1,11 +1,13 @@
 package plays
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/testdb"
 )
 
 func TestBuildFiltersDateRange(t *testing.T) {
@@ -254,6 +256,87 @@ func TestMapDistanceRowIncludesTimestampsForImportedPlays(t *testing.T) {
 	if item.UpdatedAt == nil || *item.UpdatedAt != "2026-05-02T10:00:00Z" {
 		t.Fatalf("updated_at = %v, want 2026-05-02T10:00:00Z", item.UpdatedAt)
 	}
+}
+
+func TestHydrateParticipantPreviewsIncludesMissingHostFirst(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	hostID := createListPreviewUser(t, ctx, queries, "list-preview-host", "List Preview Host")
+	playerID := createListPreviewUser(t, ctx, queries, "list-preview-player", "List Preview Player")
+	play := createListPreviewPlay(t, ctx, queries, "list-preview-play", hostID)
+
+	if _, err := queries.CreatePlayHost(ctx, db.CreatePlayHostParams{PlayID: play.ID, UserID: hostID}); err != nil {
+		t.Fatalf("CreatePlayHost: %v", err)
+	}
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID: play.ID,
+		UserID: &playerID,
+		Status: model.ParticipantConfirmed,
+	}); err != nil {
+		t.Fatalf("CreatePlayParticipant: %v", err)
+	}
+
+	items := []PlayPublic{{ID: play.ID, Sport: play.Sport}}
+	if err := hydrateParticipantPreviews(ctx, queries, items, true); err != nil {
+		t.Fatalf("hydrateParticipantPreviews: %v", err)
+	}
+
+	previews := items[0].ParticipantPreview
+	if len(previews) != 2 {
+		t.Fatalf("participant_preview len = %d, want 2", len(previews))
+	}
+	if !previews[0].IsHost {
+		t.Fatal("participant_preview[0].is_host = false, want host first")
+	}
+	if previews[0].DisplayName == nil || *previews[0].DisplayName != "List Preview Host" {
+		t.Fatalf("participant_preview[0].display_name = %v, want host", previews[0].DisplayName)
+	}
+	if previews[1].IsHost {
+		t.Fatal("participant_preview[1].is_host = true, want non-host second")
+	}
+	if previews[1].DisplayName == nil || *previews[1].DisplayName != "List Preview Player" {
+		t.Fatalf("participant_preview[1].display_name = %v, want player", previews[1].DisplayName)
+	}
+}
+
+func createListPreviewUser(t *testing.T, ctx context.Context, queries *db.Queries, id, displayName string) string {
+	t.Helper()
+	googleID := "google-" + id
+	user, err := queries.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		ID:          id,
+		Email:       id + "@example.com",
+		DisplayName: displayName,
+		GoogleID:    &googleID,
+	})
+	if err != nil {
+		t.Fatalf("UpsertUserByGoogleID(%s): %v", id, err)
+	}
+	return user.ID
+}
+
+func createListPreviewPlay(t *testing.T, ctx context.Context, queries *db.Queries, id, hostID string) db.Play {
+	t.Helper()
+	maxPlayers := int64(4)
+	play, err := queries.CreatePlay(ctx, db.CreatePlayParams{
+		ID:          id,
+		ListingType: model.ListingPlay,
+		Sport:       model.SportBadminton,
+		HostName:    "List Preview Host",
+		StartsAt:    time.Now().UTC().Add(24 * time.Hour),
+		EndsAt:      time.Now().UTC().Add(26 * time.Hour),
+		Timezone:    "Asia/Singapore",
+		Venue:       "SBH",
+		Currency:    "SGD",
+		MaxPlayers:  &maxPlayers,
+		SlotsLeft:   &maxPlayers,
+		CreatedBy:   &hostID,
+	})
+	if err != nil {
+		t.Fatalf("CreatePlay: %v", err)
+	}
+	return play
 }
 
 func listUpcomingPlayRowWithCreatedBy(createdBy *string) db.ListUpcomingPlaysRow {

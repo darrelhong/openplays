@@ -8,10 +8,12 @@ import (
 	"openplays/server/internal/db"
 )
 
-// Register registers all /api/plays endpoints.
-// Public: list, get. Protected: create.
+// Register registers play endpoints.
+// Public: /plays list and get. Protected: /plays mutations and /me/plays.
 func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 	grp := huma.NewGroup(api, "/plays")
+
+	RegisterMyList(api, queries, authmw.RequireAuth(api, svc))
 
 	// Public
 	RegisterList(grp, queries)

@@ -231,6 +231,56 @@ func TestGetPlayDetail_CreatorPermissions(t *testing.T) {
 	}
 }
 
+func TestGetPlayDetail_ConfirmedParticipantsPutHostsFirst(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-host-order-host")
+	confirmedID := createRouteTestUser(t, ctx, queries, "detail-host-order-player")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+
+	seedConfirmedParticipant(t, ctx, queries, playID, confirmedID)
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+
+	ts := setupGetDetailTest(&fakeAuthStore{sessionErr: context.Canceled}, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		ConfirmedParticipants []struct {
+			DisplayName *string `json:"display_name"`
+			IsHost      bool    `json:"is_host"`
+		} `json:"confirmed_participants"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if len(out.ConfirmedParticipants) != 2 {
+		t.Fatalf("confirmed_participants len = %d, want 2", len(out.ConfirmedParticipants))
+	}
+	if !out.ConfirmedParticipants[0].IsHost {
+		t.Fatal("confirmed_participants[0].is_host = false, want host first")
+	}
+	if out.ConfirmedParticipants[0].DisplayName == nil || *out.ConfirmedParticipants[0].DisplayName != "Test "+creatorID {
+		t.Fatalf("first display_name = %v, want host", out.ConfirmedParticipants[0].DisplayName)
+	}
+	if out.ConfirmedParticipants[1].IsHost {
+		t.Fatal("confirmed_participants[1].is_host = true, want non-host second")
+	}
+}
+
 func TestGetPlayDetail_HostCanManageWithoutRosterSlot(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
@@ -264,6 +314,10 @@ func TestGetPlayDetail_HostCanManageWithoutRosterSlot(t *testing.T) {
 	}
 
 	var out struct {
+		ConfirmedParticipants []struct {
+			DisplayName *string `json:"display_name"`
+			IsHost      bool    `json:"is_host"`
+		} `json:"confirmed_participants"`
 		Waitlist []struct {
 			DisplayName *string `json:"display_name"`
 		} `json:"waitlist"`
@@ -284,11 +338,20 @@ func TestGetPlayDetail_HostCanManageWithoutRosterSlot(t *testing.T) {
 	if len(out.Waitlist) != 1 {
 		t.Fatalf("waitlist len = %d, want 1 for host", len(out.Waitlist))
 	}
-	if out.ConfirmedCount == nil || *out.ConfirmedCount != 0 {
-		t.Fatalf("confirmed_count = %v, want 0", out.ConfirmedCount)
+	if len(out.ConfirmedParticipants) != 1 {
+		t.Fatalf("confirmed_participants len = %d, want 1 host", len(out.ConfirmedParticipants))
 	}
-	if out.SlotsLeft == nil || *out.SlotsLeft != 4 {
-		t.Fatalf("slots_left = %v, want 4", out.SlotsLeft)
+	if !out.ConfirmedParticipants[0].IsHost {
+		t.Fatal("confirmed_participants[0].is_host = false, want true")
+	}
+	if out.ConfirmedParticipants[0].DisplayName == nil || *out.ConfirmedParticipants[0].DisplayName != "Test "+creatorID {
+		t.Fatalf("confirmed_participants[0].display_name = %v, want host", out.ConfirmedParticipants[0].DisplayName)
+	}
+	if out.ConfirmedCount == nil || *out.ConfirmedCount != 1 {
+		t.Fatalf("confirmed_count = %v, want 1", out.ConfirmedCount)
+	}
+	if out.SlotsLeft == nil || *out.SlotsLeft != 3 {
+		t.Fatalf("slots_left = %v, want 3", out.SlotsLeft)
 	}
 }
 

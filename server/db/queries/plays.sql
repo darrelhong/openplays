@@ -119,6 +119,70 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (sqlc.narg('filter_level_min_ord') IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= sqlc.narg('filter_level_min_ord')))
   AND (sqlc.narg('filter_level_max_ord') IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= sqlc.narg('filter_level_max_ord')));
 
+-- name: ListMyUpcomingPlays :many
+-- Paginated upcoming listings where the current user is a host or participant.
+-- Host relationship comes from play_hosts; created_by is a transitional fallback.
+-- TODO: Audit remaining created_by usage and drop plays.created_by if play_hosts fully replaces it.
+SELECT
+    p.id, p.created_at, p.updated_at,
+    p.listing_type, p.sport, p.game_type, p.host_name,
+    p.starts_at, p.ends_at, p.timezone,
+    p.venue, p.venue_id, p.created_by, p.cancelled_at,
+    p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
+    p.fee, p.currency, p.max_players, p.slots_left, p.courts,
+    p.contacts, p.gender_pref, p.meta,
+    p.source, p.source_sender_username, p.source_message_id, p.source_group,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
+    CAST(CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM play_hosts ph
+            WHERE ph.play_id = p.id AND ph.user_id = sqlc.arg('user_id')
+        ) OR p.created_by = sqlc.arg('user_id') THEN 'creator'
+        WHEN pp.status = 'confirmed' THEN 'confirmed'
+        WHEN pp.status = 'added' THEN 'added'
+        WHEN pp.status = 'waitlisted' THEN 'waitlisted'
+        ELSE pp.status
+    END AS TEXT) AS viewer_state
+FROM plays p
+LEFT JOIN play_participants pp ON pp.play_id = p.id AND pp.user_id = sqlc.arg('user_id')
+LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = sqlc.arg('user_id')
+    )
+    OR p.created_by = sqlc.arg('user_id')
+    OR pp.id IS NOT NULL
+  )
+  AND (sqlc.narg('cursor_starts_at') IS NULL
+    OR p.starts_at > sqlc.narg('cursor_starts_at')
+    OR (p.starts_at = sqlc.narg('cursor_starts_at') AND p.id > sqlc.narg('cursor_id')))
+ORDER BY p.starts_at ASC, p.id ASC
+LIMIT sqlc.arg('page_size');
+
+-- name: CountMyUpcomingPlays :one
+-- Total count of upcoming listings where the current user is a host or participant.
+SELECT COUNT(*) FROM plays p
+LEFT JOIN play_participants pp ON pp.play_id = p.id AND pp.user_id = sqlc.arg('user_id')
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = sqlc.arg('user_id')
+    )
+    OR p.created_by = sqlc.arg('user_id')
+    OR pp.id IS NOT NULL
+  );
+
 -- name: ListUpcomingPlaysByDistance :many
 -- Paginated upcoming listings sorted by Haversine distance from a reference point.
 -- Only includes plays with a resolved venue (INNER JOIN).

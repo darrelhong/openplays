@@ -70,6 +70,30 @@ func (q *Queries) CancelUserCreatedPlay(ctx context.Context, arg CancelUserCreat
 	return i, err
 }
 
+const countMyUpcomingPlays = `-- name: CountMyUpcomingPlays :one
+SELECT COUNT(*) FROM plays p
+LEFT JOIN play_participants pp ON pp.play_id = p.id AND pp.user_id = ?1
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = ?1
+    )
+    OR p.created_by = ?1
+    OR pp.id IS NOT NULL
+  )
+`
+
+// Total count of upcoming listings where the current user is a host or participant.
+func (q *Queries) CountMyUpcomingPlays(ctx context.Context, userID *string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMyUpcomingPlays, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUpcomingPlays = `-- name: CountUpcomingPlays :one
 SELECT COUNT(*) FROM plays p
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
@@ -420,6 +444,170 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.CreatedBy,
 			&i.CancelledAt,
 			&i.CancelledBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyUpcomingPlays = `-- name: ListMyUpcomingPlays :many
+SELECT
+    p.id, p.created_at, p.updated_at,
+    p.listing_type, p.sport, p.game_type, p.host_name,
+    p.starts_at, p.ends_at, p.timezone,
+    p.venue, p.venue_id, p.created_by, p.cancelled_at,
+    p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
+    p.fee, p.currency, p.max_players, p.slots_left, p.courts,
+    p.contacts, p.gender_pref, p.meta,
+    p.source, p.source_sender_username, p.source_message_id, p.source_group,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
+    CAST(CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM play_hosts ph
+            WHERE ph.play_id = p.id AND ph.user_id = ?1
+        ) OR p.created_by = ?1 THEN 'creator'
+        WHEN pp.status = 'confirmed' THEN 'confirmed'
+        WHEN pp.status = 'added' THEN 'added'
+        WHEN pp.status = 'waitlisted' THEN 'waitlisted'
+        ELSE pp.status
+    END AS TEXT) AS viewer_state
+FROM plays p
+LEFT JOIN play_participants pp ON pp.play_id = p.id AND pp.user_id = ?1
+LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
+WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND p.cancelled_at IS NULL
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = ?1
+    )
+    OR p.created_by = ?1
+    OR pp.id IS NOT NULL
+  )
+  AND (?2 IS NULL
+    OR p.starts_at > ?2
+    OR (p.starts_at = ?2 AND p.id > ?3))
+ORDER BY p.starts_at ASC, p.id ASC
+LIMIT ?4
+`
+
+type ListMyUpcomingPlaysParams struct {
+	UserID         string
+	CursorStartsAt interface{}
+	CursorID       *string
+	PageSize       int64
+}
+
+type ListMyUpcomingPlaysRow struct {
+	ID                   string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	ListingType          model.ListingType
+	Sport                model.Sport
+	GameType             *model.GameType
+	HostName             string
+	StartsAt             time.Time
+	EndsAt               time.Time
+	Timezone             string
+	Venue                string
+	VenueID              *int64
+	CreatedBy            *string
+	CancelledAt          *time.Time
+	LevelMin             *string
+	LevelMax             *string
+	LevelMinOrd          *int64
+	LevelMaxOrd          *int64
+	Fee                  *int64
+	Currency             string
+	MaxPlayers           *int64
+	SlotsLeft            *int64
+	Courts               *int64
+	Contacts             model.Contacts
+	GenderPref           *model.GenderPref
+	Meta                 model.Meta
+	Source               *string
+	SourceSenderUsername *string
+	SourceMessageID      *string
+	SourceGroup          *string
+	VenueName            string
+	VenuePostalCode      *string
+	VenueLatitude        *float64
+	VenueLongitude       *float64
+	CreatorDisplayName   *string
+	CreatorUsername      *string
+	CreatorPhotoUrl      *string
+	ViewerState          string
+}
+
+// Paginated upcoming listings where the current user is a host or participant.
+// Host relationship comes from play_hosts; created_by is a transitional fallback.
+// TODO: Audit remaining created_by usage and drop plays.created_by if play_hosts fully replaces it.
+func (q *Queries) ListMyUpcomingPlays(ctx context.Context, arg ListMyUpcomingPlaysParams) ([]ListMyUpcomingPlaysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMyUpcomingPlays,
+		arg.UserID,
+		arg.CursorStartsAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMyUpcomingPlaysRow
+	for rows.Next() {
+		var i ListMyUpcomingPlaysRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ListingType,
+			&i.Sport,
+			&i.GameType,
+			&i.HostName,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Timezone,
+			&i.Venue,
+			&i.VenueID,
+			&i.CreatedBy,
+			&i.CancelledAt,
+			&i.LevelMin,
+			&i.LevelMax,
+			&i.LevelMinOrd,
+			&i.LevelMaxOrd,
+			&i.Fee,
+			&i.Currency,
+			&i.MaxPlayers,
+			&i.SlotsLeft,
+			&i.Courts,
+			&i.Contacts,
+			&i.GenderPref,
+			&i.Meta,
+			&i.Source,
+			&i.SourceSenderUsername,
+			&i.SourceMessageID,
+			&i.SourceGroup,
+			&i.VenueName,
+			&i.VenuePostalCode,
+			&i.VenueLatitude,
+			&i.VenueLongitude,
+			&i.CreatorDisplayName,
+			&i.CreatorUsername,
+			&i.CreatorPhotoUrl,
+			&i.ViewerState,
 		); err != nil {
 			return nil, err
 		}

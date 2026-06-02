@@ -250,6 +250,163 @@ func TestListUpcomingPlays_ExcludesCancelled(t *testing.T) {
 	}
 }
 
+func TestListMyUpcomingPlays_IncludesRosterRelationships(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	userID := createMyPlaysTestUser(t, ctx, queries, "my-user")
+	ownerID := createMyPlaysTestUser(t, ctx, queries, "owner-user")
+	otherID := createMyPlaysTestUser(t, ctx, queries, "other-user")
+	base := futureTime().Truncate(time.Hour)
+
+	hosted := createMyPlaysTestPlay(t, ctx, queries, "hosted-play", "Hosted", ownerID, base)
+	if _, err := queries.CreatePlayHost(ctx, db.CreatePlayHostParams{PlayID: hosted.ID, UserID: userID}); err != nil {
+		t.Fatalf("CreatePlayHost: %v", err)
+	}
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: hosted.ID, UserID: &userID, Status: model.ParticipantConfirmed}); err != nil {
+		t.Fatalf("create hosted participant: %v", err)
+	}
+
+	confirmed := createMyPlaysTestPlay(t, ctx, queries, "confirmed-play", "Confirmed", ownerID, base.Add(time.Hour))
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: confirmed.ID, UserID: &userID, Status: model.ParticipantConfirmed}); err != nil {
+		t.Fatalf("create confirmed participant: %v", err)
+	}
+
+	added := createMyPlaysTestPlay(t, ctx, queries, "added-play", "Added", ownerID, base.Add(2*time.Hour))
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: added.ID, UserID: &userID, Status: model.ParticipantAdded}); err != nil {
+		t.Fatalf("create added participant: %v", err)
+	}
+
+	waitlisted := createMyPlaysTestPlay(t, ctx, queries, "waitlisted-play", "Waitlisted", ownerID, base.Add(3*time.Hour))
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: waitlisted.ID, UserID: &userID, Status: model.ParticipantWaitlisted}); err != nil {
+		t.Fatalf("create waitlisted participant: %v", err)
+	}
+
+	unrelated := createMyPlaysTestPlay(t, ctx, queries, "unrelated-play", "Unrelated", ownerID, base.Add(4*time.Hour))
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: unrelated.ID, UserID: &otherID, Status: model.ParticipantConfirmed}); err != nil {
+		t.Fatalf("create unrelated participant: %v", err)
+	}
+
+	cancelled := createMyPlaysTestPlay(t, ctx, queries, "cancelled-my-play", "Cancelled", ownerID, base.Add(5*time.Hour))
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: cancelled.ID, UserID: &userID, Status: model.ParticipantConfirmed}); err != nil {
+		t.Fatalf("create cancelled participant: %v", err)
+	}
+	if _, err := queries.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{ID: cancelled.ID, CancelledBy: &ownerID}); err != nil {
+		t.Fatalf("CancelUserCreatedPlay: %v", err)
+	}
+
+	past := createMyPlaysTestPlay(t, ctx, queries, "past-my-play", "Past", ownerID, time.Now().UTC().Add(-4*time.Hour))
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: past.ID, UserID: &userID, Status: model.ParticipantConfirmed}); err != nil {
+		t.Fatalf("create past participant: %v", err)
+	}
+
+	rows, err := queries.ListMyUpcomingPlays(ctx, db.ListMyUpcomingPlaysParams{UserID: userID, PageSize: 20})
+	if err != nil {
+		t.Fatalf("ListMyUpcomingPlays: %v", err)
+	}
+	if len(rows) != 4 {
+		t.Fatalf("rows len = %d, want 4", len(rows))
+	}
+
+	gotStates := map[string]string{}
+	for _, row := range rows {
+		gotStates[row.ID] = row.ViewerState
+	}
+	wantStates := map[string]string{
+		hosted.ID:     "creator",
+		confirmed.ID:  "confirmed",
+		added.ID:      "added",
+		waitlisted.ID: "waitlisted",
+	}
+	for id, want := range wantStates {
+		if gotStates[id] != want {
+			t.Fatalf("viewer_state[%s] = %q, want %q", id, gotStates[id], want)
+		}
+	}
+	for _, excluded := range []string{unrelated.ID, cancelled.ID, past.ID} {
+		if _, ok := gotStates[excluded]; ok {
+			t.Fatalf("unexpected play %s in my plays", excluded)
+		}
+	}
+
+	total, err := queries.CountMyUpcomingPlays(ctx, &userID)
+	if err != nil {
+		t.Fatalf("CountMyUpcomingPlays: %v", err)
+	}
+	if total != 4 {
+		t.Fatalf("total = %d, want 4", total)
+	}
+}
+
+func TestListMyUpcomingPlays_PaginatesByStartsAtAndID(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	userID := createMyPlaysTestUser(t, ctx, queries, "page-user")
+	ownerID := createMyPlaysTestUser(t, ctx, queries, "page-owner")
+	startsAt := futureTime().Truncate(time.Hour)
+
+	first := createMyPlaysTestPlay(t, ctx, queries, "page-a", "Page A", ownerID, startsAt)
+	second := createMyPlaysTestPlay(t, ctx, queries, "page-b", "Page B", ownerID, startsAt)
+	third := createMyPlaysTestPlay(t, ctx, queries, "page-c", "Page C", ownerID, startsAt.Add(time.Hour))
+	for _, play := range []db.Play{first, second, third} {
+		if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: play.ID, UserID: &userID, Status: model.ParticipantConfirmed}); err != nil {
+			t.Fatalf("create participant for %s: %v", play.ID, err)
+		}
+	}
+
+	rows, err := queries.ListMyUpcomingPlays(ctx, db.ListMyUpcomingPlaysParams{UserID: userID, PageSize: 2})
+	if err != nil {
+		t.Fatalf("ListMyUpcomingPlays first page: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("first page rows = %d, want 2", len(rows))
+	}
+	if rows[0].ID != first.ID || rows[1].ID != second.ID {
+		t.Fatalf("first page ids = %q, %q; want %q, %q", rows[0].ID, rows[1].ID, first.ID, second.ID)
+	}
+
+	cursorStartsAt := second.StartsAt.Format("2006-01-02 15:04:05+00:00")
+	cursorID := second.ID
+	rows, err = queries.ListMyUpcomingPlays(ctx, db.ListMyUpcomingPlaysParams{
+		UserID:         userID,
+		CursorStartsAt: cursorStartsAt,
+		CursorID:       &cursorID,
+		PageSize:       2,
+	})
+	if err != nil {
+		t.Fatalf("ListMyUpcomingPlays second page: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != third.ID {
+		t.Fatalf("second page ids = %#v, want only %s", rows, third.ID)
+	}
+}
+
+func createMyPlaysTestUser(t *testing.T, ctx context.Context, queries *db.Queries, id string) string {
+	t.Helper()
+	googleID := "google-" + id
+	if _, err := queries.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		ID:          id,
+		Email:       id + "@example.com",
+		DisplayName: id,
+		GoogleID:    &googleID,
+	}); err != nil {
+		t.Fatalf("UpsertUserByGoogleID(%s): %v", id, err)
+	}
+	return id
+}
+
+func createMyPlaysTestPlay(t *testing.T, ctx context.Context, queries *db.Queries, id, hostName, creatorID string, startsAt time.Time) db.Play {
+	t.Helper()
+	play, err := queries.CreatePlay(ctx, makeUserPlayParams(id, hostName, creatorID, startsAt))
+	if err != nil {
+		t.Fatalf("CreatePlay(%s): %v", id, err)
+	}
+	return play
+}
+
 func makePlayParams(host, venue string, venueID int64, startsAt time.Time) db.UpsertPlayParams {
 	source := "telegram"
 	levelMin := "LB"
