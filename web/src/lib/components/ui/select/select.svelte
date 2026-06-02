@@ -30,10 +30,9 @@
 
 <SelectPrimitive.Root {items} bind:value={value as never} {...restProps}>
 	{#if label}
-		<Label.Root
-			for={triggerId}
-			class="text-sm text-muted mb-1 block"
-		>{label}{#if required}<span class="text-destructive/70 ml-0.5">*</span>{/if}</Label.Root>
+		<Label.Root for={triggerId} class="text-sm text-muted mb-1 block"
+			>{label}{#if required}<span class="text-destructive/70 ml-0.5">*</span>{/if}</Label.Root
+		>
 	{/if}
 	<SelectTrigger id={triggerId}>
 		<span class="truncate" class:text-muted-foreground={!selectedLabel}>

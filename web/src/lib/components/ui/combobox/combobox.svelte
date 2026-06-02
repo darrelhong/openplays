@@ -31,9 +31,7 @@
 
 	const filteredItems = $derived.by(() => {
 		if (searchValue === '') return items;
-		return items!.filter((item) =>
-			item.label.toLowerCase().includes(searchValue.toLowerCase())
-		);
+		return items!.filter((item) => item.label.toLowerCase().includes(searchValue.toLowerCase()));
 	});
 
 	// Sync input text with the selected value's label.

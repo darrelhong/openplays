@@ -44,7 +44,7 @@
 		granularity = 'day',
 		weekStartsOn,
 		fixedWeeks = true,
-		locale = "en-SG",
+		locale = 'en-SG',
 		closeOnRangeSelect = true,
 		label,
 		required = false,

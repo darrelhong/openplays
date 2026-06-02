@@ -20,11 +20,9 @@ This regenerates `$lib/api/types.gen.ts` from the Go API's OpenAPI spec (`/opena
 
 ---
 
-
 Lint and Formatting
 
 Run prettier and eslint to fix all auto fixable problems after changes
-
 
 ## Available MCP Tools:
 

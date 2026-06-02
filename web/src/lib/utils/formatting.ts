@@ -21,7 +21,11 @@ export function formatDateTime(iso: string): string {
  * Format an ISO date string for display.
  * e.g. "Tue, 8 Apr"
  */
-export function formatDate(iso: string, tz: string, overrides: Intl.DateTimeFormatOptions = {}): string {
+export function formatDate(
+	iso: string,
+	tz: string,
+	overrides: Intl.DateTimeFormatOptions = {}
+): string {
 	const d = new Date(iso);
 	return d.toLocaleDateString('en-SG', {
 		weekday: 'short',

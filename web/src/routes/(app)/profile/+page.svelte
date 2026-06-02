@@ -71,7 +71,6 @@
 			badmintonLevel = '';
 		}
 	}
-
 </script>
 
 <div class="mx-auto mt-8 max-w-md w-full">

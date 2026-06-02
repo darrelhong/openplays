@@ -13,13 +13,11 @@
 		required?: boolean;
 	}
 
-	let {
-		value = $bindable([3, 4]),
-		label,
-		required = false
-	}: Props = $props();
+	let { value = $bindable([3, 4]), label, required = false }: Props = $props();
 
-	const selectedRange = $derived(`${value[0]?.toFixed(1) ?? '1.0'} - ${value[1]?.toFixed(1) ?? '7.0'}`);
+	const selectedRange = $derived(
+		`${value[0]?.toFixed(1) ?? '1.0'} - ${value[1]?.toFixed(1) ?? '7.0'}`
+	);
 
 	function isHalfStep(tick: TickItem) {
 		return Math.round(tick.value * 10) % 5 === 0;

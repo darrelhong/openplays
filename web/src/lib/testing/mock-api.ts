@@ -206,11 +206,22 @@ export function startMockApi(port = Number(process.env.MOCK_API_PORT ?? 8080)): 
 
 	// The two reads every spec needs; lowest priority, overridable via `on`.
 	const defaults: Route[] = [
-		{ method: 'GET', path: '/api/me/', responder: () => (state.user ? { json: state.user } : { status: 401 }) },
-		{ method: 'GET', path: '/api/plays/:id', responder: () => (state.play ? { json: state.play } : { status: 404 }) }
+		{
+			method: 'GET',
+			path: '/api/me/',
+			responder: () => (state.user ? { json: state.user } : { status: 401 })
+		},
+		{
+			method: 'GET',
+			path: '/api/plays/:id',
+			responder: () => (state.play ? { json: state.play } : { status: 404 })
+		}
 	];
 
-	function resolve(method: string, pathname: string): { responder: Responder; params: Record<string, string> } | null {
+	function resolve(
+		method: string,
+		pathname: string
+	): { responder: Responder; params: Record<string, string> } | null {
 		for (let i = overrides.length - 1; i >= 0; i--) {
 			const route = overrides[i]!;
 			if (route.method !== method) continue;
@@ -228,7 +239,8 @@ export function startMockApi(port = Number(process.env.MOCK_API_PORT ?? 8080)): 
 	const server: Server = createServer((req, res) => {
 		const url = new URL(req.url ?? '', `http://localhost:${port}`);
 		const match = resolve(req.method ?? 'GET', url.pathname);
-		if (!match) return send(res, 404, { detail: `no mock route for ${req.method} ${url.pathname}` });
+		if (!match)
+			return send(res, 404, { detail: `no mock route for ${req.method} ${url.pathname}` });
 		const out =
 			typeof match.responder === 'function'
 				? match.responder({ params: match.params, url, req })

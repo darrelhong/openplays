@@ -67,7 +67,9 @@ test('clear filters preserves timezone and removes date bounds', async ({ page }
 	await page.goto('/?starts_after=2026-04-10&starts_before=2026-04-11');
 	await expect(page.getByRole('button', { name: 'Clear filters' })).toBeVisible();
 
-	const browserTimezone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const browserTimezone = await page.evaluate(
+		() => Intl.DateTimeFormat().resolvedOptions().timeZone
+	);
 
 	await page.getByRole('button', { name: 'Clear filters' }).click();
 	await expect(page).toHaveURL(/timezone=/);

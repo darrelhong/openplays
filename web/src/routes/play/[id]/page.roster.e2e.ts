@@ -1,5 +1,12 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
-import { HOST, makePlay, participantFor, SEED_USERS, startMockApi, type MockApi } from '$lib/testing/mock-api';
+import {
+	HOST,
+	makePlay,
+	participantFor,
+	SEED_USERS,
+	startMockApi,
+	type MockApi
+} from '$lib/testing/mock-api';
 
 /**
  * End-to-end coverage of the play-detail roster flows in
@@ -67,7 +74,12 @@ test('ineligible user joins the waitlist', async ({ page, context }) => {
 	// Seed Low Intermediate is below the play's minimum, so the UI offers waitlist.
 	mock.setPlay(makePlay({ level_min: 'HI', level_max: 'A', viewer_state: 'not_joined' }));
 	mock.action('POST', '/api/plays/play-1/join', {
-		then: makePlay({ level_min: 'HI', level_max: 'A', viewer_state: 'waitlisted', waitlist: [participantFor(li)] })
+		then: makePlay({
+			level_min: 'HI',
+			level_max: 'A',
+			viewer_state: 'waitlisted',
+			waitlist: [participantFor(li)]
+		})
 	});
 
 	await page.goto('/play/play-1');
@@ -83,7 +95,11 @@ test('added player confirms their spot', async ({ page, context }) => {
 	await signIn(context, 'seed-advanced');
 	mock.setPlay(makePlay({ viewer_state: 'added', added_participants: [participantFor(advanced)] }));
 	mock.action('POST', '/api/plays/play-1/participants/me/confirm', {
-		then: makePlay({ viewer_state: 'confirmed', slots_left: 4, confirmed_participants: [HOST, participantFor(advanced)] })
+		then: makePlay({
+			viewer_state: 'confirmed',
+			slots_left: 4,
+			confirmed_participants: [HOST, participantFor(advanced)]
+		})
 	});
 
 	await page.goto('/play/play-1');
@@ -149,7 +165,9 @@ test('host adds a waitlisted player into the game', async ({ page, context }) =>
 
 test('host removes a waitlisted player', async ({ page, context }) => {
 	await signIn(context, 'seed-host');
-	mock.setPlay(makePlay({ can_manage: true, viewer_state: 'creator', waitlist: [participantFor(li)] }));
+	mock.setPlay(
+		makePlay({ can_manage: true, viewer_state: 'creator', waitlist: [participantFor(li)] })
+	);
 	mock.action('DELETE', '/api/plays/play-1/participants/:pid', {
 		then: makePlay({ can_manage: true, viewer_state: 'creator' })
 	});
@@ -166,7 +184,11 @@ test('host cancels the game from the edit page', async ({ page, context }) => {
 	// The edit route's load requires a manageable, non-cancelled play.
 	mock.setPlay(makePlay({ can_manage: true, viewer_state: 'creator' }));
 	mock.action('DELETE', '/api/plays/play-1', {
-		then: makePlay({ can_manage: true, viewer_state: 'creator', cancelled_at: '2026-06-01T00:00:00Z' })
+		then: makePlay({
+			can_manage: true,
+			viewer_state: 'creator',
+			cancelled_at: '2026-06-01T00:00:00Z'
+		})
 	});
 
 	await page.goto('/play/play-1/edit');
