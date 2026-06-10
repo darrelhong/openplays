@@ -22,6 +22,10 @@
 		goto(resolve('/profile'));
 	}
 
+	function goToMyGames() {
+		goto(resolve('/my-games'));
+	}
+
 	function goToCreate() {
 		goto(resolve('/create'));
 	}
@@ -44,6 +48,8 @@
 
 	<DropdownMenu.Portal>
 		<DropdownMenu.Content sideOffset={8}>
+			<DropdownMenu.Item onSelect={goToMyGames}>My Games</DropdownMenu.Item>
+
 			<DropdownMenu.Item onSelect={goToProfile}>Profile</DropdownMenu.Item>
 
 			<DropdownMenu.Item onSelect={goToCreate}>Create Game</DropdownMenu.Item>

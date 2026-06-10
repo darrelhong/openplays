@@ -10,9 +10,10 @@
 		formatTime
 	} from '$lib/utils/formatting';
 	import PlayRosterPreview from './play-roster-preview.svelte';
+	import PlayViewerStateBadge from './play-viewer-state-badge.svelte';
 	import type { Play } from './types';
 
-	let { plays }: { plays: Play[] } = $props();
+	let { plays, showViewerState = false }: { plays: Play[]; showViewerState?: boolean } = $props();
 </script>
 
 <div class="hidden lg:block">
@@ -22,6 +23,9 @@
 				<tr
 					class="text-muted border-b border-border *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
 				>
+					{#if showViewerState}
+						<th>My status</th>
+					{/if}
 					<th>Venue</th>
 					<th>Date</th>
 					<th>Time</th>
@@ -36,6 +40,9 @@
 			<tbody>
 				{#each plays as play (play.id)}
 					<tr class="border-b border-border *:p-2 hover:bg-card *:whitespace-nowrap">
+						{#if showViewerState}
+							<td><PlayViewerStateBadge state={play.viewer_state} /></td>
+						{/if}
 						<td>{play.venue_name}</td>
 						<td>{formatDate(play.starts_at, play.timezone)}</td>
 						<td

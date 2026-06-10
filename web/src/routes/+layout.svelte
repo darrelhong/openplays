@@ -72,6 +72,9 @@
 					<UserDropdownMenu user={data.user} />
 				</div>
 				<div class="gap-3 hidden items-center sm:flex">
+					<a href={resolve('/my-games')} class="text-sm text-muted hover:text-foreground"
+						>My Games</a
+					>
 					<a href={resolve('/create')} class="text-sm text-muted hover:text-foreground"
 						>Create Game</a
 					>

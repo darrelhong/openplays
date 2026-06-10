@@ -4,1348 +4,1402 @@
  */
 
 export interface paths {
-    "/api/auth/facebook": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Authenticate with Facebook
-         * @description Exchange a Facebook OAuth code for a session.
-         */
-        post: operations["auth-facebook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Authenticate with Google
-         * @description Verify a Google ID token, create/update user, return session.
-         */
-        post: operations["auth-google"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Log out
-         * @description Deletes the current session and clears the session cookie.
-         */
-        post: operations["auth-logout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dev/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Dev login
-         * @description Create a local development session for an existing seed user. Only registered when DEV_AUTH_ENABLED=true.
-         */
-        post: operations["dev-login"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/me/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get current user
-         * @description Returns the authenticated user. Requires session cookie.
-         */
-        get: operations["get-me"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update profile
-         * @description Update the current user's display name and username. Requires session cookie.
-         */
-        patch: operations["update-me"];
-        trace?: never;
-    };
-    "/api/plays/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List upcoming plays */
-        get: operations["list-plays"];
-        put?: never;
-        /**
-         * Create a play
-         * @description Create a new play session. Requires authentication.
-         */
-        post: operations["create-play"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plays/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a play by ID */
-        get: operations["get-play"];
-        put?: never;
-        post?: never;
-        /**
-         * Cancel a hosted play
-         * @description Mark a user-created play as cancelled. Requires the play host.
-         */
-        delete: operations["delete-play"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a hosted play
-         * @description Update host-managed fields for a user-created play. Requires the play host.
-         */
-        patch: operations["update-play"];
-        trace?: never;
-    };
-    "/api/plays/{id}/join": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Join a play
-         * @description Join a user-created play. Auto-confirms if rating matches and slots exist; otherwise waitlists.
-         */
-        post: operations["join-play"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plays/{id}/participants/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Leave a play
-         * @description Remove the authenticated user from a play roster.
-         */
-        delete: operations["leave-play"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plays/{id}/participants/me/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Confirm an added play spot
-         * @description Move the authenticated user from added to confirmed after a host offers them a spot.
-         */
-        post: operations["confirm-play-participant"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plays/{id}/participants/{participantID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove a play participant
-         * @description Remove a participant from the confirmed roster, added list, or waitlist. Requires the play host.
-         */
-        delete: operations["remove-play-participant"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/plays/{id}/participants/{participantID}/accept": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add a waitlisted participant
-         * @description Move a waitlisted participant into an added state pending player confirmation. Requires the play host and an open slot.
-         */
-        post: operations["accept-play-participant"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/users/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search users
-         * @description Search active users by display name or username. Requires authentication.
-         */
-        get: operations["search-users"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/venues/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List venues with postal codes
-         * @description Returns all resolved venues that have a postal code and coordinates. Useful for building venue selectors.
-         */
-        get: operations["list-venues"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+	'/api/auth/facebook': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Authenticate with Facebook
+		 * @description Exchange a Facebook OAuth code for a session.
+		 */
+		post: operations['auth-facebook'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/auth/google': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Authenticate with Google
+		 * @description Verify a Google ID token, create/update user, return session.
+		 */
+		post: operations['auth-google'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/auth/logout': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Log out
+		 * @description Deletes the current session and clears the session cookie.
+		 */
+		post: operations['auth-logout'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/dev/login': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Dev login
+		 * @description Create a local development session for an existing seed user. Only registered when DEV_AUTH_ENABLED=true.
+		 */
+		post: operations['dev-login'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/me/': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Get current user
+		 * @description Returns the authenticated user. Requires session cookie.
+		 */
+		get: operations['get-me'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		/**
+		 * Update profile
+		 * @description Update the current user's display name and username. Requires session cookie.
+		 */
+		patch: operations['update-me'];
+		trace?: never;
+	};
+	'/api/me/plays': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List current user's upcoming plays
+		 * @description Returns upcoming active plays where the current user is hosting, confirmed, added, or waitlisted.
+		 */
+		get: operations['list-my-plays'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** List upcoming plays */
+		get: operations['list-plays'];
+		put?: never;
+		/**
+		 * Create a play
+		 * @description Create a new play session. Requires authentication.
+		 */
+		post: operations['create-play'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/** Get a play by ID */
+		get: operations['get-play'];
+		put?: never;
+		post?: never;
+		/**
+		 * Cancel a hosted play
+		 * @description Mark a user-created play as cancelled. Requires the play host.
+		 */
+		delete: operations['delete-play'];
+		options?: never;
+		head?: never;
+		/**
+		 * Update a hosted play
+		 * @description Update host-managed fields for a user-created play. Requires the play host.
+		 */
+		patch: operations['update-play'];
+		trace?: never;
+	};
+	'/api/plays/{id}/join': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Join a play
+		 * @description Join a user-created play. Auto-confirms if rating matches and slots exist; otherwise waitlists.
+		 */
+		post: operations['join-play'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/participants/me': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Leave a play
+		 * @description Remove the authenticated user from a play roster.
+		 */
+		delete: operations['leave-play'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/participants/me/confirm': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Confirm an added play spot
+		 * @description Move the authenticated user from added to confirmed after a host offers them a spot.
+		 */
+		post: operations['confirm-play-participant'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/participants/{participantID}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Remove a play participant
+		 * @description Remove a participant from the confirmed roster, added list, or waitlist. Requires the play host.
+		 */
+		delete: operations['remove-play-participant'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/participants/{participantID}/accept': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Add a waitlisted participant
+		 * @description Move a waitlisted participant into an added state pending player confirmation. Requires the play host and an open slot.
+		 */
+		post: operations['accept-play-participant'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/users/search': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Search users
+		 * @description Search active users by display name or username. Requires authentication.
+		 */
+		get: operations['search-users'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/venues/': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List venues with postal codes
+		 * @description Returns all resolved venues that have a postal code and coordinates. Useful for building venue selectors.
+		 */
+		get: operations['list-venues'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        ConfirmParticipantOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConfirmParticipantOutputBody.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            slots_left?: number;
-            /** @enum {string} */
-            status: "confirmed" | "waitlisted" | "added";
-        };
-        ContactMethod: {
-            type: string;
-            value: string;
-        };
-        CreateInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateInputBody.json
-             */
-            readonly $schema?: string;
-            /** @description Contact methods */
-            contacts?: components["schemas"]["ContactMethod"][] | null;
-            /**
-             * Format: int64
-             * @description Number of courts
-             */
-            courts?: number;
-            /**
-             * @description Currency code
-             * @default SGD
-             */
-            currency: string;
-            /**
-             * Format: int64
-             * @description Duration in minutes (must be multiple of 15, max 300)
-             */
-            duration_minutes: number;
-            /**
-             * Format: int64
-             * @description Fee in cents
-             */
-            fee?: number;
-            /**
-             * @description Game type
-             * @enum {string}
-             */
-            game_type?: "doubles" | "singles" | "mixed_doubles" | "";
-            /**
-             * @description Gender preference
-             * @enum {string}
-             */
-            gender_pref?: "all" | "male_only" | "female_only" | "";
-            /** @description Maximum level code */
-            level_max?: string;
-            /** @description Minimum level code */
-            level_min?: string;
-            /**
-             * Format: int64
-             * @description Maximum number of players
-             */
-            max_players?: number;
-            /**
-             * Format: int64
-             * @description Available slots
-             */
-            slots_left?: number;
-            /**
-             * @description Sport type
-             * @enum {string}
-             */
-            sport: "badminton" | "tennis" | "football" | "pickleball";
-            /** @description Start time in RFC3339 format */
-            starts_at: string;
-            /**
-             * @description IANA timezone, e.g. Asia/Singapore
-             * @default Asia/Singapore
-             */
-            timezone: string;
-            /** @description Venue name (free text) */
-            venue: string;
-        };
-        ErrorDetail: {
-            /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
-            location?: string;
-            /** @description Error message text */
-            message?: string;
-            /** @description The value at the given location */
-            value?: unknown;
-        };
-        ErrorModel: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ErrorModel.json
-             */
-            readonly $schema?: string;
-            /**
-             * @description A human-readable explanation specific to this occurrence of the problem.
-             * @example Property foo is required but is missing.
-             */
-            detail?: string;
-            /** @description Optional list of individual error details */
-            errors?: components["schemas"]["ErrorDetail"][] | null;
-            /**
-             * Format: uri
-             * @description A URI reference that identifies the specific occurrence of the problem.
-             * @example https://example.com/error-log/abc123
-             */
-            instance?: string;
-            /**
-             * Format: int64
-             * @description HTTP status code
-             * @example 400
-             */
-            status?: number;
-            /**
-             * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
-             * @example Bad Request
-             */
-            title?: string;
-            /**
-             * Format: uri
-             * @description A URI reference to human-readable documentation for the error.
-             * @default about:blank
-             * @example https://example.com/errors/example
-             */
-            type: string;
-        };
-        FacebookInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/FacebookInputBody.json
-             */
-            readonly $schema?: string;
-            /** @description OAuth authorization code from Facebook callback */
-            code: string;
-            /** @description The redirect_uri used in the OAuth flow (must match) */
-            redirect_uri: string;
-        };
-        FacebookOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/FacebookOutputBody.json
-             */
-            readonly $schema?: string;
-            session_token: string;
-            user: components["schemas"]["User"];
-        };
-        GoogleInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GoogleInputBody.json
-             */
-            readonly $schema?: string;
-            /** @description Google ID token from GIS Sign-In */
-            credential: string;
-        };
-        GoogleOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GoogleOutputBody.json
-             */
-            readonly $schema?: string;
-            session_token: string;
-            user: components["schemas"]["User"];
-        };
-        HostRosterOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/HostRosterOutputBody.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            slots_left?: number;
-            /** @enum {string} */
-            status: "confirmed" | "waitlisted" | "added";
-        };
-        JoinOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/JoinOutputBody.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            slots_left?: number;
-            /** @enum {string} */
-            status: "confirmed" | "waitlisted" | "added";
-        };
-        ListBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListBody.json
-             */
-            readonly $schema?: string;
-            items: components["schemas"]["VenuePublic"][] | null;
-        };
-        LoginInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/LoginInputBody.json
-             */
-            readonly $schema?: string;
-            /** @description Seed user ID to sign in as */
-            user_id: string;
-        };
-        LoginOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/LoginOutputBody.json
-             */
-            readonly $schema?: string;
-            session_token: string;
-            user: components["schemas"]["User"];
-        };
-        PagePlayPublic: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PagePlayPublic.json
-             */
-            readonly $schema?: string;
-            /** @description Whether there are more results after this page */
-            has_more: boolean;
-            items: components["schemas"]["PlayPublic"][] | null;
-            /** @description Opaque cursor; pass as cursor to get the next page */
-            next_cursor?: string;
-            /**
-             * Format: int64
-             * @description Total number of matching results across all pages
-             */
-            total: number;
-        };
-        PlayParticipantPreviewPublic: {
-            display_name?: string;
-            /** Format: int64 */
-            id: number;
-            is_guest: boolean;
-            is_host: boolean;
-            photo_url?: string;
-            rating_code?: string;
-        };
-        PlayPublic: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PlayPublic.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            added_count?: number;
-            added_participants?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
-            can_manage?: boolean;
-            cancelled_at?: string;
-            /** Format: int64 */
-            confirmed_count?: number;
-            confirmed_participants?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
-            contacts: components["schemas"]["ContactMethod"][] | null;
-            /** Format: int64 */
-            courts?: number;
-            created_at?: string;
-            created_by?: string;
-            creator_display_name?: string;
-            creator_photo_url?: string;
-            creator_username?: string;
-            currency: string;
-            ends_at: string;
-            /** Format: int64 */
-            fee?: number;
-            /** @enum {string} */
-            game_type?: "doubles" | "singles" | "mixed_doubles";
-            /** @enum {string} */
-            gender_pref?: "all" | "male_only" | "female_only";
-            host_name: string;
-            id: string;
-            level_max?: string;
-            level_min?: string;
-            /** @enum {string} */
-            listing_type: "play" | "sell_booking";
-            /** Format: int64 */
-            max_players?: number;
-            meta: {
-                [key: string]: unknown;
-            };
-            participant_preview?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
-            /** Format: int64 */
-            slots_left?: number;
-            source?: string;
-            source_group?: string;
-            /** @description Deep link to original message, e.g. t.me/group/123 */
-            source_link?: string;
-            source_message_id?: string;
-            /** @description Link to sender's Telegram profile, e.g. t.me/username */
-            source_sender_link?: string;
-            /** @enum {string} */
-            sport: "badminton" | "tennis" | "football" | "pickleball";
-            starts_at: string;
-            timezone: string;
-            updated_at?: string;
-            /** @description Raw venue name as extracted from the message */
-            venue: string;
-            /** Format: int64 */
-            venue_id?: number;
-            /** Format: double */
-            venue_latitude?: number;
-            /** Format: double */
-            venue_longitude?: number;
-            /** @description Display name: resolved venue name, or raw venue name, or 'No venue' */
-            venue_name: string;
-            venue_postal_code?: string;
-            /** @enum {string} */
-            viewer_state?: "not_joined" | "confirmed" | "waitlisted" | "added" | "creator";
-            waitlist?: components["schemas"]["PlayParticipantPreviewPublic"][] | null;
-            /** Format: int64 */
-            waitlist_count?: number;
-        };
-        SearchPage: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SearchPage.json
-             */
-            readonly $schema?: string;
-            items: components["schemas"]["UserSummary"][] | null;
-        };
-        SportLevelProfile: {
-            level?: string;
-        };
-        SportsProfile: {
-            badminton?: components["schemas"]["SportLevelProfile"];
-            tennis?: components["schemas"]["SportLevelProfile"];
-        };
-        UpdateInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateInputBody.json
-             */
-            readonly $schema?: string;
-            /** @description User's display name */
-            display_name: string;
-            /** @description Self-rated sport levels */
-            sports_profile?: components["schemas"]["SportsProfile"];
-            /** @description Optional unique handle */
-            username?: string;
-        };
-        UpdatePlayInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdatePlayInputBody.json
-             */
-            readonly $schema?: string;
-            /**
-             * Format: int64
-             * @description Number of courts
-             */
-            courts?: number;
-            /** @description Clear the court count */
-            courts_clear?: boolean;
-            /**
-             * Format: int64
-             * @description Duration in minutes (must be multiple of 15, max 300)
-             */
-            duration_minutes?: number;
-            /**
-             * Format: int64
-             * @description Fee in cents
-             */
-            fee?: number;
-            /** @description Clear the fee */
-            fee_clear?: boolean;
-            /**
-             * @description Game type
-             * @enum {string}
-             */
-            game_type?: "doubles" | "singles" | "mixed_doubles" | "";
-            /** @description Maximum level code */
-            level_max?: string;
-            /** @description Minimum level code */
-            level_min?: string;
-            /**
-             * Format: int64
-             * @description Maximum number of players
-             */
-            max_players?: number;
-            /** @description Start time in RFC3339 format */
-            starts_at?: string;
-            /** @description IANA timezone, e.g. Asia/Singapore */
-            timezone?: string;
-        };
-        User: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/User.json
-             */
-            readonly $schema?: string;
-            contact_info?: string;
-            created_at: string;
-            display_name: string;
-            email: string;
-            id: string;
-            photo_url?: string;
-            sports_profile?: components["schemas"]["SportsProfile"];
-            status: string;
-            updated_at: string;
-            username?: string;
-        };
-        UserSummary: {
-            display_name: string;
-            id: string;
-            photo_url?: string;
-            rating_code?: string;
-            username?: string;
-        };
-        VenuePublic: {
-            /** Format: int64 */
-            id: number;
-            /** Format: double */
-            latitude: number;
-            /** Format: double */
-            longitude: number;
-            name: string;
-            postal_code: string;
-        };
-    };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+	schemas: {
+		ConfirmParticipantOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ConfirmParticipantOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** Format: int64 */
+			slots_left?: number;
+			/** @enum {string} */
+			status: 'confirmed' | 'waitlisted' | 'added';
+		};
+		ContactMethod: {
+			type: string;
+			value: string;
+		};
+		CreateInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/CreateInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Contact methods */
+			contacts?: components['schemas']['ContactMethod'][] | null;
+			/**
+			 * Format: int64
+			 * @description Number of courts
+			 */
+			courts?: number;
+			/**
+			 * @description Currency code
+			 * @default SGD
+			 */
+			currency: string;
+			/**
+			 * Format: int64
+			 * @description Duration in minutes (must be multiple of 15, max 300)
+			 */
+			duration_minutes: number;
+			/**
+			 * Format: int64
+			 * @description Fee in cents
+			 */
+			fee?: number;
+			/**
+			 * @description Game type
+			 * @enum {string}
+			 */
+			game_type?: 'doubles' | 'singles' | 'mixed_doubles' | '';
+			/**
+			 * @description Gender preference
+			 * @enum {string}
+			 */
+			gender_pref?: 'all' | 'male_only' | 'female_only' | '';
+			/** @description Maximum level code */
+			level_max?: string;
+			/** @description Minimum level code */
+			level_min?: string;
+			/**
+			 * Format: int64
+			 * @description Maximum number of players
+			 */
+			max_players?: number;
+			/**
+			 * Format: int64
+			 * @description Available slots
+			 */
+			slots_left?: number;
+			/**
+			 * @description Sport type
+			 * @enum {string}
+			 */
+			sport: 'badminton' | 'tennis' | 'football' | 'pickleball';
+			/** @description Start time in RFC3339 format */
+			starts_at: string;
+			/**
+			 * @description IANA timezone, e.g. Asia/Singapore
+			 * @default Asia/Singapore
+			 */
+			timezone: string;
+			/** @description Venue name (free text) */
+			venue: string;
+		};
+		ErrorDetail: {
+			/** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
+			location?: string;
+			/** @description Error message text */
+			message?: string;
+			/** @description The value at the given location */
+			value?: unknown;
+		};
+		ErrorModel: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ErrorModel.json
+			 */
+			readonly $schema?: string;
+			/**
+			 * @description A human-readable explanation specific to this occurrence of the problem.
+			 * @example Property foo is required but is missing.
+			 */
+			detail?: string;
+			/** @description Optional list of individual error details */
+			errors?: components['schemas']['ErrorDetail'][] | null;
+			/**
+			 * Format: uri
+			 * @description A URI reference that identifies the specific occurrence of the problem.
+			 * @example https://example.com/error-log/abc123
+			 */
+			instance?: string;
+			/**
+			 * Format: int64
+			 * @description HTTP status code
+			 * @example 400
+			 */
+			status?: number;
+			/**
+			 * @description A short, human-readable summary of the problem type. This value should not change between occurrences of the error.
+			 * @example Bad Request
+			 */
+			title?: string;
+			/**
+			 * Format: uri
+			 * @description A URI reference to human-readable documentation for the error.
+			 * @default about:blank
+			 * @example https://example.com/errors/example
+			 */
+			type: string;
+		};
+		FacebookInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/FacebookInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description OAuth authorization code from Facebook callback */
+			code: string;
+			/** @description The redirect_uri used in the OAuth flow (must match) */
+			redirect_uri: string;
+		};
+		FacebookOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/FacebookOutputBody.json
+			 */
+			readonly $schema?: string;
+			session_token: string;
+			user: components['schemas']['User'];
+		};
+		GoogleInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/GoogleInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Google ID token from GIS Sign-In */
+			credential: string;
+		};
+		GoogleOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/GoogleOutputBody.json
+			 */
+			readonly $schema?: string;
+			session_token: string;
+			user: components['schemas']['User'];
+		};
+		HostRosterOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/HostRosterOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** Format: int64 */
+			slots_left?: number;
+			/** @enum {string} */
+			status: 'confirmed' | 'waitlisted' | 'added';
+		};
+		JoinOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/JoinOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** Format: int64 */
+			slots_left?: number;
+			/** @enum {string} */
+			status: 'confirmed' | 'waitlisted' | 'added';
+		};
+		ListBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ListBody.json
+			 */
+			readonly $schema?: string;
+			items: components['schemas']['VenuePublic'][] | null;
+		};
+		LoginInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/LoginInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Seed user ID to sign in as */
+			user_id: string;
+		};
+		LoginOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/LoginOutputBody.json
+			 */
+			readonly $schema?: string;
+			session_token: string;
+			user: components['schemas']['User'];
+		};
+		PagePlayPublic: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PagePlayPublic.json
+			 */
+			readonly $schema?: string;
+			/** @description Whether there are more results after this page */
+			has_more: boolean;
+			items: components['schemas']['PlayPublic'][] | null;
+			/** @description Opaque cursor; pass as cursor to get the next page */
+			next_cursor?: string;
+			/**
+			 * Format: int64
+			 * @description Total number of matching results across all pages
+			 */
+			total: number;
+		};
+		PlayParticipantPreviewPublic: {
+			display_name?: string;
+			/** Format: int64 */
+			id: number;
+			is_guest: boolean;
+			is_host: boolean;
+			photo_url?: string;
+			rating_code?: string;
+		};
+		PlayPublic: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PlayPublic.json
+			 */
+			readonly $schema?: string;
+			/** Format: int64 */
+			added_count?: number;
+			added_participants?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
+			can_manage?: boolean;
+			cancelled_at?: string;
+			/** Format: int64 */
+			confirmed_count?: number;
+			confirmed_participants?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
+			contacts: components['schemas']['ContactMethod'][] | null;
+			/** Format: int64 */
+			courts?: number;
+			created_at?: string;
+			created_by?: string;
+			creator_display_name?: string;
+			creator_photo_url?: string;
+			creator_username?: string;
+			currency: string;
+			ends_at: string;
+			/** Format: int64 */
+			fee?: number;
+			/** @enum {string} */
+			game_type?: 'doubles' | 'singles' | 'mixed_doubles';
+			/** @enum {string} */
+			gender_pref?: 'all' | 'male_only' | 'female_only';
+			host_name: string;
+			id: string;
+			level_max?: string;
+			level_min?: string;
+			/** @enum {string} */
+			listing_type: 'play' | 'sell_booking';
+			/** Format: int64 */
+			max_players?: number;
+			meta: {
+				[key: string]: unknown;
+			};
+			participant_preview?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
+			/** Format: int64 */
+			slots_left?: number;
+			source?: string;
+			source_group?: string;
+			/** @description Deep link to original message, e.g. t.me/group/123 */
+			source_link?: string;
+			source_message_id?: string;
+			/** @description Link to sender's Telegram profile, e.g. t.me/username */
+			source_sender_link?: string;
+			/** @enum {string} */
+			sport: 'badminton' | 'tennis' | 'football' | 'pickleball';
+			starts_at: string;
+			timezone: string;
+			updated_at?: string;
+			/** @description Raw venue name as extracted from the message */
+			venue: string;
+			/** Format: int64 */
+			venue_id?: number;
+			/** Format: double */
+			venue_latitude?: number;
+			/** Format: double */
+			venue_longitude?: number;
+			/** @description Display name: resolved venue name, or raw venue name, or 'No venue' */
+			venue_name: string;
+			venue_postal_code?: string;
+			/** @enum {string} */
+			viewer_state?: 'not_joined' | 'confirmed' | 'waitlisted' | 'added' | 'creator';
+			waitlist?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
+			/** Format: int64 */
+			waitlist_count?: number;
+		};
+		SearchPage: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/SearchPage.json
+			 */
+			readonly $schema?: string;
+			items: components['schemas']['UserSummary'][] | null;
+		};
+		SportLevelProfile: {
+			level?: string;
+		};
+		SportsProfile: {
+			badminton?: components['schemas']['SportLevelProfile'];
+			tennis?: components['schemas']['SportLevelProfile'];
+		};
+		UpdateInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/UpdateInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description User's display name */
+			display_name: string;
+			/** @description Self-rated sport levels */
+			sports_profile?: components['schemas']['SportsProfile'];
+			/** @description Optional unique handle */
+			username?: string;
+		};
+		UpdatePlayInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/UpdatePlayInputBody.json
+			 */
+			readonly $schema?: string;
+			/**
+			 * Format: int64
+			 * @description Number of courts
+			 */
+			courts?: number;
+			/** @description Clear the court count */
+			courts_clear?: boolean;
+			/**
+			 * Format: int64
+			 * @description Duration in minutes (must be multiple of 15, max 300)
+			 */
+			duration_minutes?: number;
+			/**
+			 * Format: int64
+			 * @description Fee in cents
+			 */
+			fee?: number;
+			/** @description Clear the fee */
+			fee_clear?: boolean;
+			/**
+			 * @description Game type
+			 * @enum {string}
+			 */
+			game_type?: 'doubles' | 'singles' | 'mixed_doubles' | '';
+			/** @description Maximum level code */
+			level_max?: string;
+			/** @description Minimum level code */
+			level_min?: string;
+			/**
+			 * Format: int64
+			 * @description Maximum number of players
+			 */
+			max_players?: number;
+			/** @description Start time in RFC3339 format */
+			starts_at?: string;
+			/** @description IANA timezone, e.g. Asia/Singapore */
+			timezone?: string;
+		};
+		User: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/User.json
+			 */
+			readonly $schema?: string;
+			contact_info?: string;
+			created_at: string;
+			display_name: string;
+			email: string;
+			id: string;
+			photo_url?: string;
+			sports_profile?: components['schemas']['SportsProfile'];
+			status: string;
+			updated_at: string;
+			username?: string;
+		};
+		UserSummary: {
+			display_name: string;
+			id: string;
+			photo_url?: string;
+			rating_code?: string;
+			username?: string;
+		};
+		VenuePublic: {
+			/** Format: int64 */
+			id: number;
+			/** Format: double */
+			latitude: number;
+			/** Format: double */
+			longitude: number;
+			name: string;
+			postal_code: string;
+		};
+	};
+	responses: never;
+	parameters: never;
+	requestBodies: never;
+	headers: never;
+	pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    "auth-facebook": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FacebookInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FacebookOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "auth-google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GoogleInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GoogleOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "auth-logout": {
-        parameters: {
-            query?: never;
-            header?: {
-                Cookie?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "dev-login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LoginOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "get-me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["User"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "update-me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["User"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-plays": {
-        parameters: {
-            query?: {
-                /** @description Filter by listing type */
-                listing_type?: "play" | "sell_booking" | "";
-                /** @description Filter by sport */
-                sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
-                /** @description Filter by venue ID */
-                venue_id?: number;
-                /** @description Minimum level code (e.g. HB). Shows plays overlapping this range. */
-                level_min?: string;
-                /** @description Maximum level code (e.g. LI). Defaults to level_min if only level_min is set. */
-                level_max?: string;
-                /** @description Only include plays starting on or after this date (YYYY-MM-DD) */
-                starts_after?: string;
-                /** @description Only include plays starting on or before this date (YYYY-MM-DD) */
-                starts_before?: string;
-                /** @description IANA timezone for date filters, e.g. Asia/Singapore. Defaults to UTC. */
-                timezone?: string;
-                /** @description Reference latitude for distance sorting */
-                lat?: number;
-                /** @description Reference longitude for distance sorting */
-                lng?: number;
-                /** @description Opaque cursor from previous page */
-                cursor?: string;
-                /** @description Number of results per page */
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PagePlayPublic"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "create-play": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlayPublic"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "get-play": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlayPublic"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "delete-play": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "update-play": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdatePlayInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlayPublic"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "join-play": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["JoinOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "leave-play": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "confirm-play-participant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConfirmParticipantOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "remove-play-participant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-                /** @description Participant ID */
-                participantID: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "accept-play-participant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Play ID */
-                id: string;
-                /** @description Participant ID */
-                participantID: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HostRosterOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "search-users": {
-        parameters: {
-            query?: {
-                /** @description Search by display name or username */
-                q?: string;
-                /** @description Sport for rating snapshot */
-                sport?: "badminton" | "tennis" | "football" | "pickleball" | "";
-                /** @description Maximum users to return */
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SearchPage"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-venues": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
+	'auth-facebook': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['FacebookInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					'Set-Cookie'?: string;
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['FacebookOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'auth-google': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['GoogleInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					'Set-Cookie'?: string;
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['GoogleOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'auth-logout': {
+		parameters: {
+			query?: never;
+			header?: {
+				Cookie?: string;
+			};
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					'Set-Cookie'?: string;
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'dev-login': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['LoginInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					'Set-Cookie'?: string;
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['LoginOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'get-me': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['User'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'update-me': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['UpdateInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['User'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-my-plays': {
+		parameters: {
+			query?: {
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of results per page */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PagePlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-plays': {
+		parameters: {
+			query?: {
+				/** @description Filter by listing type */
+				listing_type?: 'play' | 'sell_booking' | '';
+				/** @description Filter by sport */
+				sport?: 'badminton' | 'tennis' | 'football' | 'pickleball' | '';
+				/** @description Filter by venue ID */
+				venue_id?: number;
+				/** @description Minimum level code (e.g. HB). Shows plays overlapping this range. */
+				level_min?: string;
+				/** @description Maximum level code (e.g. LI). Defaults to level_min if only level_min is set. */
+				level_max?: string;
+				/** @description Only include plays starting on or after this date (YYYY-MM-DD) */
+				starts_after?: string;
+				/** @description Only include plays starting on or before this date (YYYY-MM-DD) */
+				starts_before?: string;
+				/** @description IANA timezone for date filters, e.g. Asia/Singapore. Defaults to UTC. */
+				timezone?: string;
+				/** @description Reference latitude for distance sorting */
+				lat?: number;
+				/** @description Reference longitude for distance sorting */
+				lng?: number;
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of results per page */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PagePlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'create-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CreateInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'get-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'delete-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'update-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['UpdatePlayInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'join-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['JoinOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'leave-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'confirm-play-participant': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ConfirmParticipantOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'remove-play-participant': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+				/** @description Participant ID */
+				participantID: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'accept-play-participant': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+				/** @description Participant ID */
+				participantID: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HostRosterOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'search-users': {
+		parameters: {
+			query?: {
+				/** @description Search by display name or username */
+				q?: string;
+				/** @description Sport for rating snapshot */
+				sport?: 'badminton' | 'tennis' | 'football' | 'pickleball' | '';
+				/** @description Maximum users to return */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['SearchPage'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-venues': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ListBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
 }

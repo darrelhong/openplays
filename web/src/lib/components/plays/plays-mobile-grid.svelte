@@ -9,9 +9,10 @@
 		formatTime
 	} from '$lib/utils/formatting';
 	import PlayRosterPreview from './play-roster-preview.svelte';
+	import PlayViewerStateBadge from './play-viewer-state-badge.svelte';
 	import type { Play } from './types';
 
-	let { plays }: { plays: Play[] } = $props();
+	let { plays, showViewerState = false }: { plays: Play[]; showViewerState?: boolean } = $props();
 </script>
 
 <div class="gap-2 grid md:grid-cols-2 lg:hidden">
@@ -30,9 +31,14 @@
 						)} - {formatTime(play.ends_at, play.timezone)}
 					</p>
 				</div>
-				<Badge variant={play.created_by != null ? 'info' : 'muted'} class="shrink-0">
-					{capitalize(play.sport)}
-				</Badge>
+				<div class="flex shrink-0 gap-1.5 items-center">
+					{#if showViewerState}
+						<PlayViewerStateBadge state={play.viewer_state} />
+					{/if}
+					<Badge variant={play.created_by != null ? 'info' : 'muted'}>
+						{capitalize(play.sport)}
+					</Badge>
+				</div>
 			</div>
 
 			{#if play.created_by && play.max_players}

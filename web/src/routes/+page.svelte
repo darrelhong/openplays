@@ -252,7 +252,9 @@
 	{/if}
 </div>
 
-<p class="text-muted mb-1">Showing {data.plays.total} upcoming plays</p>
+<p class="text-muted mb-1">
+	Showing {data.plays.total} upcoming {data.plays.total === 1 ? 'game' : 'games'}
+</p>
 
 {#if data.plays.items && data.plays.items.length > 0}
 	<PlaysMobileGrid plays={data.plays.items} />
