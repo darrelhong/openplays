@@ -39,9 +39,9 @@
 		right: cn(
 			'h-full max-w-md w-full right-0 top-0 lg:max-w-lg',
 			'border-l border-border flex flex-col shadow-xl',
-			'translate-x-0 transition-transform duration-200 ease-out',
-			'data-[state=closed]:translate-x-full data-[state=closed]:duration-150 data-[state=closed]:ease-in',
-			'data-[starting-style]:translate-x-full'
+			'opacity-100 translate-x-0 transition-all duration-200 ease-out',
+			'data-[state=closed]:opacity-0 data-[state=closed]:translate-x-full data-[state=closed]:duration-150 data-[state=closed]:ease-in',
+			'data-[starting-style]:opacity-0 data-[starting-style]:translate-x-full'
 		)
 	};
 </script>
