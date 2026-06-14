@@ -47,6 +47,12 @@ type Play struct {
 	CancelledBy          *string
 }
 
+type PlayFavourite struct {
+	UserID    string
+	PlayID    string
+	CreatedAt time.Time
+}
+
 type PlayHost struct {
 	PlayID    string
 	UserID    string

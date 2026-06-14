@@ -14,6 +14,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 	grp := huma.NewGroup(api, "/plays")
 
 	RegisterMyList(api, queries, authmw.RequireAuth(api, svc))
+	RegisterMyFavourites(api, queries, authmw.RequireAuth(api, svc))
 
 	// Public
 	RegisterList(grp, queries, authmw.OptionalAuth(api, svc))
@@ -23,6 +24,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 	RegisterCreate(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterUpdate(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterDelete(grp, queries, authmw.RequireAuth(api, svc))
+	RegisterFavourite(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterJoin(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterLeave(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterConfirmParticipant(grp, queries, authmw.RequireAuth(api, svc))

@@ -109,6 +109,13 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		}
 		item.ViewerState = &viewerState
 		item.CanManage = &canManage
+		if viewerID != nil {
+			items := []PlayPublic{item}
+			if err := hydrateFavouriteStates(ctx, queries, items, *viewerID); err != nil {
+				return nil, huma.Error500InternalServerError("failed to get favourite state", err)
+			}
+			item = items[0]
+		}
 
 		confirmed, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantConfirmed, true)
 		if err != nil {

@@ -13,50 +13,58 @@ import (
 	"openplays/server/internal/db"
 )
 
-type MyListInput struct {
+type MyFavouritesInput struct {
 	Cursor string `query:"cursor" doc:"Opaque cursor from previous page"`
 	Limit  int64  `query:"limit" default:"20" minimum:"1" maximum:"100" doc:"Number of results per page"`
 }
 
-type MyListOutput struct {
+type MyFavouritesOutput struct {
 	Body pagination.Page[PlayPublic]
 }
 
-func RegisterMyList(api huma.API, store MyPlayStore, authMiddleware func(huma.Context, func(huma.Context))) {
+type MyFavouritesStore interface {
+	ParticipantPreviewBatchStore
+	ViewerStateBatchStore
+	ListFavouriteUpcomingPlays(ctx context.Context, arg db.ListFavouriteUpcomingPlaysParams) ([]db.ListFavouriteUpcomingPlaysRow, error)
+	CountFavouriteUpcomingPlays(ctx context.Context, userID string) (int64, error)
+}
+
+func RegisterMyFavourites(api huma.API, store MyFavouritesStore, authMiddleware func(huma.Context, func(huma.Context))) {
 	huma.Register(api, huma.Operation{
-		OperationID: "list-my-plays",
-		Summary:     "List current user's upcoming plays",
-		Description: "Returns upcoming active plays where the current user is hosting, confirmed, added, or waitlisted.",
+		OperationID: "list-my-favourites",
+		Summary:     "List current user's favourite plays",
+		Description: "Returns upcoming active listings favourited by the current user.",
 		Method:      http.MethodGet,
-		Path:        "/me/plays",
+		Path:        "/me/favourites",
 		Tags:        []string{"Me"},
 		Middlewares: huma.Middlewares{authMiddleware},
-	}, func(ctx context.Context, input *MyListInput) (*MyListOutput, error) {
+	}, func(ctx context.Context, input *MyFavouritesInput) (*MyFavouritesOutput, error) {
 		user := authmw.UserFromContext(ctx)
 		if user == nil {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
 
-		items, total, err := listMyPlaysByTime(ctx, store, user.ID, input)
+		items, total, err := listMyFavouritesByTime(ctx, store, user.ID, input)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to list my plays", err)
+			return nil, huma.Error500InternalServerError("failed to list my favourites", err)
 		}
 
 		page := pagination.Paginate(items, input.Limit, total, func(p PlayPublic) string {
 			return encodeTimeCursor(p.StartsAt, p.ID)
 		})
-		if err := hydrateFavouriteStates(ctx, store, page.Items, user.ID); err != nil {
-			return nil, huma.Error500InternalServerError("failed to list favourite states", err)
+		markFavourited(page.Items)
+		if err := hydrateViewerStates(ctx, store, page.Items, user.ID); err != nil {
+			return nil, huma.Error500InternalServerError("failed to list viewer states", err)
 		}
-		if err := hydrateParticipantPreviews(ctx, store, page.Items, true); err != nil {
+		if err := hydrateParticipantPreviews(ctx, store, page.Items, false); err != nil {
 			return nil, huma.Error500InternalServerError("failed to list participant previews", err)
 		}
 
-		return &MyListOutput{Body: page}, nil
+		return &MyFavouritesOutput{Body: page}, nil
 	})
 }
 
-func listMyPlaysByTime(ctx context.Context, store MyPlayStore, userID string, input *MyListInput) ([]PlayPublic, int64, error) {
+func listMyFavouritesByTime(ctx context.Context, store MyFavouritesStore, userID string, input *MyFavouritesInput) ([]PlayPublic, int64, error) {
 	pageSize := input.Limit + 1
 
 	var cursorStartsAt interface{}
@@ -68,32 +76,31 @@ func listMyPlaysByTime(ctx context.Context, store MyPlayStore, userID string, in
 		}
 	}
 
-	rows, err := store.ListMyUpcomingPlays(ctx, db.ListMyUpcomingPlaysParams{
+	rows, err := store.ListFavouriteUpcomingPlays(ctx, db.ListFavouriteUpcomingPlaysParams{
 		UserID:         userID,
 		CursorStartsAt: cursorStartsAt,
 		CursorID:       cursorID,
 		PageSize:       pageSize,
 	})
 	if err != nil {
-		return nil, 0, fmt.Errorf("list my plays: %w", err)
+		return nil, 0, fmt.Errorf("list favourite plays: %w", err)
 	}
 
-	total, err := store.CountMyUpcomingPlays(ctx, &userID)
+	total, err := store.CountFavouriteUpcomingPlays(ctx, userID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("count my plays: %w", err)
+		return nil, 0, fmt.Errorf("count favourite plays: %w", err)
 	}
 
 	items := make([]PlayPublic, len(rows))
 	for i, r := range rows {
-		items[i] = mapMyTimeRow(r)
+		items[i] = mapFavouriteTimeRow(r)
 	}
 
 	return items, total, nil
 }
 
-func mapMyTimeRow(r db.ListMyUpcomingPlaysRow) PlayPublic {
+func mapFavouriteTimeRow(r db.ListFavouriteUpcomingPlaysRow) PlayPublic {
 	createdAt, updatedAt := publicPlayTimestamps(r.CreatedBy, r.CreatedAt, r.UpdatedAt)
-	viewerState := r.ViewerState
 	return PlayPublic{
 		ID:                 r.ID,
 		CreatedAt:          createdAt,
@@ -131,6 +138,5 @@ func mapMyTimeRow(r db.ListMyUpcomingPlaysRow) PlayPublic {
 		CreatorDisplayName: r.CreatorDisplayName,
 		CreatorUsername:    r.CreatorUsername,
 		CreatorPhotoURL:    r.CreatorPhotoUrl,
-		ViewerState:        &viewerState,
 	}
 }

@@ -1,11 +1,12 @@
 import { api } from '$lib/api/client';
+import { favouritePlay, unfavouritePlay } from '$lib/server/play-favourite-actions';
 import { error } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { operations } from '$lib/api/types.gen';
 
 type Sport = NonNullable<operations['list-plays']['parameters']['query']>['sport'];
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, cookies }) => {
 	const sport = url.searchParams.get('sport') || undefined;
 	const cursor = url.searchParams.get('cursor');
 	const limit = url.searchParams.get('limit');
@@ -52,4 +53,9 @@ export const load: PageServerLoad = async ({ url }) => {
 		plays: playsResponse.data,
 		venues: venuesResponse?.data?.items ?? []
 	};
+};
+
+export const actions: Actions = {
+	favourite: favouritePlay,
+	unfavourite: unfavouritePlay
 };

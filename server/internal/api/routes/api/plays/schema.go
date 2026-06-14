@@ -59,6 +59,7 @@ type PlayPublic struct {
 	AddedParticipants     []PlayParticipantPreviewPublic `json:"added_participants,omitempty"`
 	Waitlist              []PlayParticipantPreviewPublic `json:"waitlist,omitempty"`
 	ViewerState           *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,added,creator"`
+	IsFavourited          *bool                          `json:"is_favourited,omitempty"`
 	CanManage             *bool                          `json:"can_manage,omitempty"`
 	ConfirmedCount        *int64                         `json:"confirmed_count,omitempty"`
 	AddedCount            *int64                         `json:"added_count,omitempty"`

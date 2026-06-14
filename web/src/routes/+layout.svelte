@@ -75,6 +75,9 @@
 					<a href={resolve('/my-games')} class="text-sm text-muted hover:text-foreground"
 						>My Games</a
 					>
+					<a href={resolve('/favourites')} class="text-sm text-muted hover:text-foreground"
+						>Favourites</a
+					>
 					<a href={resolve('/create')} class="text-sm text-muted hover:text-foreground"
 						>Create Game</a
 					>

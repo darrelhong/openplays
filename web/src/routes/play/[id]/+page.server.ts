@@ -1,4 +1,5 @@
 import { api } from '$lib/api/client';
+import { favouritePlay, unfavouritePlay } from '$lib/server/play-favourite-actions';
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -44,6 +45,8 @@ function participantIDFrom(formData: FormData) {
 }
 
 export const actions: Actions = {
+	favourite: favouritePlay,
+	unfavourite: unfavouritePlay,
 	join: async ({ params, cookies }) => {
 		const id = params.id;
 		const sessionToken = cookies.get('session');

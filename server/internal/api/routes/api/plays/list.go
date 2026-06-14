@@ -406,6 +406,9 @@ func RegisterList(api huma.API, queries *db.Queries, optionalAuthMiddleware func
 			if err := hydrateViewerStates(ctx, queries, page.Items, viewer.ID); err != nil {
 				return nil, huma.Error500InternalServerError("failed to list viewer states", err)
 			}
+			if err := hydrateFavouriteStates(ctx, queries, page.Items, viewer.ID); err != nil {
+				return nil, huma.Error500InternalServerError("failed to list favourite states", err)
+			}
 		}
 		if err := hydrateParticipantPreviews(ctx, queries, page.Items, false); err != nil {
 			return nil, huma.Error500InternalServerError("failed to list participant previews", err)

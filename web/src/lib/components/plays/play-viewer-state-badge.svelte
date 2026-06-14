@@ -11,7 +11,7 @@
 		confirmed: 'Going',
 		added: 'Pending',
 		waitlisted: 'Waitlisted',
-		not_joined: 'Not joined'
+		not_joined: undefined
 	} as const;
 
 	const variants = {

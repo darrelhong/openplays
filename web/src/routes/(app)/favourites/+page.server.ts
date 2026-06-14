@@ -13,7 +13,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 	const limit = url.searchParams.get('limit');
 
 	const playsResponse = await api
-		.GET('/api/me/plays', {
+		.GET('/api/me/favourites', {
 			headers: { Cookie: `session=${sessionToken}` },
 			params: {
 				query: {
@@ -28,7 +28,10 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 		error(503, 'API is currently unavailable');
 	}
 	if (playsResponse.error) {
-		error(playsResponse.error.status ?? 500, playsResponse.error.detail ?? 'Failed to fetch plays');
+		error(
+			playsResponse.error.status ?? 500,
+			playsResponse.error.detail ?? 'Failed to fetch favourites'
+		);
 	}
 
 	return {

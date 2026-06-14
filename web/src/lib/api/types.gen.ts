@@ -108,6 +108,26 @@ export interface paths {
 		patch: operations['update-me'];
 		trace?: never;
 	};
+	'/api/me/favourites': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List current user's favourite plays
+		 * @description Returns upcoming active listings favourited by the current user.
+		 */
+		get: operations['list-my-favourites'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/me/plays': {
 		parameters: {
 			query?: never;
@@ -172,6 +192,30 @@ export interface paths {
 		 * @description Update host-managed fields for a user-created play. Requires the play host.
 		 */
 		patch: operations['update-play'];
+		trace?: never;
+	};
+	'/api/plays/{id}/favourite': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/**
+		 * Favourite a play
+		 * @description Save an upcoming active listing to the authenticated user's favourites.
+		 */
+		put: operations['favourite-play'];
+		post?: never;
+		/**
+		 * Unfavourite a play
+		 * @description Remove a listing from the authenticated user's favourites.
+		 */
+		delete: operations['unfavourite-play'];
+		options?: never;
+		head?: never;
+		patch?: never;
 		trace?: never;
 	};
 	'/api/plays/{id}/join': {
@@ -604,6 +648,7 @@ export interface components {
 			gender_pref?: 'all' | 'male_only' | 'female_only';
 			host_name: string;
 			id: string;
+			is_favourited?: boolean;
 			level_max?: string;
 			level_min?: string;
 			/** @enum {string} */
@@ -958,6 +1003,40 @@ export interface operations {
 			};
 		};
 	};
+	'list-my-favourites': {
+		parameters: {
+			query?: {
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of results per page */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PagePlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
 	'list-my-plays': {
 		parameters: {
 			query?: {
@@ -1165,6 +1244,66 @@ export interface operations {
 				content: {
 					'application/json': components['schemas']['PlayPublic'];
 				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'favourite-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'unfavourite-play': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 			/** @description Error */
 			default: {

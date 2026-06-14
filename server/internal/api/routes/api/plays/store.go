@@ -27,10 +27,16 @@ type ViewerStateBatchStore interface {
 	ListPlayParticipantStatesByUserAndPlays(ctx context.Context, arg db.ListPlayParticipantStatesByUserAndPlaysParams) ([]db.ListPlayParticipantStatesByUserAndPlaysRow, error)
 }
 
+// FavouriteStateBatchStore is the DB boundary for hydrating a user's favourites
+// on play list items.
+type FavouriteStateBatchStore interface {
+	ListFavouritedPlayIDsByUserAndPlays(ctx context.Context, arg db.ListFavouritedPlayIDsByUserAndPlaysParams) ([]string, error)
+}
 
 // MyPlayStore is the DB boundary for the current user's private play list.
 type MyPlayStore interface {
 	ParticipantPreviewBatchStore
+	FavouriteStateBatchStore
 	ListMyUpcomingPlays(ctx context.Context, arg db.ListMyUpcomingPlaysParams) ([]db.ListMyUpcomingPlaysRow, error)
 	CountMyUpcomingPlays(ctx context.Context, userID *string) (int64, error)
 }

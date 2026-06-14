@@ -16,6 +16,7 @@
 		formatTime
 	} from '$lib/utils/formatting';
 	import { canDirectJoin, getPlayJoinLabel } from '$lib/utils/play-join-label';
+	import PlayFavouriteButton from './play-favourite-button.svelte';
 	import type { components } from '$lib/api/types.gen';
 	import type { Play } from './types';
 
@@ -324,7 +325,10 @@
 					<Badge variant="warning">Cancelled</Badge>
 				{/if}
 			</div>
-			<h1 class="text-2xl font-semibold pe-6">{play.venue_name}</h1>
+			<div class="flex gap-3 items-start justify-between">
+				<h1 class="text-2xl font-semibold pe-6">{play.venue_name}</h1>
+				<PlayFavouriteButton {play} />
+			</div>
 			{#if hasVenueCoordinates}
 				<p class="mb-2">
 					<a

@@ -26,6 +26,10 @@
 		goto(resolve('/my-games'));
 	}
 
+	function goToFavourites() {
+		goto(resolve('/favourites'));
+	}
+
 	function goToCreate() {
 		goto(resolve('/create'));
 	}
@@ -49,6 +53,8 @@
 	<DropdownMenu.Portal>
 		<DropdownMenu.Content sideOffset={8}>
 			<DropdownMenu.Item onSelect={goToMyGames}>My Games</DropdownMenu.Item>
+
+			<DropdownMenu.Item onSelect={goToFavourites}>Favourites</DropdownMenu.Item>
 
 			<DropdownMenu.Item onSelect={goToProfile}>Profile</DropdownMenu.Item>
 

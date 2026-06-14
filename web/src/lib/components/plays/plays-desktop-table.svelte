@@ -9,11 +9,17 @@
 		formatLevel,
 		formatTime
 	} from '$lib/utils/formatting';
+	import PlayFavouriteButton from './play-favourite-button.svelte';
 	import PlayRosterPreview from './play-roster-preview.svelte';
 	import PlayViewerStateBadge from './play-viewer-state-badge.svelte';
 	import type { Play } from './types';
 
 	let { plays, showViewerState = false }: { plays: Play[]; showViewerState?: boolean } = $props();
+
+	const showFavourite = $derived(plays.some((play) => play.is_favourited != null));
+	const hasViewerStateBadge = $derived(
+		showViewerState && plays.some((play) => play.viewer_state && play.viewer_state !== 'not_joined')
+	);
 </script>
 
 <div class="hidden lg:block">
@@ -23,7 +29,10 @@
 				<tr
 					class="text-muted border-b border-border *:font-medium *:p-2 *:text-start *:whitespace-nowrap"
 				>
-					{#if showViewerState}
+					{#if showFavourite}
+						<th><span class="sr-only">Favourite</span></th>
+					{/if}
+					{#if hasViewerStateBadge}
 						<th>My status</th>
 					{/if}
 					<th>Venue</th>
@@ -40,7 +49,10 @@
 			<tbody>
 				{#each plays as play (play.id)}
 					<tr class="border-b border-border *:p-2 hover:bg-card *:whitespace-nowrap">
-						{#if showViewerState}
+						{#if showFavourite}
+							<td><PlayFavouriteButton {play} /></td>
+						{/if}
+						{#if hasViewerStateBadge}
 							<td><PlayViewerStateBadge state={play.viewer_state} /></td>
 						{/if}
 						<td>{play.venue_name}</td>
