@@ -13,11 +13,11 @@
 	import PlayViewerStateBadge from './play-viewer-state-badge.svelte';
 	import type { Play } from './types';
 
-	let { plays, showViewerState = false }: { plays: Play[]; showViewerState?: boolean } = $props();
+	let { plays }: { plays: Play[] } = $props();
 
 	const showFavourite = $derived(plays.some((play) => play.is_favourited != null));
 	const hasViewerStateBadge = $derived(
-		showViewerState && plays.some((play) => play.viewer_state && play.viewer_state !== 'not_joined')
+		plays.some((play) => play.viewer_state && play.viewer_state !== 'not_joined')
 	);
 </script>
 

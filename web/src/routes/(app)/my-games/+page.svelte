@@ -22,8 +22,8 @@
 	<p class="text-muted mb-3">
 		Showing {data.plays.total} upcoming {data.plays.total === 1 ? 'game' : 'games'}
 	</p>
-	<PlaysMobileGrid plays={data.plays.items} showViewerState />
-	<PlaysDesktopTable plays={data.plays.items} showViewerState />
+	<PlaysMobileGrid plays={data.plays.items} />
+	<PlaysDesktopTable plays={data.plays.items} />
 {:else}
 	<section class="my-4 p-6 border border-border rounded-lg border-dashed max-w-xl">
 		<p class="text-lg font-semibold">No upcoming games!</p>
