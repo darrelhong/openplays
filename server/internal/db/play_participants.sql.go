@@ -371,6 +371,56 @@ func (q *Queries) ListParticipantPreviewsByPlayAndStatus(ctx context.Context, ar
 	return items, nil
 }
 
+const listPlayParticipantStatesByUserAndPlays = `-- name: ListPlayParticipantStatesByUserAndPlays :many
+SELECT play_id, status
+FROM play_participants
+WHERE user_id = ? AND play_id IN (/*SLICE:play_ids*/?)
+`
+
+type ListPlayParticipantStatesByUserAndPlaysParams struct {
+	UserID  *string
+	PlayIds []string
+}
+
+type ListPlayParticipantStatesByUserAndPlaysRow struct {
+	PlayID string
+	Status model.PlayParticipantStatus
+}
+
+func (q *Queries) ListPlayParticipantStatesByUserAndPlays(ctx context.Context, arg ListPlayParticipantStatesByUserAndPlaysParams) ([]ListPlayParticipantStatesByUserAndPlaysRow, error) {
+	query := listPlayParticipantStatesByUserAndPlays
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.UserID)
+	if len(arg.PlayIds) > 0 {
+		for _, v := range arg.PlayIds {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:play_ids*/?", strings.Repeat(",?", len(arg.PlayIds))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:play_ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPlayParticipantStatesByUserAndPlaysRow
+	for rows.Next() {
+		var i ListPlayParticipantStatesByUserAndPlaysRow
+		if err := rows.Scan(&i.PlayID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlayParticipantsByPlay = `-- name: ListPlayParticipantsByPlay :many
 SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
 WHERE play_id = ?

@@ -1,6 +1,6 @@
 import { api } from '$lib/api/client';
 import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 import type { operations } from '$lib/api/types.gen';
 
 type Sport = NonNullable<operations['list-plays']['parameters']['query']>['sport'];
@@ -16,10 +16,12 @@ export const load: PageServerLoad = async ({ url }) => {
 	const timezone = url.searchParams.get('timezone');
 	const levelMin = url.searchParams.get('level_min');
 	const levelMax = url.searchParams.get('level_max');
+	const sessionToken = cookies.get('session');
 
 	const [playsResponse, venuesResponse] = await Promise.all([
 		api
 			.GET('/api/plays/', {
+				headers: sessionToken ? { Cookie: `session=${sessionToken}` } : undefined,
 				params: {
 					query: {
 						sport: sport as Sport,

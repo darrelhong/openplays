@@ -11,6 +11,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/api/pagination"
 	"openplays/server/internal/api/param"
 	"openplays/server/internal/db"
@@ -360,13 +361,14 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 
 // --- Handler ---
 
-func RegisterList(api huma.API, queries *db.Queries) {
+func RegisterList(api huma.API, queries *db.Queries, optionalAuthMiddleware func(huma.Context, func(huma.Context))) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-plays",
 		Summary:     "List upcoming plays",
 		Method:      http.MethodGet,
 		Path:        "/",
 		Tags:        []string{"Plays"},
+		Middlewares: huma.Middlewares{optionalAuthMiddleware},
 	}, func(ctx context.Context, input *ListInput) (*ListOutput, error) {
 		if input.Sport != "" && !slices.Contains(model.SportValues, input.Sport) {
 			return nil, huma.Error422UnprocessableEntity(
@@ -400,6 +402,11 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		}
 
 		page := pagination.Paginate(items, input.Limit, total, getCursor)
+		if viewer := authmw.UserFromContext(ctx); viewer != nil {
+			if err := hydrateViewerStates(ctx, queries, page.Items, viewer.ID); err != nil {
+				return nil, huma.Error500InternalServerError("failed to list viewer states", err)
+			}
+		}
 		if err := hydrateParticipantPreviews(ctx, queries, page.Items, false); err != nil {
 			return nil, huma.Error500InternalServerError("failed to list participant previews", err)
 		}

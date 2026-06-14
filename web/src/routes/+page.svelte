@@ -35,6 +35,9 @@
 	);
 
 	const venueItems = $derived(data.venues.map((v) => ({ value: String(v.id), label: v.name })));
+	const showViewerState = $derived(
+		data.plays.items?.some((play) => play.viewer_state != null) ?? false
+	);
 
 	// Disable levels above selected max for min, and below selected min for max
 	const levelOptions = $derived(selectedSport === 'tennis' ? TENNIS_LEVELS : BADMINTON_LEVELS);
@@ -257,8 +260,8 @@
 </p>
 
 {#if data.plays.items && data.plays.items.length > 0}
-	<PlaysMobileGrid plays={data.plays.items} />
-	<PlaysDesktopTable plays={data.plays.items} />
+	<PlaysMobileGrid plays={data.plays.items} {showViewerState} />
+	<PlaysDesktopTable plays={data.plays.items} {showViewerState} />
 {:else}
 	<p>No plays match these filters.</p>
 {/if}

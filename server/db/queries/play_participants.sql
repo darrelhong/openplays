@@ -82,6 +82,11 @@ SELECT * FROM play_participants
 WHERE user_id = ?
 ORDER BY created_at DESC, id DESC;
 
+-- name: ListPlayParticipantStatesByUserAndPlays :many
+SELECT play_id, status
+FROM play_participants
+WHERE user_id = ? AND play_id IN (sqlc.slice('play_ids'));
+
 -- name: CountPlayParticipantsByStatus :one
 SELECT COUNT(*) FROM play_participants
 WHERE play_id = ? AND status = ?;
