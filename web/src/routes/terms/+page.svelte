@@ -2,7 +2,7 @@
 	<h1 class="text-2xl font-bold mb-6">Terms of Service</h1>
 	<p class="text-muted mb-4">Last updated: 9 May 2026</p>
 
-	<div class="text-foreground/90 text-sm space-y-4">
+	<div class="text-sm text-foreground/90 space-y-4">
 		<section>
 			<h2 class="text-lg font-semibold mb-2">Use of OpenPlays</h2>
 			<p>
@@ -48,7 +48,7 @@
 			<p>
 				For terms-related questions, contact us via <a
 					href="https://github.com/darrelhong/openplays/issues"
-					class="hover:text-foreground underline"
+					class="underline hover:text-foreground"
 					target="_blank"
 					rel="noopener noreferrer">GitHub Issues</a
 				>.
