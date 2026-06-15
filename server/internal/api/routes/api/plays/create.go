@@ -18,6 +18,8 @@ type CreateInput struct {
 	Body struct {
 		Sport           model.Sport       `json:"sport" required:"true" doc:"Sport type" enum:"badminton,tennis,football,pickleball"`
 		Venue           string            `json:"venue" required:"true" doc:"Venue name (free text)"`
+		Name            *string           `json:"name,omitempty" doc:"Optional custom game name" maxLength:"80"`
+		Description     *string           `json:"description,omitempty" doc:"Optional game description" maxLength:"1000"`
 		StartsAt        string            `json:"starts_at" required:"true" doc:"Start time in RFC3339 format"`
 		DurationMinutes int               `json:"duration_minutes" required:"true" doc:"Duration in minutes (must be multiple of 15, max 300)" minimum:"15" maximum:"300"`
 		Timezone        string            `json:"timezone" doc:"IANA timezone, e.g. Asia/Singapore" default:"Asia/Singapore"`
@@ -81,6 +83,14 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		}
 
 		slotsLeft := *input.Body.MaxPlayers - 1
+		name, err := model.CleanPlayName(input.Body.Name)
+		if err != nil {
+			return nil, huma.Error422UnprocessableEntity(err.Error())
+		}
+		description, err := model.CleanPlayDescription(input.Body.Description)
+		if err != nil {
+			return nil, huma.Error422UnprocessableEntity(err.Error())
+		}
 
 		// Compute level ordinals if provided
 		var levelMinOrd, levelMaxOrd *int64
@@ -108,6 +118,8 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			Sport:       input.Body.Sport,
 			GameType:    input.Body.GameType,
 			HostName:    user.DisplayName,
+			Name:        name,
+			Description: description,
 			StartsAt:    startsAt,
 			EndsAt:      endsAt,
 			Timezone:    input.Body.Timezone,
@@ -179,6 +191,8 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 				Sport:       play.Sport,
 				GameType:    play.GameType,
 				HostName:    play.HostName,
+				Name:        play.Name,
+				Description: play.Description,
 				StartsAt:    play.StartsAt.Format(time.RFC3339),
 				EndsAt:      play.EndsAt.Format(time.RFC3339),
 				Timezone:    play.Timezone,

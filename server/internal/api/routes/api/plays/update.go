@@ -17,6 +17,8 @@ import (
 type UpdatePlayInput struct {
 	ID   string `path:"id" doc:"Play ID"`
 	Body struct {
+		Name            *string         `json:"name,omitempty" doc:"Optional custom game name" maxLength:"80"`
+		Description     *string         `json:"description,omitempty" doc:"Optional game description" maxLength:"1000"`
 		StartsAt        *string         `json:"starts_at,omitempty" doc:"Start time in RFC3339 format"`
 		DurationMinutes *int            `json:"duration_minutes,omitempty" doc:"Duration in minutes (must be multiple of 15, max 300)" minimum:"15" maximum:"300"`
 		Timezone        *string         `json:"timezone,omitempty" doc:"IANA timezone, e.g. Asia/Singapore"`
@@ -76,6 +78,20 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 			return nil, err
 		}
 		changedFields := updatePlayChangedFields(input)
+		name := play.Name
+		if input.Body.Name != nil {
+			name, err = model.CleanPlayName(input.Body.Name)
+			if err != nil {
+				return nil, huma.Error422UnprocessableEntity(err.Error())
+			}
+		}
+		description := play.Description
+		if input.Body.Description != nil {
+			description, err = model.CleanPlayDescription(input.Body.Description)
+			if err != nil {
+				return nil, huma.Error422UnprocessableEntity(err.Error())
+			}
+		}
 
 		startsAt, endsAt, err := updatePlayTimes(play.StartsAt, play.EndsAt, input.Body.StartsAt, input.Body.DurationMinutes)
 		if err != nil {
@@ -146,6 +162,8 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 
 		updated, err := store.UpdateUserCreatedPlay(ctx, db.UpdateUserCreatedPlayParams{
 			ID:          input.ID,
+			Name:        name,
+			Description: description,
 			GameType:    gameType,
 			StartsAt:    startsAt,
 			EndsAt:      endsAt,
@@ -188,7 +206,13 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 }
 
 func updatePlayChangedFields(input *UpdatePlayInput) []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 11)
+	if input.Body.Name != nil {
+		fields = append(fields, "name")
+	}
+	if input.Body.Description != nil {
+		fields = append(fields, "description")
+	}
 	if input.Body.StartsAt != nil {
 		fields = append(fields, "starts_at")
 	}
@@ -305,6 +329,8 @@ func publicPlayFromDB(play db.Play) PlayPublic {
 		Sport:       play.Sport,
 		GameType:    play.GameType,
 		HostName:    play.HostName,
+		Name:        play.Name,
+		Description: play.Description,
 		StartsAt:    play.StartsAt.Format(time.RFC3339),
 		EndsAt:      play.EndsAt.Format(time.RFC3339),
 		Timezone:    play.Timezone,

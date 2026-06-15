@@ -60,6 +60,7 @@
 		Object.entries(meta).filter(([key]) => !knownMetaKeys.includes(key))
 	);
 	const hasVenueCoordinates = $derived(play.venue_latitude != null && play.venue_longitude != null);
+	const playTitle = $derived(play.name || play.venue_name);
 	const mapsHref = $derived.by(() => {
 		if (!hasVenueCoordinates) return '';
 		return `https://www.google.com/maps?q=${play.venue_latitude},${play.venue_longitude}`;
@@ -351,10 +352,13 @@
 				{/if}
 			</div>
 			<div class="flex gap-3 items-start justify-between">
-				<h1 class="text-2xl font-semibold pe-6">{play.venue_name}</h1>
+				<h1 class="text-2xl font-semibold pe-6">{playTitle}</h1>
 				<PlayFavouriteButton {play} />
 			</div>
-			{#if hasVenueCoordinates}
+			{#if play.description}
+				<p class="text-sm text-muted mb-2 mt-1 whitespace-pre-line">{play.description}</p>
+			{/if}
+			{#if !play.name && hasVenueCoordinates}
 				<p class="mb-2">
 					<a
 						href={mapsHref}
@@ -362,7 +366,7 @@
 						rel="external noopener noreferrer"
 						class="text-xs text-muted hover:text-foreground hover:underline"
 					>
-						View in maps ↗
+						View in map ↗
 					</a>
 				</p>
 			{/if}
@@ -374,6 +378,24 @@
 			</p>
 		</header>
 		<dl class="text-sm space-y-2">
+			{#if play.name}
+				<div class="flex gap-4">
+					<dt class="text-muted w-24">Location</dt>
+					<dd>
+						<span>{play.venue_name}</span>
+						{#if hasVenueCoordinates}
+							<a
+								href={mapsHref}
+								target="_blank"
+								rel="external noopener noreferrer"
+								class="text-xs text-muted ms-2 hover:text-foreground hover:underline"
+							>
+								View in map ↗
+							</a>
+						{/if}
+					</dd>
+				</div>
+			{/if}
 			<div class="flex gap-4">
 				<dt class="text-muted w-24">Host</dt>
 				<dd>{play.host_name}</dd>

@@ -20,7 +20,7 @@ SET
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?2
   AND created_by IS NOT NULL
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description
 `
 
 type CancelUserCreatedPlayParams struct {
@@ -66,6 +66,8 @@ func (q *Queries) CancelUserCreatedPlay(ctx context.Context, arg CancelUserCreat
 		&i.CreatedBy,
 		&i.CancelledAt,
 		&i.CancelledBy,
+		&i.Name,
+		&i.Description,
 	)
 	return i, err
 }
@@ -175,7 +177,7 @@ func (q *Queries) CountUpcomingPlaysByDistance(ctx context.Context, arg CountUpc
 
 const createPlay = `-- name: CreatePlay :one
 INSERT INTO plays (
-    id, listing_type, sport, game_type, host_name,
+    id, listing_type, sport, game_type, host_name, name, description,
     starts_at, ends_at, timezone,
     venue, venue_id,
     level_min, level_max, level_min_ord, level_max_ord,
@@ -183,7 +185,7 @@ INSERT INTO plays (
     contacts, gender_pref, meta,
     source, created_by
 ) VALUES (
-    ?, ?, ?, ?, ?,
+    ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?,
     ?, ?,
     ?, ?, ?, ?,
@@ -191,7 +193,7 @@ INSERT INTO plays (
     ?, ?, ?,
     'user', ?
 )
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description
 `
 
 type CreatePlayParams struct {
@@ -200,6 +202,8 @@ type CreatePlayParams struct {
 	Sport       model.Sport
 	GameType    *model.GameType
 	HostName    string
+	Name        *string
+	Description *string
 	StartsAt    time.Time
 	EndsAt      time.Time
 	Timezone    string
@@ -227,6 +231,8 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 		arg.Sport,
 		arg.GameType,
 		arg.HostName,
+		arg.Name,
+		arg.Description,
 		arg.StartsAt,
 		arg.EndsAt,
 		arg.Timezone,
@@ -282,6 +288,8 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 		&i.CreatedBy,
 		&i.CancelledAt,
 		&i.CancelledBy,
+		&i.Name,
+		&i.Description,
 	)
 	return i, err
 }
@@ -289,7 +297,7 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 const getPlayByID = `-- name: GetPlayByID :one
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at, p.cancelled_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -313,6 +321,8 @@ type GetPlayByIDRow struct {
 	Sport                model.Sport
 	GameType             *model.GameType
 	HostName             string
+	Name                 *string
+	Description          *string
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -357,6 +367,8 @@ func (q *Queries) GetPlayByID(ctx context.Context, id string) (GetPlayByIDRow, e
 		&i.Sport,
 		&i.GameType,
 		&i.HostName,
+		&i.Name,
+		&i.Description,
 		&i.StartsAt,
 		&i.EndsAt,
 		&i.Timezone,
@@ -393,7 +405,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id string) (GetPlayByIDRow, e
 }
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
-SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by FROM plays
+SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description FROM plays
 WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND cancelled_at IS NULL
   AND listing_type = 'play'
@@ -444,6 +456,8 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.CreatedBy,
 			&i.CancelledAt,
 			&i.CancelledBy,
+			&i.Name,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -461,7 +475,7 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 const listMyUpcomingPlays = `-- name: ListMyUpcomingPlays :many
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -519,6 +533,8 @@ type ListMyUpcomingPlaysRow struct {
 	Sport                model.Sport
 	GameType             *model.GameType
 	HostName             string
+	Name                 *string
+	Description          *string
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -577,6 +593,8 @@ func (q *Queries) ListMyUpcomingPlays(ctx context.Context, arg ListMyUpcomingPla
 			&i.Sport,
 			&i.GameType,
 			&i.HostName,
+			&i.Name,
+			&i.Description,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Timezone,
@@ -625,7 +643,7 @@ func (q *Queries) ListMyUpcomingPlays(ctx context.Context, arg ListMyUpcomingPla
 const listUpcomingPlays = `-- name: ListUpcomingPlays :many
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -675,6 +693,8 @@ type ListUpcomingPlaysRow struct {
 	Sport                model.Sport
 	GameType             *model.GameType
 	HostName             string
+	Name                 *string
+	Description          *string
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -739,6 +759,8 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.Sport,
 			&i.GameType,
 			&i.HostName,
+			&i.Name,
+			&i.Description,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Timezone,
@@ -786,7 +808,7 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 const listUpcomingPlaysByDistance = `-- name: ListUpcomingPlaysByDistance :many
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -851,6 +873,8 @@ type ListUpcomingPlaysByDistanceRow struct {
 	Sport                model.Sport
 	GameType             *model.GameType
 	HostName             string
+	Name                 *string
+	Description          *string
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -917,6 +941,8 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 			&i.Sport,
 			&i.GameType,
 			&i.HostName,
+			&i.Name,
+			&i.Description,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Timezone,
@@ -986,33 +1012,37 @@ func (q *Queries) UpdatePlaySlotsLeft(ctx context.Context, id string) error {
 const updateUserCreatedPlay = `-- name: UpdateUserCreatedPlay :one
 UPDATE plays
 SET
-    game_type = ?1,
-    starts_at = ?2,
-    ends_at = ?3,
-    timezone = ?4,
-    level_min = ?5,
-    level_max = ?6,
-    level_min_ord = ?7,
-    level_max_ord = ?8,
-    fee = ?9,
-    max_players = ?10,
+    name = ?1,
+    description = ?2,
+    game_type = ?3,
+    starts_at = ?4,
+    ends_at = ?5,
+    timezone = ?6,
+    level_min = ?7,
+    level_max = ?8,
+    level_min_ord = ?9,
+    level_max_ord = ?10,
+    fee = ?11,
+    max_players = ?12,
     slots_left = CASE
-        WHEN ?10 IS NULL THEN NULL
-        ELSE max(?10 - (
+        WHEN ?12 IS NULL THEN NULL
+        ELSE max(?12 - (
             SELECT COUNT(*)
             FROM play_participants pp
             WHERE pp.play_id = plays.id
               AND pp.status IN ('confirmed', 'added')
         ), 0)
     END,
-    courts = ?11,
+    courts = ?13,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-WHERE plays.id = ?12
+WHERE plays.id = ?14
   AND plays.created_by IS NOT NULL
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description
 `
 
 type UpdateUserCreatedPlayParams struct {
+	Name        *string
+	Description *string
 	GameType    *model.GameType
 	StartsAt    time.Time
 	EndsAt      time.Time
@@ -1029,6 +1059,8 @@ type UpdateUserCreatedPlayParams struct {
 
 func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreatedPlayParams) (Play, error) {
 	row := q.db.QueryRowContext(ctx, updateUserCreatedPlay,
+		arg.Name,
+		arg.Description,
 		arg.GameType,
 		arg.StartsAt,
 		arg.EndsAt,
@@ -1078,6 +1110,8 @@ func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreat
 		&i.CreatedBy,
 		&i.CancelledAt,
 		&i.CancelledBy,
+		&i.Name,
+		&i.Description,
 	)
 	return i, err
 }
@@ -1126,7 +1160,7 @@ ON CONFLICT(host_name, starts_at, sport, COALESCE(venue_id, 0)) DO UPDATE SET
     source_message_id     = excluded.source_message_id,
     source_group          = excluded.source_group,
     updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description
 `
 
 type UpsertPlayParams struct {
@@ -1229,6 +1263,8 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		&i.CreatedBy,
 		&i.CancelledAt,
 		&i.CancelledBy,
+		&i.Name,
+		&i.Description,
 	)
 	return i, err
 }

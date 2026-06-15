@@ -46,6 +46,8 @@ func TestUpdatePlay_HostCanUpdateEditableFields(t *testing.T) {
 
 	startsAt := time.Now().UTC().Add(48 * time.Hour).Truncate(time.Second)
 	body := fmt.Sprintf(`{
+		"name": "  Saturday Ladder  ",
+		"description": "  Fast rotations after warm-up.  ",
 		"starts_at": %q,
 		"duration_minutes": 90,
 		"timezone": "Asia/Singapore",
@@ -87,6 +89,12 @@ func TestUpdatePlay_HostCanUpdateEditableFields(t *testing.T) {
 	}
 	if got.StartsAt.Format(time.RFC3339) != startsAt.Format(time.RFC3339) {
 		t.Fatalf("starts_at = %s, want %s", got.StartsAt.Format(time.RFC3339), startsAt.Format(time.RFC3339))
+	}
+	if got.Name == nil || *got.Name != "Saturday Ladder" {
+		t.Fatalf("name = %v, want Saturday Ladder", got.Name)
+	}
+	if got.Description == nil || *got.Description != "Fast rotations after warm-up." {
+		t.Fatalf("description = %v, want Fast rotations after warm-up.", got.Description)
 	}
 	wantEnd := startsAt.Add(90 * time.Minute).Format(time.RFC3339)
 	if got.EndsAt.Format(time.RFC3339) != wantEnd {
@@ -131,7 +139,11 @@ func TestUpdatePlay_ClearsOptionalFields(t *testing.T) {
 	doubles := model.GameDoubles
 	fee := int64(1200)
 	courts := int64(2)
+	name := "Original game name"
+	description := "Original game description"
 	if _, err := queries.UpdateUserCreatedPlay(ctx, db.UpdateUserCreatedPlayParams{
+		Name:        &name,
+		Description: &description,
 		ID:          playID,
 		GameType:    &doubles,
 		StartsAt:    play.StartsAt,
@@ -151,7 +163,7 @@ func TestUpdatePlay_ClearsOptionalFields(t *testing.T) {
 	ts := setupHostPlayManagementTest(sessionWithProfile(creatorID, nil), queries)
 	defer ts.Close()
 
-	body := `{"game_type":"","level_min":"","level_max":"","fee_clear":true,"courts_clear":true}`
+	body := `{"name":"","description":"","game_type":"","level_min":"","level_max":"","fee_clear":true,"courts_clear":true}`
 	req, _ := http.NewRequest(http.MethodPatch, ts.URL+"/api/plays/"+playID, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
@@ -173,6 +185,12 @@ func TestUpdatePlay_ClearsOptionalFields(t *testing.T) {
 	}
 	if got.GameType != nil {
 		t.Fatalf("game_type = %v, want nil", got.GameType)
+	}
+	if got.Name != nil {
+		t.Fatalf("name = %v, want nil", got.Name)
+	}
+	if got.Description != nil {
+		t.Fatalf("description = %v, want nil", got.Description)
 	}
 	if got.LevelMin != nil || got.LevelMax != nil || got.LevelMinOrd != nil || got.LevelMaxOrd != nil {
 		t.Fatalf("levels = %v/%v ord %v/%v, want nil", got.LevelMin, got.LevelMax, got.LevelMinOrd, got.LevelMaxOrd)
@@ -255,6 +273,34 @@ func TestUpdatePlay_HostCanUpdateWithoutRosterSlot(t *testing.T) {
 	}
 	if got.MaxPlayers == nil || *got.MaxPlayers != 4 {
 		t.Fatalf("max_players = %v, want 4", got.MaxPlayers)
+	}
+}
+
+func TestUpdatePlay_RejectsTooLongCustomText(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "update-long-name-host")
+	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
+
+	ts := setupHostPlayManagementTest(sessionWithProfile(creatorID, nil), queries)
+	defer ts.Close()
+
+	body := fmt.Sprintf(`{"name":%q}`, strings.Repeat("a", 81))
+	req, _ := http.NewRequest(http.MethodPatch, ts.URL+"/api/plays/"+playID, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("status = %d, want 422, body=%s", resp.StatusCode, string(b))
 	}
 }
 

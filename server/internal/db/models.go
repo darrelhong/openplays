@@ -45,6 +45,8 @@ type Play struct {
 	CreatedBy            *string
 	CancelledAt          *time.Time
 	CancelledBy          *string
+	Name                 *string
+	Description          *string
 }
 
 type PlayEvent struct {

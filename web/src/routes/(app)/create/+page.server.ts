@@ -11,6 +11,8 @@ import type { Actions, PageServerLoad } from './$types';
 type CreateFormValues = {
 	sport: string;
 	venue: string;
+	name: string;
+	description: string;
 	date: string;
 	start_time: string;
 	starts_at: string;
@@ -34,6 +36,8 @@ function createFormValues(formData: FormData): CreateFormValues {
 	return {
 		sport: stringValue(formData, 'sport'),
 		venue: stringValue(formData, 'venue'),
+		name: stringValue(formData, 'name'),
+		description: stringValue(formData, 'description'),
 		date: stringValue(formData, 'date'),
 		start_time: stringValue(formData, 'start_time'),
 		starts_at: stringValue(formData, 'starts_at'),
@@ -69,6 +73,8 @@ export const actions: Actions = {
 
 		const sport = values.sport;
 		const venue = values.venue;
+		const name = values.name.trim();
+		const description = values.description.trim();
 		const startsAt = values.starts_at;
 		const durationStr = values.duration_minutes;
 		const timezone = values.timezone;
@@ -85,6 +91,10 @@ export const actions: Actions = {
 		// Validation
 		if (!sport) return fail(400, { error: 'Sport is required', values });
 		if (!venue?.trim()) return fail(400, { error: 'Venue is required', values });
+		if (name.length > 80) return fail(400, { error: 'Name must be at most 80 characters', values });
+		if (description.length > 1000) {
+			return fail(400, { error: 'Description must be at most 1000 characters', values });
+		}
 		if (!startsAt) return fail(400, { error: 'Start time is required', values });
 		if (!durationStr) return fail(400, { error: 'Duration is required', values });
 
@@ -109,6 +119,8 @@ export const actions: Actions = {
 		const createPlayBody = {
 			sport: sport as 'badminton' | 'tennis' | 'football' | 'pickleball',
 			venue: venue.trim(),
+			name: name || undefined,
+			description: description || undefined,
 			starts_at: startsAt,
 			duration_minutes: durationMinutes,
 			timezone,

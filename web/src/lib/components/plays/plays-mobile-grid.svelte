@@ -28,8 +28,11 @@
 		>
 			<div class="flex gap-1.5 items-start justify-between">
 				<a href={resolve(`/play/${play.id}`)} class="flex-1 min-w-0">
-					<p class="leading-tight font-semibold">{play.venue_name}</p>
+					<p class="leading-tight font-semibold">{play.name || play.venue_name}</p>
 					<p class="text-sm text-muted mt-0.5">
+						{#if play.name}
+							{play.venue_name} ·
+						{/if}
 						{formatDate(play.starts_at, play.timezone)} · {formatTime(
 							play.starts_at,
 							play.timezone

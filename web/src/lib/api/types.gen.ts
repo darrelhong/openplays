@@ -397,6 +397,8 @@ export interface components {
 			 * @default SGD
 			 */
 			currency: string;
+			/** @description Optional game description */
+			description?: string;
 			/**
 			 * Format: int64
 			 * @description Duration in minutes (must be multiple of 15, max 300)
@@ -426,6 +428,8 @@ export interface components {
 			 * @description Maximum number of players
 			 */
 			max_players?: number;
+			/** @description Optional custom game name */
+			name?: string;
 			/**
 			 * Format: int64
 			 * @description Available slots
@@ -664,6 +668,8 @@ export interface components {
 			creator_photo_url?: string;
 			creator_username?: string;
 			currency: string;
+			/** @description Optional description for user-created games */
+			description?: string;
 			ends_at: string;
 			/** Format: int64 */
 			fee?: number;
@@ -684,6 +690,8 @@ export interface components {
 			meta: {
 				[key: string]: unknown;
 			};
+			/** @description Optional custom display name for user-created games */
+			name?: string;
 			participant_preview?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
 			/** Format: int64 */
 			slots_left?: number;
@@ -760,6 +768,8 @@ export interface components {
 			courts?: number;
 			/** @description Clear the court count */
 			courts_clear?: boolean;
+			/** @description Optional game description */
+			description?: string;
 			/**
 			 * Format: int64
 			 * @description Duration in minutes (must be multiple of 15, max 300)
@@ -786,6 +796,8 @@ export interface components {
 			 * @description Maximum number of players
 			 */
 			max_players?: number;
+			/** @description Optional custom game name */
+			name?: string;
 			/** @description Start time in RFC3339 format */
 			starts_at?: string;
 			/** @description IANA timezone, e.g. Asia/Singapore */

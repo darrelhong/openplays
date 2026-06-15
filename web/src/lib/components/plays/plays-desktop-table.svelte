@@ -35,7 +35,7 @@
 					{#if hasViewerStateBadge}
 						<th>My status</th>
 					{/if}
-					<th>Venue</th>
+					<th>Game</th>
 					<th>Date</th>
 					<th>Time</th>
 					<th>Host</th>
@@ -55,7 +55,14 @@
 						{#if hasViewerStateBadge}
 							<td><PlayViewerStateBadge state={play.viewer_state} /></td>
 						{/if}
-						<td>{play.venue_name}</td>
+						<td>
+							<div class="max-w-56">
+								<p class="font-medium truncate">{play.name || play.venue_name}</p>
+								{#if play.name}
+									<p class="text-xs text-muted truncate">{play.venue_name}</p>
+								{/if}
+							</div>
+						</td>
 						<td>{formatDate(play.starts_at, play.timezone)}</td>
 						<td
 							>{formatTime(play.starts_at, play.timezone)} - {formatTime(

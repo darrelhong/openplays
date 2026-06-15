@@ -16,6 +16,8 @@ type PlayPublic struct {
 	Sport       model.Sport       `json:"sport"`
 	GameType    *model.GameType   `json:"game_type,omitempty"`
 	HostName    string            `json:"host_name"`
+	Name        *string           `json:"name,omitempty" doc:"Optional custom display name for user-created games"`
+	Description *string           `json:"description,omitempty" doc:"Optional description for user-created games"`
 	StartsAt    string            `json:"starts_at"`
 	EndsAt      string            `json:"ends_at"`
 	Timezone    string            `json:"timezone"`

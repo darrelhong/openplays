@@ -11,6 +11,8 @@ import type { Actions, PageServerLoad } from './$types';
 
 type UpdatePlayBody = components['schemas']['UpdatePlayInputBody'];
 type UpdatePlayValues = {
+	name: string;
+	description: string;
 	date: string;
 	start_time: string;
 	duration_minutes: string;
@@ -66,6 +68,8 @@ function stringValue(formData: FormData, key: keyof UpdatePlayValues) {
 
 function updatePlayValues(formData: FormData): UpdatePlayValues {
 	return {
+		name: stringValue(formData, 'name'),
+		description: stringValue(formData, 'description'),
 		date: stringValue(formData, 'date'),
 		start_time: stringValue(formData, 'start_time'),
 		duration_minutes: stringValue(formData, 'duration_minutes'),
@@ -95,6 +99,12 @@ export const actions: Actions = {
 		}
 
 		const startsAt = buildRFC3339(values.date, values.start_time, values.tz_offset);
+		if (values.name.trim().length > 80) {
+			return failUpdate(400, 'Name must be at most 80 characters', values);
+		}
+		if (values.description.trim().length > 1000) {
+			return failUpdate(400, 'Description must be at most 1000 characters', values);
+		}
 		if (!values.date) return failUpdate(400, 'Date is required', values);
 		if (!values.start_time) return failUpdate(400, 'Start time is required', values);
 		if (!startsAt) return failUpdate(400, 'Start time is required', values);
@@ -140,6 +150,8 @@ export const actions: Actions = {
 		}
 
 		const body: UpdatePlayBody = {
+			name: values.name,
+			description: values.description,
 			starts_at: startsAt,
 			duration_minutes: durationMinutes,
 			timezone: values.timezone,

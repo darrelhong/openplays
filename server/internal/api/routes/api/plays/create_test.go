@@ -42,6 +42,8 @@ func (f *fakeCreatePlayStore) CreatePlay(_ context.Context, arg db.CreatePlayPar
 	p.Sport = arg.Sport
 	p.Venue = arg.Venue
 	p.HostName = arg.HostName
+	p.Name = arg.Name
+	p.Description = arg.Description
 	p.StartsAt = arg.StartsAt
 	p.EndsAt = arg.EndsAt
 	p.CreatedBy = arg.CreatedBy
@@ -128,7 +130,7 @@ func TestCreatePlay_Success(t *testing.T) {
 	ts := setupCreateTest(activeSession(), playStore)
 	defer ts.Close()
 
-	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","name":"  Saturday Social  ","description":"  Bring water  ","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
 		futureStart().Format(time.RFC3339))
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -145,6 +147,22 @@ func TestCreatePlay_Success(t *testing.T) {
 	}
 	if playStore.lastHostArgs.UserID != "user-1" || playStore.lastHostArgs.PlayID == "" {
 		t.Fatalf("CreatePlayHost args = %+v, want user-1 host", playStore.lastHostArgs)
+	}
+	if playStore.lastArgs.Name == nil || *playStore.lastArgs.Name != "Saturday Social" {
+		t.Fatalf("name = %v, want trimmed custom name", playStore.lastArgs.Name)
+	}
+	if playStore.lastArgs.Description == nil || *playStore.lastArgs.Description != "Bring water" {
+		t.Fatalf("description = %v, want trimmed description", playStore.lastArgs.Description)
+	}
+	var out plays.PlayPublic
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.Name == nil || *out.Name != "Saturday Social" {
+		t.Fatalf("response name = %v, want Saturday Social", out.Name)
+	}
+	if out.Description == nil || *out.Description != "Bring water" {
+		t.Fatalf("response description = %v, want Bring water", out.Description)
 	}
 }
 
@@ -214,6 +232,29 @@ func TestCreatePlay_DurationTooShort_Returns422(t *testing.T) {
 
 	// 10 minutes < 15 min — huma validates minimum:"15" on the field
 	body := `{"sport":"badminton","venue":"SBH","starts_at":"2026-06-01T10:00:00+08:00","duration_minutes":10,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`
+	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
+	}
+}
+
+func TestCreatePlay_RejectsTooLongCustomText(t *testing.T) {
+	ts := setupCreateTest(activeSession(), &fakeCreatePlayStore{})
+	defer ts.Close()
+
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","name":%q,"starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+		strings.Repeat("a", 81),
+		futureStart().Format(time.RFC3339),
+	)
 	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})

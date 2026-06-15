@@ -10,6 +10,8 @@
 
 	type SelectItem = { value: string; label: string; disabled?: boolean };
 	type EditFormValues = {
+		name: string;
+		description: string;
 		date: string;
 		start_time: string;
 		duration_minutes: string;
@@ -41,6 +43,7 @@
 		form?.intent === 'update' || form?.intent === 'cancel' ? form.error : undefined
 	);
 	const levelOptions = $derived(levelOptionsForSport(play.sport));
+	const playTitle = $derived(play.name || play.venue_name);
 	const durationItems = $derived(
 		DURATIONS.some((item) => item.value === editValues.duration_minutes)
 			? DURATIONS
@@ -55,6 +58,8 @@
 
 	const fieldClass =
 		'text-sm text-foreground px-3 border border-input-border rounded-lg bg-input h-9 w-full placeholder:text-muted-foreground focus:outline-none focus:border-ring';
+	const textareaClass =
+		'text-sm text-foreground px-3 py-2 border border-input-border rounded-lg bg-input min-h-20 w-full placeholder:text-muted-foreground focus:outline-none focus:border-ring';
 
 	function initialEditFormValues() {
 		return form?.values ?? editFormValuesFromPlay(play);
@@ -63,6 +68,8 @@
 	function editFormValuesFromPlay(currentPlay: Play): EditFormValues {
 		const startsAt = localDateTimeParts(currentPlay.starts_at, currentPlay.timezone);
 		return {
+			name: currentPlay.name ?? '',
+			description: currentPlay.description ?? '',
 			date: startsAt.date,
 			start_time: startsAt.time,
 			duration_minutes: durationMinutesValue(currentPlay),
@@ -133,7 +140,10 @@
 	<div class="mb-5">
 		<h1 class="text-xl text-foreground font-bold">Edit game</h1>
 		<p class="text-sm text-muted mt-1">
-			{play.venue_name} · {formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(
+			{playTitle}{#if play.name}
+				· {play.venue_name}
+			{/if}
+			· {formatDate(play.starts_at, play.timezone, { year: 'numeric' })} · {formatTime(
 				play.starts_at,
 				play.timezone
 			)}
@@ -150,6 +160,29 @@
 		<form method="POST" action="?/update" class="space-y-3">
 			<input type="hidden" name="timezone" value={editValues.timezone} />
 			<input type="hidden" name="tz_offset" value={editValues.tz_offset} />
+
+			<label for="edit-name" class="text-sm text-muted block">
+				Name
+				<input
+					id="edit-name"
+					name="name"
+					type="text"
+					maxlength={80}
+					value={editValues.name}
+					class="mt-1 {fieldClass}"
+				/>
+			</label>
+
+			<label for="edit-description" class="text-sm text-muted block">
+				Description
+				<textarea
+					id="edit-description"
+					name="description"
+					maxlength={1000}
+					rows="3"
+					class="mt-1 {textareaClass}">{editValues.description}</textarea
+				>
+			</label>
 
 			<div class="gap-3 grid grid-cols-1 sm:grid-cols-2">
 				<label for="edit-date" class="text-sm text-muted block">

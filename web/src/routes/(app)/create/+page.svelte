@@ -14,6 +14,8 @@
 	type CreateFormValues = {
 		sport?: string;
 		venue?: string;
+		name?: string;
+		description?: string;
 		date?: string;
 		start_time?: string;
 		starts_at?: string;
@@ -121,6 +123,24 @@
 				label="Sport"
 				required
 			/>
+		</div>
+
+		<!-- Name -->
+		<FormField label="Name" id="name">
+			<TextInput id="name" name="name" maxlength={80} value={initialValues?.name ?? ''} />
+		</FormField>
+
+		<!-- Description -->
+		<div>
+			<FormLabel for="description">Description</FormLabel>
+			<textarea
+				id="description"
+				name="description"
+				maxlength={1000}
+				rows="3"
+				class="text-sm text-foreground px-3 py-2 border border-input-border rounded-lg bg-input min-h-20 w-full placeholder:text-muted-foreground focus:outline-none focus:border-ring"
+				>{initialValues?.description ?? ''}</textarea
+			>
 		</div>
 
 		<!-- Venue -->
