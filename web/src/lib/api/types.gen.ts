@@ -606,6 +606,31 @@ export interface components {
 			 */
 			total: number;
 		};
+		PlayHistoryEventPublic: {
+			actor_display_name?: string;
+			created_at: string;
+			/** @enum {string} */
+			event_type:
+				| 'play.created'
+				| 'play.updated'
+				| 'participant.joined_confirmed'
+				| 'participant.joined_waitlist'
+				| 'participant.added'
+				| 'participant.confirmed'
+				| 'participant.left_confirmed'
+				| 'participant.left_added'
+				| 'participant.left_waitlist'
+				| 'participant.removed'
+				| 'play.cancelled';
+			/** Format: int64 */
+			id: number;
+			message: string;
+			metadata?: {
+				[key: string]: unknown;
+			};
+			relative_time: string;
+			subject_display_name?: string;
+		};
 		PlayParticipantPreviewPublic: {
 			display_name?: string;
 			/** Format: int64 */
@@ -646,6 +671,7 @@ export interface components {
 			game_type?: 'doubles' | 'singles' | 'mixed_doubles';
 			/** @enum {string} */
 			gender_pref?: 'all' | 'male_only' | 'female_only';
+			history_events?: components['schemas']['PlayHistoryEventPublic'][] | null;
 			host_name: string;
 			id: string;
 			is_favourited?: boolean;

@@ -43,6 +43,7 @@
 	);
 	const addedParticipants = $derived(play.added_participants ?? []);
 	const waitlist = $derived(play.waitlist ?? []);
+	const historyEvents = $derived(play.history_events ?? []);
 	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
 	const addedCount = $derived(play.added_count ?? addedParticipants.length);
 	const isCancelled = $derived(play.cancelled_at != null);
@@ -311,6 +312,30 @@
 	</section>
 {/snippet}
 
+{#snippet activitySection()}
+	<section class="pt-4 border-t border-border">
+		<div class="md:max-w-lg">
+			<div class="mb-2">
+				<h2 class="text-sm text-foreground font-semibold">Activity</h2>
+			</div>
+			<ul class="space-y-2">
+				{#each historyEvents as event (event.id)}
+					<li class="ps-3 border-s border-border gap-1 grid">
+						<p class="text-sm text-foreground">{event.message}</p>
+						<time
+							datetime={event.created_at}
+							title={formatDateTime(event.created_at)}
+							class="text-xs text-muted"
+						>
+							{event.relative_time}
+						</time>
+					</li>
+				{/each}
+			</ul>
+		</div>
+	</section>
+{/snippet}
+
 {#snippet details()}
 	<section class="py-2 md:py-3">
 		<header>
@@ -483,6 +508,9 @@
 						{/if}
 					</div>
 				</section>
+				{#if historyEvents.length > 0}
+					{@render activitySection()}
+				{/if}
 			</div>
 		{/if}
 		{#if play.contacts?.length}
