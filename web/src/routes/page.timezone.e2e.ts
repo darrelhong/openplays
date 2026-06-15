@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { mockApiPort } from '$lib/testing/mock-api';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
-const mockApiPort = 8080;
 const ianaTimezonePattern = /^(UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/;
 let mockApi: ReturnType<typeof createServer>;
 let playsRequestTimezones: Array<string | null> = [];
@@ -13,10 +13,11 @@ function respondJSON(res: ServerResponse, payload: unknown) {
 }
 
 function handleMockApi(req: IncomingMessage, res: ServerResponse) {
-	const path = req.url ? new URL(req.url, `http://localhost:${mockApiPort}`).pathname : '';
+	const port = mockApiPort();
+	const path = req.url ? new URL(req.url, `http://localhost:${port}`).pathname : '';
 	if (req.method === 'GET' && path === '/api/plays/') {
 		playsRequestTimezones.push(
-			new URL(req.url ?? '', `http://localhost:${mockApiPort}`).searchParams.get('timezone')
+			new URL(req.url ?? '', `http://localhost:${port}`).searchParams.get('timezone')
 		);
 		respondJSON(res, {
 			items: [],
@@ -48,7 +49,7 @@ test.beforeAll(async () => {
 	mockApi = createServer(handleMockApi);
 	await new Promise<void>((resolve, reject) => {
 		mockApi.once('error', reject);
-		mockApi.listen(mockApiPort, resolve);
+		mockApi.listen(mockApiPort(), resolve);
 	});
 });
 

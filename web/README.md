@@ -86,10 +86,11 @@ pnpm test:e2e:ui       # interactive UI mode (watch, step, time-travel)
 ```
 
 `API_BASE_URL` is baked at build time (defaults to `http://localhost:8080`), and
-the mock listens on that same port. **If your Go API is already running on
-8080**, point both at a free port so they don't collide:
+the e2e mocks listen on that same port. **If your Go API is already running on
+8080**, run Playwright with a free backend mock port:
 
 ```sh
+API_BASE_URL=http://localhost:8099 COOKIE_SECURE=false MOCK_API_PORT=8099 pnpm test:e2e
 API_BASE_URL=http://localhost:8099 COOKIE_SECURE=false MOCK_API_PORT=8099 pnpm test:e2e:ui
 ```
 

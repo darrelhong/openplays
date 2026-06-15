@@ -164,7 +164,9 @@ export function makePlay(overrides: Partial<Play> = {}): Play {
 
 export type MockResponse = { status?: number; json?: unknown };
 export type RequestCtx = { params: Record<string, string>; url: URL; req: IncomingMessage };
-export type Responder = MockResponse | ((ctx: RequestCtx) => MockResponse | void);
+export type Responder =
+	| MockResponse
+	| ((ctx: RequestCtx) => MockResponse | void | Promise<MockResponse | void>);
 
 export type MockApi = {
 	/** Register/override a route. Patterns support `:param` segments. Last match wins. */
@@ -200,7 +202,16 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
 	return params;
 }
 
-export function startMockApi(port = Number(process.env.MOCK_API_PORT ?? 8080)): Promise<MockApi> {
+export function mockApiPort() {
+	if (process.env.MOCK_API_PORT) return Number(process.env.MOCK_API_PORT);
+	if (process.env.API_BASE_URL) {
+		const url = new URL(process.env.API_BASE_URL);
+		return Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+	}
+	return 8080;
+}
+
+export function startMockApi(port = mockApiPort()): Promise<MockApi> {
 	const state: { user: SeedUser | null; play: Play | null } = { user: null, play: null };
 	const overrides: Route[] = [];
 
@@ -236,17 +247,23 @@ export function startMockApi(port = Number(process.env.MOCK_API_PORT ?? 8080)): 
 		return null;
 	}
 
-	const server: Server = createServer((req, res) => {
+	const server: Server = createServer(async (req, res) => {
 		const url = new URL(req.url ?? '', `http://localhost:${port}`);
 		const match = resolve(req.method ?? 'GET', url.pathname);
 		if (!match)
 			return send(res, 404, { detail: `no mock route for ${req.method} ${url.pathname}` });
-		const out =
-			typeof match.responder === 'function'
-				? match.responder({ params: match.params, url, req })
-				: match.responder;
-		const response = out ?? {};
-		send(res, response.status ?? 200, response.json ?? {});
+		try {
+			const out =
+				typeof match.responder === 'function'
+					? await match.responder({ params: match.params, url, req })
+					: match.responder;
+			const response = out ?? {};
+			send(res, response.status ?? 200, response.json ?? {});
+		} catch (error) {
+			send(res, 500, {
+				detail: error instanceof Error ? error.message : 'mock api responder failed'
+			});
+		}
 	});
 
 	function send(res: ServerResponse, status: number, json: unknown) {
