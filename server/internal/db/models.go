@@ -47,6 +47,19 @@ type Play struct {
 	CancelledBy          *string
 }
 
+type PlayEvent struct {
+	ID                 int64
+	PlayID             string
+	EventType          model.PlayEventType
+	ActorUserID        *string
+	ActorDisplayName   *string
+	SubjectUserID      *string
+	SubjectDisplayName *string
+	ParticipantID      *int64
+	Metadata           *string
+	CreatedAt          time.Time
+}
+
 type PlayFavourite struct {
 	UserID    string
 	PlayID    string

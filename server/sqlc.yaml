@@ -32,6 +32,10 @@ sql:
             go_type:
               import: "openplays/server/internal/model"
               type: "PlayParticipantStatus"
+          - column: "play_events.event_type"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "PlayEventType"
           # JSON columns -> custom types with Scanner/Valuer
           - column: "plays.contacts"
             go_type:

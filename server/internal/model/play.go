@@ -97,6 +97,44 @@ func (s PlayParticipantStatus) Schema(r huma.Registry) *huma.Schema {
 	return schema
 }
 
+// PlayEventType identifies an immutable play activity event.
+type PlayEventType string
+
+const (
+	PlayEventCreated PlayEventType = "play.created"
+	PlayEventUpdated PlayEventType = "play.updated"
+
+	PlayEventParticipantJoinedConfirmed PlayEventType = "participant.joined_confirmed"
+	PlayEventParticipantJoinedWaitlist  PlayEventType = "participant.joined_waitlist"
+	PlayEventParticipantAdded           PlayEventType = "participant.added"
+	PlayEventParticipantConfirmed       PlayEventType = "participant.confirmed"
+	PlayEventParticipantLeftConfirmed   PlayEventType = "participant.left_confirmed"
+	PlayEventParticipantLeftAdded       PlayEventType = "participant.left_added"
+	PlayEventParticipantLeftWaitlist    PlayEventType = "participant.left_waitlist"
+	PlayEventParticipantRemoved         PlayEventType = "participant.removed"
+
+	PlayEventCancelled PlayEventType = "play.cancelled"
+)
+
+// Schema implements huma.SchemaProvider.
+func (e PlayEventType) Schema(r huma.Registry) *huma.Schema {
+	schema := r.Schema(reflect.TypeOf(""), false, "")
+	schema.Enum = []any{
+		string(PlayEventCreated),
+		string(PlayEventUpdated),
+		string(PlayEventParticipantJoinedConfirmed),
+		string(PlayEventParticipantJoinedWaitlist),
+		string(PlayEventParticipantAdded),
+		string(PlayEventParticipantConfirmed),
+		string(PlayEventParticipantLeftConfirmed),
+		string(PlayEventParticipantLeftAdded),
+		string(PlayEventParticipantLeftWaitlist),
+		string(PlayEventParticipantRemoved),
+		string(PlayEventCancelled),
+	}
+	return schema
+}
+
 // GameType represents the format of play.
 type GameType string
 
