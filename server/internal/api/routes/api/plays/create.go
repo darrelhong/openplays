@@ -158,6 +158,15 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		}); err != nil {
 			return nil, huma.Error500InternalServerError("failed to seed creator participant")
 		}
+		actorUserID, actorDisplayName := playEventActor(user)
+		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+			PlayID:           play.ID,
+			EventType:        model.PlayEventCreated,
+			ActorUserID:      actorUserID,
+			ActorDisplayName: actorDisplayName,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
+		}
 		play.SlotsLeft = &slotsLeft
 		createdAt, updatedAt := publicPlayTimestamps(play.CreatedBy, play.CreatedAt, play.UpdatedAt)
 

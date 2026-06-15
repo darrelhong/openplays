@@ -120,6 +120,180 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 	}
 }
 
+func TestGetPlayDetail_HistoryEventsVisibleToCurrentParticipantsOnly(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-history-host")
+	playerID := createRouteTestUser(t, ctx, queries, "detail-history-player")
+	formerID := createRouteTestUser(t, ctx, queries, "detail-history-former")
+	waitlistedID := createRouteTestUser(t, ctx, queries, "detail-history-waitlisted")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedConfirmedParticipant(t, ctx, queries, playID, playerID)
+
+	createdName := "Hidden Create"
+	waitlistedName := "Waitlisted Player"
+	playerName := "Confirmed Player"
+	hostName := "Host User"
+	formerName := "Former Player"
+	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+		PlayID:           playID,
+		EventType:        model.PlayEventCreated,
+		ActorUserID:      &creatorID,
+		ActorDisplayName: &createdName,
+	}); err != nil {
+		t.Fatalf("CreatePlayEvent created: %v", err)
+	}
+	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+		PlayID:             playID,
+		EventType:          model.PlayEventParticipantJoinedWaitlist,
+		ActorUserID:        &waitlistedID,
+		ActorDisplayName:   &waitlistedName,
+		SubjectUserID:      &waitlistedID,
+		SubjectDisplayName: &waitlistedName,
+	}); err != nil {
+		t.Fatalf("CreatePlayEvent waitlist: %v", err)
+	}
+	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+		PlayID:             playID,
+		EventType:          model.PlayEventParticipantJoinedConfirmed,
+		ActorUserID:        &playerID,
+		ActorDisplayName:   &playerName,
+		SubjectUserID:      &playerID,
+		SubjectDisplayName: &playerName,
+	}); err != nil {
+		t.Fatalf("CreatePlayEvent joined confirmed: %v", err)
+	}
+	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+		PlayID:             playID,
+		EventType:          model.PlayEventParticipantAdded,
+		ActorUserID:        &creatorID,
+		ActorDisplayName:   &hostName,
+		SubjectUserID:      &waitlistedID,
+		SubjectDisplayName: &waitlistedName,
+	}); err != nil {
+		t.Fatalf("CreatePlayEvent added: %v", err)
+	}
+	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+		PlayID:             playID,
+		EventType:          model.PlayEventParticipantRemoved,
+		ActorUserID:        &creatorID,
+		ActorDisplayName:   &hostName,
+		SubjectUserID:      &formerID,
+		SubjectDisplayName: &formerName,
+	}); err != nil {
+		t.Fatalf("CreatePlayEvent removed: %v", err)
+	}
+	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+		PlayID:           playID,
+		EventType:        model.PlayEventUpdated,
+		ActorUserID:      &creatorID,
+		ActorDisplayName: &hostName,
+	}); err != nil {
+		t.Fatalf("CreatePlayEvent updated: %v", err)
+	}
+
+	playerEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(playerID, nil), queries), playID)
+	playerEventTypes := historyEventTypes(playerEvents)
+	wantPlayerEvents := []string{
+		string(model.PlayEventParticipantJoinedConfirmed),
+		string(model.PlayEventParticipantAdded),
+		string(model.PlayEventUpdated),
+	}
+	if !equalStrings(playerEventTypes, wantPlayerEvents) {
+		t.Fatalf("player history event types = %v, want %v", playerEventTypes, wantPlayerEvents)
+	}
+	if playerEvents[1].ActorDisplayName != nil {
+		t.Fatalf("added actor_display_name = %v, want omitted", *playerEvents[1].ActorDisplayName)
+	}
+	if playerEvents[1].Message != "Waitlisted Player was added to the game" {
+		t.Fatalf("added message = %q, want redacted actor copy", playerEvents[1].Message)
+	}
+
+	hostEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(creatorID, nil), queries), playID)
+	hostEventTypes := historyEventTypes(hostEvents)
+	wantHostEvents := []string{
+		string(model.PlayEventParticipantJoinedWaitlist),
+		string(model.PlayEventParticipantJoinedConfirmed),
+		string(model.PlayEventParticipantAdded),
+		string(model.PlayEventParticipantRemoved),
+		string(model.PlayEventUpdated),
+	}
+	if !equalStrings(hostEventTypes, wantHostEvents) {
+		t.Fatalf("host history event types = %v, want %v", hostEventTypes, wantHostEvents)
+	}
+	if hostEvents[2].ActorDisplayName != nil {
+		t.Fatalf("host added actor_display_name = %v, want omitted", *hostEvents[2].ActorDisplayName)
+	}
+	if hostEvents[2].Message != "Waitlisted Player was added to the game" {
+		t.Fatalf("host added message = %q, want redacted actor copy", hostEvents[2].Message)
+	}
+	if hostEvents[3].ActorDisplayName != nil {
+		t.Fatalf("removed actor_display_name = %v, want omitted", *hostEvents[3].ActorDisplayName)
+	}
+	if hostEvents[3].Message != "Former Player was removed from the game" {
+		t.Fatalf("removed message = %q, want redacted actor copy", hostEvents[3].Message)
+	}
+
+	formerEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(formerID, nil), queries), playID)
+	if len(formerEvents) != 0 {
+		t.Fatalf("former participant history event types = %v, want none", formerEvents)
+	}
+}
+
+type historyEventResponse struct {
+	EventType        string  `json:"event_type"`
+	Message          string  `json:"message"`
+	ActorDisplayName *string `json:"actor_display_name"`
+}
+
+func getHistoryEvents(t *testing.T, ts *httptest.Server, playID string) []historyEventResponse {
+	t.Helper()
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var out struct {
+		HistoryEvents []historyEventResponse `json:"history_events"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	return out.HistoryEvents
+}
+
+func historyEventTypes(events []historyEventResponse) []string {
+	types := make([]string, 0, len(events))
+	for _, event := range events {
+		types = append(types, event.EventType)
+	}
+	return types
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestGetPlayDetail_ImportedPlayIncludesTimestamps(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

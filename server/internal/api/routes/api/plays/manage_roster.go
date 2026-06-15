@@ -33,10 +33,12 @@ type HostRosterStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	GetPlayParticipantByID(ctx context.Context, id int64) (db.PlayParticipant, error)
+	GetUserByID(ctx context.Context, id string) (db.User, error)
 	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdatePlayParticipantStatus(ctx context.Context, arg db.UpdatePlayParticipantStatusParams) (db.PlayParticipant, error)
 	DeletePlayParticipant(ctx context.Context, id int64) error
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddleware func(huma.Context, func(huma.Context))) {
@@ -69,6 +71,11 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 			return nil, huma.Error409Conflict("play roster is full")
 		}
 
+		subject, err := subjectFromParticipant(ctx, store, participant)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get participant user")
+		}
+
 		updated, err := store.UpdatePlayParticipantStatus(ctx, db.UpdatePlayParticipantStatusParams{
 			ID:     participant.ID,
 			Status: model.ParticipantAdded,
@@ -79,6 +86,26 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 
 		if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {
 			return nil, huma.Error500InternalServerError("failed to update slots_left")
+		}
+		actorUserID, actorDisplayName := playEventActor(authmw.UserFromContext(ctx))
+		metadata, err := metadataJSON(playEventMetadata{
+			"from_status": string(model.ParticipantWaitlisted),
+			"to_status":   string(model.ParticipantAdded),
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
+		}
+		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+			PlayID:             input.ID,
+			EventType:          model.PlayEventParticipantAdded,
+			ActorUserID:        actorUserID,
+			ActorDisplayName:   actorDisplayName,
+			SubjectUserID:      subject.UserID,
+			SubjectDisplayName: subject.DisplayName,
+			ParticipantID:      subject.ParticipantID,
+			Metadata:           metadata,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
 		}
 
 		slots := deriveSlotsLeft(*play.MaxPlayers, reservedCount+1)
@@ -110,8 +137,32 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 			}
 		}
 
+		subject, err := subjectFromParticipant(ctx, store, participant)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get participant user")
+		}
+
 		if err := store.DeletePlayParticipant(ctx, participant.ID); err != nil {
 			return nil, huma.Error500InternalServerError("failed to remove participant")
+		}
+		actorUserID, actorDisplayName := playEventActor(authmw.UserFromContext(ctx))
+		metadata, err := metadataJSON(playEventMetadata{
+			"from_status": string(participant.Status),
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
+		}
+		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+			PlayID:             input.ID,
+			EventType:          model.PlayEventParticipantRemoved,
+			ActorUserID:        actorUserID,
+			ActorDisplayName:   actorDisplayName,
+			SubjectUserID:      subject.UserID,
+			SubjectDisplayName: subject.DisplayName,
+			ParticipantID:      subject.ParticipantID,
+			Metadata:           metadata,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
 		}
 		if play.MaxPlayers != nil {
 			if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {

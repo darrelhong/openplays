@@ -30,6 +30,7 @@ type JoinStore interface {
 	CreatePlayParticipant(ctx context.Context, arg db.CreatePlayParticipantParams) (db.PlayParticipant, error)
 	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Context, func(huma.Context))) {
@@ -92,14 +93,28 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 		}
 
 		status, ratingCode, ratingOrd := resolveJoinStatus(play, user, reservedCount)
-		if _, err := store.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		participant, err := store.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
 			PlayID:     input.ID,
 			UserID:     &user.ID,
 			RatingCode: ratingCode,
 			RatingOrd:  ratingOrd,
 			Status:     status,
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to add participant")
+		}
+		actorUserID, actorDisplayName := playEventActor(user)
+		participantID := participant.ID
+		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+			PlayID:             input.ID,
+			EventType:          eventTypeForJoinStatus(status),
+			ActorUserID:        actorUserID,
+			ActorDisplayName:   actorDisplayName,
+			SubjectUserID:      actorUserID,
+			SubjectDisplayName: actorDisplayName,
+			ParticipantID:      &participantID,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
 		}
 
 		if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {

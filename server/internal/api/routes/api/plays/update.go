@@ -40,6 +40,7 @@ type UpdatePlayStore interface {
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdateUserCreatedPlay(ctx context.Context, arg db.UpdateUserCreatedPlayParams) (db.Play, error)
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 // RegisterUpdate registers PATCH /plays/{id}.
@@ -74,6 +75,7 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 		if err := requirePlayHost(ctx, store, input.ID, user.ID); err != nil {
 			return nil, err
 		}
+		changedFields := updatePlayChangedFields(input)
 
 		startsAt, endsAt, err := updatePlayTimes(play.StartsAt, play.EndsAt, input.Body.StartsAt, input.Body.DurationMinutes)
 		if err != nil {
@@ -162,9 +164,59 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to update play")
 		}
+		if len(changedFields) > 0 {
+			metadata, err := metadataJSON(playEventMetadata{
+				"changed_fields": changedFields,
+			})
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to record play event")
+			}
+			actorUserID, actorDisplayName := playEventActor(user)
+			if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+				PlayID:           input.ID,
+				EventType:        model.PlayEventUpdated,
+				ActorUserID:      actorUserID,
+				ActorDisplayName: actorDisplayName,
+				Metadata:         metadata,
+			}); err != nil {
+				return nil, huma.Error500InternalServerError("failed to record play event")
+			}
+		}
 
 		return &UpdatePlayOutput{Body: publicPlayFromDB(updated)}, nil
 	})
+}
+
+func updatePlayChangedFields(input *UpdatePlayInput) []string {
+	fields := make([]string, 0, 9)
+	if input.Body.StartsAt != nil {
+		fields = append(fields, "starts_at")
+	}
+	if input.Body.DurationMinutes != nil {
+		fields = append(fields, "duration_minutes")
+	}
+	if input.Body.Timezone != nil {
+		fields = append(fields, "timezone")
+	}
+	if input.Body.GameType != nil {
+		fields = append(fields, "game_type")
+	}
+	if input.Body.LevelMin != nil {
+		fields = append(fields, "level_min")
+	}
+	if input.Body.LevelMax != nil {
+		fields = append(fields, "level_max")
+	}
+	if input.Body.Fee != nil || input.Body.FeeClear {
+		fields = append(fields, "fee")
+	}
+	if input.Body.MaxPlayers != nil {
+		fields = append(fields, "max_players")
+	}
+	if input.Body.Courts != nil || input.Body.CourtsClear {
+		fields = append(fields, "courts")
+	}
+	return fields
 }
 
 func updatePlayTimes(currentStart, currentEnd time.Time, startsAtInput *string, durationInput *int) (time.Time, time.Time, error) {

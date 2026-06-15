@@ -64,6 +64,7 @@ type PlayPublic struct {
 	ConfirmedCount        *int64                         `json:"confirmed_count,omitempty"`
 	AddedCount            *int64                         `json:"added_count,omitempty"`
 	WaitlistCount         *int64                         `json:"waitlist_count,omitempty"`
+	HistoryEvents         []PlayHistoryEventPublic       `json:"history_events,omitempty"`
 
 	distanceKm float64 `json:"-"`
 }
@@ -94,6 +95,18 @@ type PlayParticipantPreviewPublic struct {
 	RatingCode  *string `json:"rating_code,omitempty"`
 	IsGuest     bool    `json:"is_guest"`
 	IsHost      bool    `json:"is_host"`
+}
+
+// PlayHistoryEventPublic is a feed item for current players and hosts.
+type PlayHistoryEventPublic struct {
+	ID                 int64               `json:"id"`
+	EventType          model.PlayEventType `json:"event_type"`
+	Message            string              `json:"message"`
+	ActorDisplayName   *string             `json:"actor_display_name,omitempty"`
+	SubjectDisplayName *string             `json:"subject_display_name,omitempty"`
+	Metadata           model.Meta          `json:"metadata,omitempty"`
+	CreatedAt          string              `json:"created_at"`
+	RelativeTime       string              `json:"relative_time"`
 }
 
 // buildSourceLink constructs a deep link to the original message.

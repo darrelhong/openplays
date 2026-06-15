@@ -176,6 +176,11 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			}
 			item.SlotsLeft = &slotsLeft
 		}
+		historyEvents, err := visibleHistoryEvents(ctx, queries, item.ID, viewerState, canManage)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get play history", err)
+		}
+		item.HistoryEvents = historyEvents
 
 		return &GetOutput{Body: item}, nil
 	})

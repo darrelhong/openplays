@@ -11,6 +11,7 @@ type CreatePlayStore interface {
 	CreatePlay(ctx context.Context, arg db.CreatePlayParams) (db.Play, error)
 	CreatePlayHost(ctx context.Context, arg db.CreatePlayHostParams) (db.PlayHost, error)
 	CreatePlayParticipant(ctx context.Context, arg db.CreatePlayParticipantParams) (db.PlayParticipant, error)
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 // ParticipantPreviewBatchStore is the DB boundary for hydrating roster previews on play lists.

@@ -9,6 +9,7 @@ import (
 
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
+	"openplays/server/internal/model"
 )
 
 type DeletePlayInput struct {
@@ -19,6 +20,7 @@ type DeletePlayStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	CancelUserCreatedPlay(ctx context.Context, arg db.CancelUserCreatedPlayParams) (db.Play, error)
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 // RegisterDelete registers DELETE /plays/{id}.
@@ -57,6 +59,17 @@ func RegisterDelete(api huma.API, store DeletePlayStore, authMiddleware func(hum
 			CancelledBy: &cancelledBy,
 		}); err != nil {
 			return nil, huma.Error500InternalServerError("failed to cancel play")
+		}
+		if play.CancelledAt == nil {
+			actorUserID, actorDisplayName := playEventActor(user)
+			if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+				PlayID:           input.ID,
+				EventType:        model.PlayEventCancelled,
+				ActorUserID:      actorUserID,
+				ActorDisplayName: actorDisplayName,
+			}); err != nil {
+				return nil, huma.Error500InternalServerError("failed to record play event")
+			}
 		}
 
 		return &struct{}{}, nil

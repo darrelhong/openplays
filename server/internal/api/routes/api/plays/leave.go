@@ -21,6 +21,7 @@ type LeaveStore interface {
 	GetPlayParticipantByPlayAndUser(ctx context.Context, arg db.GetPlayParticipantByPlayAndUserParams) (db.PlayParticipant, error)
 	DeletePlayParticipantByPlayAndUser(ctx context.Context, arg db.DeletePlayParticipantByPlayAndUserParams) error
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Context, func(huma.Context))) {
@@ -72,6 +73,19 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 			UserID: &user.ID,
 		}); err != nil {
 			return nil, huma.Error500InternalServerError("failed to leave play")
+		}
+		actorUserID, actorDisplayName := playEventActor(user)
+		participantID := participant.ID
+		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+			PlayID:             input.ID,
+			EventType:          eventTypeForLeaveStatus(participant.Status),
+			ActorUserID:        actorUserID,
+			ActorDisplayName:   actorDisplayName,
+			SubjectUserID:      actorUserID,
+			SubjectDisplayName: actorDisplayName,
+			ParticipantID:      &participantID,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
 		}
 
 		if play.CreatedBy != nil && play.MaxPlayers != nil {

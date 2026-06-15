@@ -29,6 +29,7 @@ type ConfirmParticipantStore interface {
 	UpdatePlayParticipantStatus(ctx context.Context, arg db.UpdatePlayParticipantStatusParams) (db.PlayParticipant, error)
 	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 func RegisterConfirmParticipant(api huma.API, store ConfirmParticipantStore, authMiddleware func(huma.Context, func(huma.Context))) {
@@ -84,6 +85,19 @@ func RegisterConfirmParticipant(api huma.API, store ConfirmParticipantStore, aut
 				return nil, huma.Error500InternalServerError("failed to confirm participant")
 			}
 			status = updated.Status
+			actorUserID, actorDisplayName := playEventActor(user)
+			participantID := participant.ID
+			if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+				PlayID:             input.ID,
+				EventType:          model.PlayEventParticipantConfirmed,
+				ActorUserID:        actorUserID,
+				ActorDisplayName:   actorDisplayName,
+				SubjectUserID:      actorUserID,
+				SubjectDisplayName: actorDisplayName,
+				ParticipantID:      &participantID,
+			}); err != nil {
+				return nil, huma.Error500InternalServerError("failed to record play event")
+			}
 		} else if participant.Status != model.ParticipantConfirmed {
 			return nil, huma.Error409Conflict("participant has not been added")
 		}

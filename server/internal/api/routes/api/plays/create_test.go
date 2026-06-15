@@ -29,6 +29,7 @@ type fakeCreatePlayStore struct {
 	err          error
 	lastArgs     db.CreatePlayParams // captures last call args for assertions
 	lastHostArgs db.CreatePlayHostParams
+	lastEventArg db.CreatePlayEventParams
 }
 
 func (f *fakeCreatePlayStore) CreatePlay(_ context.Context, arg db.CreatePlayParams) (db.Play, error) {
@@ -54,6 +55,11 @@ func (f *fakeCreatePlayStore) CreatePlayHost(_ context.Context, arg db.CreatePla
 
 func (f *fakeCreatePlayStore) CreatePlayParticipant(_ context.Context, _ db.CreatePlayParticipantParams) (db.PlayParticipant, error) {
 	return db.PlayParticipant{}, nil
+}
+
+func (f *fakeCreatePlayStore) CreatePlayEvent(_ context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error) {
+	f.lastEventArg = arg
+	return db.PlayEvent{PlayID: arg.PlayID, EventType: arg.EventType}, nil
 }
 
 type fakeAuthStore struct {
