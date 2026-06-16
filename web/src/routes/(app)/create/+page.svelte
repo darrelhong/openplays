@@ -1,19 +1,20 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import VenueSearchField from '$lib/components/plays/venue-search-field.svelte';
 	import { FormField, FormLabel, TextInput } from '$lib/components/ui/form';
 	import { Select } from '$lib/components/ui/select/index';
 	import { TennisSlider } from '$lib/components/ui/slider/index';
-	import { Combobox } from '$lib/components/ui/combobox/index';
 	import { DatePicker } from '$lib/components/ui/date-picker/index';
 	import Button from '$lib/components/ui/button.svelte';
 	import { BADMINTON_LEVELS, SPORTS, GAME_TYPES, DURATIONS } from '$lib/consts/index';
 	import { CalendarDate } from '@internationalized/date';
 	import type { DateValue } from '@internationalized/date';
-	import type { ActionData, PageData } from './$types';
+	import type { ActionData } from './$types';
 
 	type CreateFormValues = {
 		sport?: string;
 		venue?: string;
+		venue_id?: string;
 		name?: string;
 		description?: string;
 		date?: string;
@@ -28,14 +29,14 @@
 		courts?: string;
 	};
 
-	let { data, form }: { data: PageData; form?: ActionData } = $props();
+	let { form }: { form?: ActionData } = $props();
 
-	const venueItems = $derived(data.venues.map((v) => ({ value: v.name, label: v.name })));
 	const initialValues = initialFormValues();
 	const initialSport = initialValues?.sport ?? '';
 
 	let selectedSport = $state(initialSport);
 	let selectedVenue = $state(initialValues?.venue ?? '');
+	let selectedVenueID = $state(initialValues?.venue_id ?? '');
 	let selectedGameType = $state(initialValues?.game_type ?? '');
 	let selectedLevelMin = $state(initialValues?.level_min ?? '');
 	let selectedLevelMax = $state(initialValues?.level_max ?? '');
@@ -144,19 +145,7 @@
 		</div>
 
 		<!-- Venue -->
-		<div>
-			<input type="hidden" name="venue" value={selectedVenue} />
-			<FormLabel for="venue-input" required>Venue</FormLabel>
-			<Combobox
-				type="single"
-				items={venueItems}
-				bind:value={selectedVenue}
-				placeholder="Search or type venue name"
-				openOnClick
-				allowCustom
-				inputProps={{ id: 'venue-input' }}
-			/>
-		</div>
+		<VenueSearchField bind:value={selectedVenue} bind:venueId={selectedVenueID} />
 
 		<!-- Date -->
 		<div>

@@ -18,6 +18,7 @@ type CreateInput struct {
 	Body struct {
 		Sport           model.Sport       `json:"sport" required:"true" doc:"Sport type" enum:"badminton,tennis,football,pickleball"`
 		Venue           string            `json:"venue" required:"true" doc:"Venue name (free text)"`
+		VenueID         *int64            `json:"venue_id,omitempty" doc:"Stored venue ID selected from venue search"`
 		Name            *string           `json:"name,omitempty" doc:"Optional custom game name" maxLength:"80"`
 		Description     *string           `json:"description,omitempty" doc:"Optional game description" maxLength:"1000"`
 		StartsAt        string            `json:"starts_at" required:"true" doc:"Start time in RFC3339 format"`
@@ -107,9 +108,22 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			}
 		}
 
+		venueName := strings.TrimSpace(input.Body.Venue)
+		if venueName == "" {
+			return nil, huma.Error422UnprocessableEntity("venue is required")
+		}
+
 		var resolvedVenueID *int64
+		var resolvedVenue *db.Venue
 		if queries, ok := store.(*db.Queries); ok {
-			resolvedVenueID = resolveVenueID(ctx, queries, input.Body.Venue)
+			resolvedVenue, err = resolveVenue(ctx, queries, venueName, input.Body.VenueID)
+			if err != nil {
+				return nil, err
+			}
+			if resolvedVenue != nil {
+				resolvedVenueID = &resolvedVenue.ID
+				venueName = resolvedVenue.Name
+			}
 		}
 
 		play, err := store.CreatePlay(ctx, db.CreatePlayParams{
@@ -123,7 +137,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			StartsAt:    startsAt,
 			EndsAt:      endsAt,
 			Timezone:    input.Body.Timezone,
-			Venue:       input.Body.Venue,
+			Venue:       venueName,
 			VenueID:     resolvedVenueID,
 			LevelMin:    input.Body.LevelMin,
 			LevelMax:    input.Body.LevelMax,
@@ -184,68 +198,117 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 
 		out := &CreateOutput{
 			Body: PlayPublic{
-				ID:          play.ID,
-				CreatedAt:   createdAt,
-				UpdatedAt:   updatedAt,
-				ListingType: play.ListingType,
-				Sport:       play.Sport,
-				GameType:    play.GameType,
-				HostName:    play.HostName,
-				Name:        play.Name,
-				Description: play.Description,
-				StartsAt:    play.StartsAt.Format(time.RFC3339),
-				EndsAt:      play.EndsAt.Format(time.RFC3339),
-				Timezone:    play.Timezone,
-				Venue:       play.Venue,
-				VenueName:   play.Venue,
-				LevelMin:    play.LevelMin,
-				LevelMax:    play.LevelMax,
-				Fee:         play.Fee,
-				Currency:    play.Currency,
-				MaxPlayers:  play.MaxPlayers,
-				SlotsLeft:   play.SlotsLeft,
-				Courts:      play.Courts,
-				Contacts:    play.Contacts,
-				GenderPref:  play.GenderPref,
-				Meta:        play.Meta,
-				CreatedBy:   play.CreatedBy,
+				ID:                 play.ID,
+				CreatedAt:          createdAt,
+				UpdatedAt:          updatedAt,
+				ListingType:        play.ListingType,
+				Sport:              play.Sport,
+				GameType:           play.GameType,
+				HostName:           play.HostName,
+				Name:               play.Name,
+				Description:        play.Description,
+				StartsAt:           play.StartsAt.Format(time.RFC3339),
+				EndsAt:             play.EndsAt.Format(time.RFC3339),
+				Timezone:           play.Timezone,
+				Venue:              play.Venue,
+				VenueName:          venueDisplayName(play.Venue, resolvedVenue),
+				VenueID:            resolvedVenueID,
+				VenuePostalCode:    venuePostalCode(resolvedVenue),
+				VenueLatitude:      venueLatitude(resolvedVenue),
+				VenueLongitude:     venueLongitude(resolvedVenue),
+				VenueGooglePlaceID: venueGooglePlaceID(resolvedVenue),
+				LevelMin:           play.LevelMin,
+				LevelMax:           play.LevelMax,
+				Fee:                play.Fee,
+				Currency:           play.Currency,
+				MaxPlayers:         play.MaxPlayers,
+				SlotsLeft:          play.SlotsLeft,
+				Courts:             play.Courts,
+				Contacts:           play.Contacts,
+				GenderPref:         play.GenderPref,
+				Meta:               play.Meta,
+				CreatedBy:          play.CreatedBy,
 			},
 		}
 		return out, nil
 	})
 }
 
-func resolveVenueID(ctx context.Context, queries *db.Queries, rawVenue string) *int64 {
+func resolveVenue(ctx context.Context, queries *db.Queries, rawVenue string, venueID *int64) (*db.Venue, error) {
 	venue := strings.TrimSpace(rawVenue)
 	if venue == "" {
-		return nil
+		return nil, nil
+	}
+
+	if venueID != nil {
+		v, err := queries.GetVenueByID(ctx, *venueID)
+		if err != nil {
+			return nil, huma.Error422UnprocessableEntity("venue_id does not match a stored venue")
+		}
+		return &v, nil
 	}
 
 	if v, err := queries.GetVenueByAlias(ctx, venue); err == nil {
-		id := v.ID
-		return &id
+		return &v, nil
 	}
 
 	if lower := strings.ToLower(venue); lower != venue {
 		if v, err := queries.GetVenueByAlias(ctx, lower); err == nil {
-			id := v.ID
-			return &id
+			return &v, nil
 		}
 	}
 
 	names, err := queries.ListVenueNames(ctx)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
 	for _, item := range names {
 		if strings.EqualFold(strings.TrimSpace(item.Name), venue) {
-			id := item.ID
-			return &id
+			v, err := queries.GetVenueByID(ctx, item.ID)
+			if err != nil {
+				return nil, nil
+			}
+			return &v, nil
 		}
 	}
 
-	return nil
+	return nil, nil
+}
+
+func venueDisplayName(rawVenue string, venue *db.Venue) string {
+	if venue != nil {
+		return venue.Name
+	}
+	return rawVenue
+}
+
+func venuePostalCode(venue *db.Venue) *string {
+	if venue == nil {
+		return nil
+	}
+	return venue.PostalCode
+}
+
+func venueLatitude(venue *db.Venue) *float64 {
+	if venue == nil {
+		return nil
+	}
+	return &venue.Latitude
+}
+
+func venueLongitude(venue *db.Venue) *float64 {
+	if venue == nil {
+		return nil
+	}
+	return &venue.Longitude
+}
+
+func venueGooglePlaceID(venue *db.Venue) *string {
+	if venue == nil {
+		return nil
+	}
+	return venue.GooglePlaceID
 }
 
 // Ensure *db.Queries satisfies CreatePlayStore

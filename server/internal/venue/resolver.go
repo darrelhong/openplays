@@ -20,6 +20,7 @@ type Resolved struct {
 type Store interface {
 	GetVenueByAlias(ctx context.Context, alias string) (db.Venue, error)
 	UpsertVenue(ctx context.Context, arg db.UpsertVenueParams) (db.Venue, error)
+	UpsertVenueByGooglePlaceID(ctx context.Context, arg db.UpsertVenueByGooglePlaceIDParams) (db.Venue, error)
 	UpsertVenueAlias(ctx context.Context, arg db.UpsertVenueAliasParams) error
 	ListVenueNames(ctx context.Context) ([]db.ListVenueNamesRow, error)
 }
@@ -94,15 +95,34 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 		postalCode = &result.Postal
 	}
 
-	v, err := r.store.UpsertVenue(ctx, db.UpsertVenueParams{
-		PostalCode: postalCode,
-		Name:       result.Name,
-		Address:    result.Address,
-		Latitude:   result.Latitude,
-		Longitude:  result.Longitude,
-		Source:     result.Source,
-		SearchTerm: &searchTerm,
-	})
+	var v db.Venue
+	if result.PlaceID != "" && result.Source == "google" {
+		v, err = r.store.UpsertVenueByGooglePlaceID(ctx, db.UpsertVenueByGooglePlaceIDParams{
+			GooglePlaceID: &result.PlaceID,
+			PostalCode:    postalCode,
+			Name:          result.Name,
+			Address:       result.Address,
+			Latitude:      result.Latitude,
+			Longitude:     result.Longitude,
+			Source:        result.Source,
+			SearchTerm:    &searchTerm,
+		})
+	} else {
+		var googlePlaceID *string
+		if result.Source == "google" && result.PlaceID != "" {
+			googlePlaceID = &result.PlaceID
+		}
+		v, err = r.store.UpsertVenue(ctx, db.UpsertVenueParams{
+			PostalCode:    postalCode,
+			Name:          result.Name,
+			Address:       result.Address,
+			Latitude:      result.Latitude,
+			Longitude:     result.Longitude,
+			Source:        result.Source,
+			SearchTerm:    &searchTerm,
+			GooglePlaceID: googlePlaceID,
+		})
+	}
 	if err != nil {
 		slog.Error("error upserting venue", "error", err)
 		return nil

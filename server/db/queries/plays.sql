@@ -86,7 +86,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
@@ -133,7 +133,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
     CAST(CASE
         WHEN EXISTS (
@@ -197,7 +197,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
     CAST(2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(sqlc.arg('ref_lat'))) / 2), 2) +
@@ -255,7 +255,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id

@@ -26,6 +26,10 @@ func (s *stubStore) UpsertVenue(_ context.Context, arg db.UpsertVenueParams) (db
 	return db.Venue{ID: 99, PostalCode: arg.PostalCode, Name: arg.Name}, nil
 }
 
+func (s *stubStore) UpsertVenueByGooglePlaceID(_ context.Context, arg db.UpsertVenueByGooglePlaceIDParams) (db.Venue, error) {
+	return db.Venue{ID: 99, PostalCode: arg.PostalCode, Name: arg.Name, GooglePlaceID: arg.GooglePlaceID}, nil
+}
+
 func (s *stubStore) UpsertVenueAlias(_ context.Context, arg db.UpsertVenueAliasParams) error {
 	s.upserts = append(s.upserts, arg)
 	return nil

@@ -29,6 +29,7 @@ type PlayPublic struct {
 	VenuePostalCode *string  `json:"venue_postal_code,omitempty"`
 	VenueLatitude   *float64 `json:"venue_latitude,omitempty"`
 	VenueLongitude  *float64 `json:"venue_longitude,omitempty"`
+	VenueGooglePlaceID *string `json:"venue_google_place_id,omitempty"`
 
 	LevelMin *string `json:"level_min,omitempty"`
 	LevelMax *string `json:"level_max,omitempty"`

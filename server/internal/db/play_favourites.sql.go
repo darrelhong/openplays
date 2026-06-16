@@ -70,7 +70,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM play_favourites pf
 INNER JOIN plays p ON p.id = pf.play_id
@@ -130,6 +130,7 @@ type ListFavouriteUpcomingPlaysRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
+	VenueGooglePlaceID   *string
 	CreatorDisplayName   *string
 	CreatorUsername      *string
 	CreatorPhotoUrl      *string
@@ -187,6 +188,7 @@ func (q *Queries) ListFavouriteUpcomingPlays(ctx context.Context, arg ListFavour
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
 			&i.VenueLongitude,
+			&i.VenueGooglePlaceID,
 			&i.CreatorDisplayName,
 			&i.CreatorUsername,
 			&i.CreatorPhotoUrl,

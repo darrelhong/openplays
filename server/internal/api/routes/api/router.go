@@ -5,6 +5,7 @@ import (
 
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
+	"openplays/server/internal/geo"
 
 	authRouter "openplays/server/internal/api/routes/api/auth"
 	devRouter "openplays/server/internal/api/routes/api/dev"
@@ -15,13 +16,13 @@ import (
 )
 
 // Register registers all routes under /api.
-func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifier *auth.GoogleVerifier, facebookVerifier *auth.FacebookVerifier, cookieSecure bool, devAuthEnabled bool) {
+func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifier *auth.GoogleVerifier, facebookVerifier *auth.FacebookVerifier, places geo.PlaceProvider, cookieSecure bool, devAuthEnabled bool) {
 	grp := huma.NewGroup(api, "/api")
 
 	// Public routes
 	authRouter.Register(grp, svc, googleVerifier, facebookVerifier, authRouter.CookieConfig{Secure: cookieSecure})
 	playsRouter.Register(grp, queries, svc)
-	venuesRouter.Register(grp, queries)
+	venuesRouter.Register(grp, queries, svc, places)
 	devRouter.Register(grp, queries, devRouter.Config{Enabled: devAuthEnabled, CookieSecure: cookieSecure})
 
 	// Protected routes (auth middleware applied via huma.UseMiddleware)

@@ -10,7 +10,7 @@ import (
 )
 
 const getVenueByAlias = `-- name: GetVenueByAlias :one
-SELECT v.id, v.postal_code, v.name, v.address, v.latitude, v.longitude, v.source, v.search_term
+SELECT v.id, v.postal_code, v.name, v.address, v.latitude, v.longitude, v.source, v.search_term, v.google_place_id
 FROM venues v
 JOIN venue_aliases va ON va.venue_id = v.id
 WHERE va.alias = ?
@@ -28,12 +28,34 @@ func (q *Queries) GetVenueByAlias(ctx context.Context, alias string) (Venue, err
 		&i.Longitude,
 		&i.Source,
 		&i.SearchTerm,
+		&i.GooglePlaceID,
+	)
+	return i, err
+}
+
+const getVenueByGooglePlaceID = `-- name: GetVenueByGooglePlaceID :one
+SELECT id, postal_code, name, address, latitude, longitude, source, search_term, google_place_id FROM venues WHERE google_place_id = ?
+`
+
+func (q *Queries) GetVenueByGooglePlaceID(ctx context.Context, googlePlaceID *string) (Venue, error) {
+	row := q.db.QueryRowContext(ctx, getVenueByGooglePlaceID, googlePlaceID)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.PostalCode,
+		&i.Name,
+		&i.Address,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Source,
+		&i.SearchTerm,
+		&i.GooglePlaceID,
 	)
 	return i, err
 }
 
 const getVenueByID = `-- name: GetVenueByID :one
-SELECT id, postal_code, name, address, latitude, longitude, source, search_term FROM venues WHERE id = ?
+SELECT id, postal_code, name, address, latitude, longitude, source, search_term, google_place_id FROM venues WHERE id = ?
 `
 
 func (q *Queries) GetVenueByID(ctx context.Context, id int64) (Venue, error) {
@@ -48,6 +70,7 @@ func (q *Queries) GetVenueByID(ctx context.Context, id int64) (Venue, error) {
 		&i.Longitude,
 		&i.Source,
 		&i.SearchTerm,
+		&i.GooglePlaceID,
 	)
 	return i, err
 }
@@ -121,7 +144,7 @@ func (q *Queries) ListVenueNames(ctx context.Context) ([]ListVenueNamesRow, erro
 }
 
 const listVenues = `-- name: ListVenues :many
-SELECT id, postal_code, name, address, latitude, longitude, source, search_term FROM venues
+SELECT id, postal_code, name, address, latitude, longitude, source, search_term, google_place_id FROM venues
 ORDER BY name
 `
 
@@ -143,6 +166,47 @@ func (q *Queries) ListVenues(ctx context.Context) ([]Venue, error) {
 			&i.Longitude,
 			&i.Source,
 			&i.SearchTerm,
+			&i.GooglePlaceID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVenuesMissingGooglePlaceIDWithName = `-- name: ListVenuesMissingGooglePlaceIDWithName :many
+SELECT id, postal_code, name, address, latitude, longitude, source, search_term, google_place_id FROM venues
+WHERE google_place_id IS NULL
+  AND trim(name) <> ''
+ORDER BY id
+`
+
+func (q *Queries) ListVenuesMissingGooglePlaceIDWithName(ctx context.Context) ([]Venue, error) {
+	rows, err := q.db.QueryContext(ctx, listVenuesMissingGooglePlaceIDWithName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Venue
+	for rows.Next() {
+		var i Venue
+		if err := rows.Scan(
+			&i.ID,
+			&i.PostalCode,
+			&i.Name,
+			&i.Address,
+			&i.Latitude,
+			&i.Longitude,
+			&i.Source,
+			&i.SearchTerm,
+			&i.GooglePlaceID,
 		); err != nil {
 			return nil, err
 		}
@@ -158,18 +222,20 @@ func (q *Queries) ListVenues(ctx context.Context) ([]Venue, error) {
 }
 
 const listVenuesWithPostalCode = `-- name: ListVenuesWithPostalCode :many
-SELECT id, name, postal_code, latitude, longitude
+SELECT id, name, address, postal_code, latitude, longitude, google_place_id
 FROM venues
 WHERE postal_code IS NOT NULL
 ORDER BY name
 `
 
 type ListVenuesWithPostalCodeRow struct {
-	ID         int64
-	Name       string
-	PostalCode *string
-	Latitude   float64
-	Longitude  float64
+	ID            int64
+	Name          string
+	Address       string
+	PostalCode    *string
+	Latitude      float64
+	Longitude     float64
+	GooglePlaceID *string
 }
 
 func (q *Queries) ListVenuesWithPostalCode(ctx context.Context) ([]ListVenuesWithPostalCodeRow, error) {
@@ -184,9 +250,11 @@ func (q *Queries) ListVenuesWithPostalCode(ctx context.Context) ([]ListVenuesWit
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Address,
 			&i.PostalCode,
 			&i.Latitude,
 			&i.Longitude,
+			&i.GooglePlaceID,
 		); err != nil {
 			return nil, err
 		}
@@ -201,26 +269,117 @@ func (q *Queries) ListVenuesWithPostalCode(ctx context.Context) ([]ListVenuesWit
 	return items, nil
 }
 
+const searchVenues = `-- name: SearchVenues :many
+SELECT DISTINCT
+    v.id, v.name, v.address, v.postal_code, v.latitude, v.longitude, v.google_place_id
+FROM venues v
+LEFT JOIN venue_aliases va ON va.venue_id = v.id
+WHERE lower(v.name) LIKE '%' || lower(?1) || '%'
+   OR lower(v.address) LIKE '%' || lower(?1) || '%'
+   OR lower(COALESCE(v.postal_code, '')) LIKE '%' || lower(?1) || '%'
+   OR lower(COALESCE(va.alias, '')) LIKE '%' || lower(?1) || '%'
+ORDER BY
+    v.name
+LIMIT ?2
+`
+
+type SearchVenuesParams struct {
+	Query string
+	Limit int64
+}
+
+type SearchVenuesRow struct {
+	ID            int64
+	Name          string
+	Address       string
+	PostalCode    *string
+	Latitude      float64
+	Longitude     float64
+	GooglePlaceID *string
+}
+
+func (q *Queries) SearchVenues(ctx context.Context, arg SearchVenuesParams) ([]SearchVenuesRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchVenues, arg.Query, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchVenuesRow
+	for rows.Next() {
+		var i SearchVenuesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Address,
+			&i.PostalCode,
+			&i.Latitude,
+			&i.Longitude,
+			&i.GooglePlaceID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateVenueGooglePlaceID = `-- name: UpdateVenueGooglePlaceID :one
+UPDATE venues
+SET google_place_id = ?
+WHERE id = ?
+RETURNING id, postal_code, name, address, latitude, longitude, source, search_term, google_place_id
+`
+
+type UpdateVenueGooglePlaceIDParams struct {
+	GooglePlaceID *string
+	ID            int64
+}
+
+func (q *Queries) UpdateVenueGooglePlaceID(ctx context.Context, arg UpdateVenueGooglePlaceIDParams) (Venue, error) {
+	row := q.db.QueryRowContext(ctx, updateVenueGooglePlaceID, arg.GooglePlaceID, arg.ID)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.PostalCode,
+		&i.Name,
+		&i.Address,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Source,
+		&i.SearchTerm,
+		&i.GooglePlaceID,
+	)
+	return i, err
+}
+
 const upsertVenue = `-- name: UpsertVenue :one
-INSERT INTO venues (postal_code, name, address, latitude, longitude, source, search_term)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO venues (postal_code, name, address, latitude, longitude, source, search_term, google_place_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(postal_code) DO UPDATE SET
     name        = excluded.name,
     address     = excluded.address,
     latitude    = excluded.latitude,
     longitude   = excluded.longitude,
-    source      = excluded.source
-RETURNING id, postal_code, name, address, latitude, longitude, source, search_term
+    source      = excluded.source,
+    google_place_id = COALESCE(excluded.google_place_id, venues.google_place_id)
+RETURNING id, postal_code, name, address, latitude, longitude, source, search_term, google_place_id
 `
 
 type UpsertVenueParams struct {
-	PostalCode *string
-	Name       string
-	Address    string
-	Latitude   float64
-	Longitude  float64
-	Source     string
-	SearchTerm *string
+	PostalCode    *string
+	Name          string
+	Address       string
+	Latitude      float64
+	Longitude     float64
+	Source        string
+	SearchTerm    *string
+	GooglePlaceID *string
 }
 
 // For venues with a postal code, upsert on postal_code.
@@ -234,6 +393,7 @@ func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue
 		arg.Longitude,
 		arg.Source,
 		arg.SearchTerm,
+		arg.GooglePlaceID,
 	)
 	var i Venue
 	err := row.Scan(
@@ -245,6 +405,7 @@ func (q *Queries) UpsertVenue(ctx context.Context, arg UpsertVenueParams) (Venue
 		&i.Longitude,
 		&i.Source,
 		&i.SearchTerm,
+		&i.GooglePlaceID,
 	)
 	return i, err
 }
@@ -264,4 +425,57 @@ type UpsertVenueAliasParams struct {
 func (q *Queries) UpsertVenueAlias(ctx context.Context, arg UpsertVenueAliasParams) error {
 	_, err := q.db.ExecContext(ctx, upsertVenueAlias, arg.Alias, arg.VenueID)
 	return err
+}
+
+const upsertVenueByGooglePlaceID = `-- name: UpsertVenueByGooglePlaceID :one
+INSERT INTO venues (google_place_id, postal_code, name, address, latitude, longitude, source, search_term)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT DO UPDATE SET
+    google_place_id = excluded.google_place_id,
+    name            = excluded.name,
+    address         = excluded.address,
+    latitude        = excluded.latitude,
+    longitude       = excluded.longitude,
+    source          = excluded.source,
+    search_term     = excluded.search_term
+RETURNING id, postal_code, name, address, latitude, longitude, source, search_term, google_place_id
+`
+
+type UpsertVenueByGooglePlaceIDParams struct {
+	GooglePlaceID *string
+	PostalCode    *string
+	Name          string
+	Address       string
+	Latitude      float64
+	Longitude     float64
+	Source        string
+	SearchTerm    *string
+}
+
+// Catch both google_place_id and postal_code uniqueness conflicts so Google
+// resolutions can reuse an existing postal-code venue instead of failing.
+func (q *Queries) UpsertVenueByGooglePlaceID(ctx context.Context, arg UpsertVenueByGooglePlaceIDParams) (Venue, error) {
+	row := q.db.QueryRowContext(ctx, upsertVenueByGooglePlaceID,
+		arg.GooglePlaceID,
+		arg.PostalCode,
+		arg.Name,
+		arg.Address,
+		arg.Latitude,
+		arg.Longitude,
+		arg.Source,
+		arg.SearchTerm,
+	)
+	var i Venue
+	err := row.Scan(
+		&i.ID,
+		&i.PostalCode,
+		&i.Name,
+		&i.Address,
+		&i.Latitude,
+		&i.Longitude,
+		&i.Source,
+		&i.SearchTerm,
+		&i.GooglePlaceID,
+	)
+	return i, err
 }

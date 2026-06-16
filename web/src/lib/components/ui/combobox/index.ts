@@ -1,3 +1,4 @@
+import { Combobox as ComboboxPrimitive } from 'bits-ui';
 import Combobox from './combobox.svelte';
 import Root from './combobox-root.svelte';
 import Input from './combobox-input.svelte';
@@ -29,5 +30,6 @@ export {
 	Item as ComboboxItem,
 	Empty as ComboboxEmpty,
 	ScrollUpButton as ComboboxScrollUpButton,
-	ScrollDownButton as ComboboxScrollDownButton
+	ScrollDownButton as ComboboxScrollDownButton,
+	ComboboxPrimitive
 };

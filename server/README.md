@@ -148,6 +148,8 @@ The server starts on port 8080 by default (configure with `API_PORT` in `.env`).
 
 - `GET /api/plays/` — list upcoming plays with optional filters (`sport`, `venue_id`, `cursor`, `limit`, `lat`, `lng`, `starts_after`, `level_min`, `level_max`)
 - `GET /api/plays/{id}` — get a single play
+- `GET /api/venues/search` — authenticated venue search; returns local DB matches first, then Google Places suggestions if configured
+- `POST /api/venues/resolve-google` — authenticated Google place resolution; stores the selected place as a local venue
 
 Pagination is cursor-based. The response includes `next_cursor` and `has_more` for paging through results.
 
@@ -158,6 +160,7 @@ Pagination is cursor-based. The response includes `next_cursor` and `has_more` f
 | `DB_URL` | No | `openplays_local.db` | SQLite database path |
 | `API_PORT` | No | `8080` | HTTP port |
 | `GOOGLE_CLIENT_ID` | Yes (for auth) | — | Google OAuth client ID |
+| `GOOGLE_PLACES_API_KEY` | No | — | Enables Google Places venue suggestions and resolution for user-created games and venuefill |
 | `COOKIE_SECURE` | No | `true` | Set `false` for local dev (HTTP) |
 | `DEV_AUTH_ENABLED` | No | — | Set `true` to register local-only `/api/dev/*` auth helpers |
 | `LOG_FORMAT` | No | `text` | `text` or `json` |
@@ -190,6 +193,15 @@ go run ./tools/venuefill/ list
 ```
 
 The `search` subcommand queries the geocoding provider, upserts the venue, and adds the lowercased search term plus any extra arguments as aliases. The `alias` subcommand maps aliases to a venue that already exists in the database by its ID — useful for abbreviations and colloquial names that neither API can resolve (e.g. "sbh" for Singapore Badminton Hall). Run `list` to see venue IDs.
+
+Backfill Google place IDs for existing venues. This uses Google Places and dry-runs by default:
+
+```bash
+go run ./tools/venueplaceids/ --limit 10
+go run ./tools/venueplaceids/ --apply
+```
+
+The backfill skips writes when Google returns a different postal code unless `--allow-postal-mismatch` is passed.
 
 Aliases are upserted — re-running `alias` with the same alias pointing to a different venue ID will override the existing mapping. This makes it easy to fix wrong venue resolutions:
 

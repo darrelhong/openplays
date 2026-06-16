@@ -17,6 +17,8 @@ import (
 	apiRouter "openplays/server/internal/api/routes/api"
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
+	"openplays/server/internal/geo"
+	"openplays/server/internal/google"
 	"openplays/server/internal/logging"
 )
 
@@ -43,6 +45,12 @@ func main() {
 	}
 	googleVerifier := auth.NewGoogleVerifier(googleClientID)
 
+	var places geo.PlaceProvider
+	if googlePlacesAPIKey := os.Getenv("GOOGLE_PLACES_API_KEY"); googlePlacesAPIKey != "" {
+		places = google.NewClient(google.Config{APIKey: googlePlacesAPIKey})
+		slog.Info("venue search enabled", "provider", "google_places")
+	}
+
 	facebookVerifier := auth.NewFacebookVerifier(auth.FacebookConfig{
 		AppID:     os.Getenv("FACEBOOK_APP_ID"),
 		AppSecret: os.Getenv("FACEBOOK_APP_SECRET"),
@@ -66,7 +74,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, cookieSecure, devAuthEnabled)
+	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, places, cookieSecure, devAuthEnabled)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",

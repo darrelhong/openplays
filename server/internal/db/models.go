@@ -135,14 +135,15 @@ type UserBlock struct {
 }
 
 type Venue struct {
-	ID         int64
-	PostalCode *string
-	Name       string
-	Address    string
-	Latitude   float64
-	Longitude  float64
-	Source     string
-	SearchTerm *string
+	ID            int64
+	PostalCode    *string
+	Name          string
+	Address       string
+	Latitude      float64
+	Longitude     float64
+	Source        string
+	SearchTerm    *string
+	GooglePlaceID *string
 }
 
 type VenueAlias struct {

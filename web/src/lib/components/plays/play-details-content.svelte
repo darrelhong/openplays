@@ -60,8 +60,14 @@
 		Object.entries(meta).filter(([key]) => !knownMetaKeys.includes(key))
 	);
 	const hasVenueCoordinates = $derived(play.venue_latitude != null && play.venue_longitude != null);
+	const hasVenueMapLink = $derived(Boolean(play.venue_google_place_id) || hasVenueCoordinates);
 	const playTitle = $derived(play.name || play.venue_name);
 	const mapsHref = $derived.by(() => {
+		if (play.venue_google_place_id) {
+			const query = encodeURIComponent(play.venue_name);
+			const placeID = encodeURIComponent(play.venue_google_place_id);
+			return `https://www.google.com/maps/search/?api=1&query=${query}&query_place_id=${placeID}`;
+		}
 		if (!hasVenueCoordinates) return '';
 		return `https://www.google.com/maps?q=${play.venue_latitude},${play.venue_longitude}`;
 	});
@@ -358,7 +364,7 @@
 			{#if play.description}
 				<p class="text-sm text-muted mb-2 mt-1 whitespace-pre-line">{play.description}</p>
 			{/if}
-			{#if !play.name && hasVenueCoordinates}
+			{#if !play.name && hasVenueMapLink}
 				<p class="mb-2">
 					<a
 						href={mapsHref}
@@ -383,7 +389,7 @@
 					<dt class="text-muted w-24">Location</dt>
 					<dd>
 						<span>{play.venue_name}</span>
-						{#if hasVenueCoordinates}
+						{#if hasVenueMapLink}
 							<a
 								href={mapsHref}
 								target="_blank"

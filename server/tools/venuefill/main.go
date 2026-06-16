@@ -158,6 +158,9 @@ func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 	fmt.Printf("Postal:   %s\n", result.Postal)
 	fmt.Printf("Location: %f, %f\n", result.Latitude, result.Longitude)
 	fmt.Printf("Source:   %s\n", result.Source)
+	if result.PlaceID != "" {
+		fmt.Printf("Place ID: %s\n", result.PlaceID)
+	}
 
 	if dryRun {
 		return
@@ -168,15 +171,29 @@ func cmdSearch(ctx context.Context, queries *db.Queries, args []string) {
 		postalCode = &result.Postal
 	}
 
-	venue, err := queries.UpsertVenue(ctx, db.UpsertVenueParams{
-		PostalCode: postalCode,
-		Name:       result.Name,
-		Address:    result.Address,
-		Latitude:   result.Latitude,
-		Longitude:  result.Longitude,
-		Source:     result.Source,
-		SearchTerm: &searchTerm,
-	})
+	var venue db.Venue
+	if result.Source == "google" && result.PlaceID != "" {
+		venue, err = queries.UpsertVenueByGooglePlaceID(ctx, db.UpsertVenueByGooglePlaceIDParams{
+			GooglePlaceID: &result.PlaceID,
+			PostalCode:    postalCode,
+			Name:          result.Name,
+			Address:       result.Address,
+			Latitude:      result.Latitude,
+			Longitude:     result.Longitude,
+			Source:        result.Source,
+			SearchTerm:    &searchTerm,
+		})
+	} else {
+		venue, err = queries.UpsertVenue(ctx, db.UpsertVenueParams{
+			PostalCode: postalCode,
+			Name:       result.Name,
+			Address:    result.Address,
+			Latitude:   result.Latitude,
+			Longitude:  result.Longitude,
+			Source:     result.Source,
+			SearchTerm: &searchTerm,
+		})
+	}
 	if err != nil {
 		log.Fatalf("failed to upsert venue: %v", err)
 	}

@@ -48,6 +48,38 @@ async function readJSON(req: IncomingMessage) {
 test('creates a game and shows submitted fields on the detail page', async ({ page, context }) => {
 	await signIn(context);
 	mock.on('GET', '/api/venues/', { json: { items: [] } });
+	mock.on('GET', '/api/venues/search', ({ url }) => {
+		expect(url.searchParams.get('q')).toBe('Test Sports Hall');
+		return {
+			json: {
+				items: [
+					{
+						google_place_id: 'ChIJ77',
+						name: 'Test Sports Hall',
+						address: '123 Test Road, Singapore'
+					}
+				]
+			}
+		};
+	});
+	mock.on('POST', '/api/venues/resolve-google', async ({ req }) => {
+		const body = await readJSON(req);
+		expect(body).toMatchObject({
+			google_place_id: 'ChIJ77',
+			query: 'Test Sports Hall'
+		});
+		return {
+			json: {
+				id: 77,
+				name: 'Test Sports Hall',
+				address: '123 Test Road, Singapore',
+				postal_code: '123456',
+				latitude: 1.3,
+				longitude: 103.8,
+				google_place_id: 'ChIJ77'
+			}
+		};
+	});
 
 	let createdBody: Record<string, unknown> | null = null;
 	mock.on('POST', '/api/plays/', async ({ req }) => {
@@ -64,6 +96,8 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 			description: createdBody.description,
 			venue: createdBody.venue,
 			venue_name: createdBody.venue,
+			venue_id: createdBody.venue_id,
+			venue_google_place_id: 'ChIJ77',
 			sport: createdBody.sport,
 			game_type: createdBody.game_type,
 			starts_at: startsAt.toISOString(),
@@ -86,14 +120,16 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 	await page.getByLabel('Name').fill('Friday Friendly');
 	await page.getByLabel('Description').fill('Bring water and shuttles.');
 	await page.getByLabel('Venue').fill('Test Sports Hall');
-	await page.keyboard.press('Tab');
+	const venueOption = page.getByRole('option', { name: /Test Sports Hall/ });
+	await expect(venueOption).toBeVisible();
+	await venueOption.click();
+	await expect(page.locator('input[name="venue_id"]')).toHaveValue('77');
 	await page.getByLabel('Start Time').fill('19:30');
 	await selectOption(page, 'Game Type', 'Doubles');
 	await page.getByLabel('Fee ($)').fill('12.50');
 	await page.getByLabel('Max Players').fill('4');
 	await page.getByLabel('Courts').fill('2');
 
-	await setFormValue(page, 'input[name="venue"]', 'Test Sports Hall');
 	await setFormValue(page, 'input[name="date"]', '2026-07-10');
 	await setFormValue(page, 'input[name="starts_at"]', '2026-07-10T19:30:00+08:00');
 
@@ -109,6 +145,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 		name: 'Friday Friendly',
 		description: 'Bring water and shuttles.',
 		venue: 'Test Sports Hall',
+		venue_id: '77',
 		date: '2026-07-10',
 		start_time: '19:30',
 		starts_at: '2026-07-10T19:30:00+08:00',
@@ -138,6 +175,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 		name: 'Friday Friendly',
 		description: 'Bring water and shuttles.',
 		venue: 'Test Sports Hall',
+		venue_id: 77,
 		fee: 1250,
 		max_players: 4,
 		slots_left: 3,

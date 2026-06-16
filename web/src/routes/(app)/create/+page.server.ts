@@ -6,11 +6,12 @@ import {
 	isPositiveInteger,
 	optionalNumber
 } from '$lib/utils/create-play';
-import type { Actions, PageServerLoad } from './$types';
+import type { Actions } from './$types';
 
 type CreateFormValues = {
 	sport: string;
 	venue: string;
+	venue_id: string;
 	name: string;
 	description: string;
 	date: string;
@@ -36,6 +37,7 @@ function createFormValues(formData: FormData): CreateFormValues {
 	return {
 		sport: stringValue(formData, 'sport'),
 		venue: stringValue(formData, 'venue'),
+		venue_id: stringValue(formData, 'venue_id'),
 		name: stringValue(formData, 'name'),
 		description: stringValue(formData, 'description'),
 		date: stringValue(formData, 'date'),
@@ -53,15 +55,6 @@ function createFormValues(formData: FormData): CreateFormValues {
 	};
 }
 
-export const load: PageServerLoad = async ({ parent }) => {
-	const { user } = await parent();
-	const venuesResponse = await api.GET('/api/venues/').catch(() => null);
-	return {
-		user: user!,
-		venues: venuesResponse?.data?.items ?? []
-	};
-};
-
 export const actions: Actions = {
 	default: async ({ request, cookies }) => {
 		const formData = await request.formData();
@@ -73,6 +66,7 @@ export const actions: Actions = {
 
 		const sport = values.sport;
 		const venue = values.venue;
+		const venueId = optionalNumber(values.venue_id);
 		const name = values.name.trim();
 		const description = values.description.trim();
 		const startsAt = values.starts_at;
@@ -119,6 +113,7 @@ export const actions: Actions = {
 		const createPlayBody = {
 			sport: sport as 'badminton' | 'tennis' | 'football' | 'pickleball',
 			venue: venue.trim(),
+			venue_id: venueId,
 			name: name || undefined,
 			description: description || undefined,
 			starts_at: startsAt,

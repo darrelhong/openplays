@@ -34,11 +34,13 @@ func RegisterList(api huma.API, queries *db.Queries) {
 		items := make([]VenuePublic, len(rows))
 		for i, r := range rows {
 			items[i] = VenuePublic{
-				ID:         r.ID,
-				Name:       r.Name,
-				PostalCode: *r.PostalCode, // safe: query filters WHERE postal_code IS NOT NULL
-				Latitude:   r.Latitude,
-				Longitude:  r.Longitude,
+				ID:            r.ID,
+				Name:          r.Name,
+				Address:       r.Address,
+				PostalCode:    *r.PostalCode, // safe: query filters WHERE postal_code IS NOT NULL
+				Latitude:      r.Latitude,
+				Longitude:     r.Longitude,
+				GooglePlaceID: r.GooglePlaceID,
 			}
 		}
 

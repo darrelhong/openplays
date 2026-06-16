@@ -305,7 +305,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
@@ -351,6 +351,7 @@ type GetPlayByIDRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
+	VenueGooglePlaceID   *string
 	CreatorDisplayName   *string
 	CreatorUsername      *string
 	CreatorPhotoUrl      *string
@@ -397,6 +398,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id string) (GetPlayByIDRow, e
 		&i.VenuePostalCode,
 		&i.VenueLatitude,
 		&i.VenueLongitude,
+		&i.VenueGooglePlaceID,
 		&i.CreatorDisplayName,
 		&i.CreatorUsername,
 		&i.CreatorPhotoUrl,
@@ -483,7 +485,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
     CAST(CASE
         WHEN EXISTS (
@@ -562,6 +564,7 @@ type ListMyUpcomingPlaysRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
+	VenueGooglePlaceID   *string
 	CreatorDisplayName   *string
 	CreatorUsername      *string
 	CreatorPhotoUrl      *string
@@ -622,6 +625,7 @@ func (q *Queries) ListMyUpcomingPlays(ctx context.Context, arg ListMyUpcomingPla
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
 			&i.VenueLongitude,
+			&i.VenueGooglePlaceID,
 			&i.CreatorDisplayName,
 			&i.CreatorUsername,
 			&i.CreatorPhotoUrl,
@@ -651,7 +655,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url
 FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
@@ -722,6 +726,7 @@ type ListUpcomingPlaysRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        *float64
 	VenueLongitude       *float64
+	VenueGooglePlaceID   *string
 	CreatorDisplayName   *string
 	CreatorUsername      *string
 	CreatorPhotoUrl      *string
@@ -788,6 +793,7 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
 			&i.VenueLongitude,
+			&i.VenueGooglePlaceID,
 			&i.CreatorDisplayName,
 			&i.CreatorUsername,
 			&i.CreatorPhotoUrl,
@@ -816,7 +822,7 @@ SELECT
     p.contacts, p.gender_pref, p.meta,
     p.source, p.source_sender_username, p.source_message_id, p.source_group,
     COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
-    v.latitude AS venue_latitude, v.longitude AS venue_longitude,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
     u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
     CAST(2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
@@ -902,6 +908,7 @@ type ListUpcomingPlaysByDistanceRow struct {
 	VenuePostalCode      *string
 	VenueLatitude        float64
 	VenueLongitude       float64
+	VenueGooglePlaceID   *string
 	CreatorDisplayName   *string
 	CreatorUsername      *string
 	CreatorPhotoUrl      *string
@@ -970,6 +977,7 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 			&i.VenuePostalCode,
 			&i.VenueLatitude,
 			&i.VenueLongitude,
+			&i.VenueGooglePlaceID,
 			&i.CreatorDisplayName,
 			&i.CreatorUsername,
 			&i.CreatorPhotoUrl,

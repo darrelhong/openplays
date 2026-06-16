@@ -60,6 +60,7 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			VenuePostalCode:    r.VenuePostalCode,
 			VenueLatitude:      r.VenueLatitude,
 			VenueLongitude:     r.VenueLongitude,
+			VenueGooglePlaceID: r.VenueGooglePlaceID,
 			LevelMin:           r.LevelMin,
 			LevelMax:           r.LevelMax,
 			Fee:                r.Fee,

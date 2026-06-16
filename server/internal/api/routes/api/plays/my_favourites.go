@@ -121,6 +121,7 @@ func mapFavouriteTimeRow(r db.ListFavouriteUpcomingPlaysRow) PlayPublic {
 		VenuePostalCode:    r.VenuePostalCode,
 		VenueLatitude:      r.VenueLatitude,
 		VenueLongitude:     r.VenueLongitude,
+		VenueGooglePlaceID: r.VenueGooglePlaceID,
 		LevelMin:           r.LevelMin,
 		LevelMax:           r.LevelMax,
 		Fee:                r.Fee,

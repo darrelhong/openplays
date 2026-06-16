@@ -358,6 +358,46 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/venues/resolve-google': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Resolve a Google venue
+		 * @description Stores a selected Google Places result as a local venue and returns the saved venue.
+		 */
+		post: operations['resolve-google-venue'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/venues/search': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Search venues
+		 * @description Returns local venue matches first. Google Places is queried only when fewer than two local matches exist.
+		 */
+		get: operations['search-venues'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -449,6 +489,11 @@ export interface components {
 			timezone: string;
 			/** @description Venue name (free text) */
 			venue: string;
+			/**
+			 * Format: int64
+			 * @description Stored venue ID selected from venue search
+			 */
+			venue_id?: number;
 		};
 		ErrorDetail: {
 			/** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -709,6 +754,7 @@ export interface components {
 			updated_at?: string;
 			/** @description Raw venue name as extracted from the message */
 			venue: string;
+			venue_google_place_id?: string;
 			/** Format: int64 */
 			venue_id?: number;
 			/** Format: double */
@@ -723,6 +769,26 @@ export interface components {
 			waitlist?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
 			/** Format: int64 */
 			waitlist_count?: number;
+		};
+		ResolveInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ResolveInputBody.json
+			 */
+			readonly $schema?: string;
+			google_place_id: string;
+			query?: string;
+			session_token?: string;
+		};
+		SearchBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/SearchBody.json
+			 */
+			readonly $schema?: string;
+			items: components['schemas']['VenueSearchItem'][] | null;
 		};
 		SearchPage: {
 			/**
@@ -829,6 +895,14 @@ export interface components {
 			username?: string;
 		};
 		VenuePublic: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/VenuePublic.json
+			 */
+			readonly $schema?: string;
+			address: string;
+			google_place_id?: string;
 			/** Format: int64 */
 			id: number;
 			/** Format: double */
@@ -837,6 +911,18 @@ export interface components {
 			longitude: number;
 			name: string;
 			postal_code: string;
+		};
+		VenueSearchItem: {
+			address?: string;
+			google_place_id?: string;
+			/** Format: int64 */
+			id?: number;
+			/** Format: double */
+			latitude?: number;
+			/** Format: double */
+			longitude?: number;
+			name: string;
+			postal_code?: string;
 		};
 	};
 	responses: never;
@@ -1566,6 +1652,74 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['ListBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'resolve-google-venue': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['ResolveInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['VenuePublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'search-venues': {
+		parameters: {
+			query?: {
+				/** @description Venue name, address, postal code, or alias */
+				q?: string;
+				/** @description Google Places autocomplete session token */
+				session_token?: string;
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['SearchBody'];
 				};
 			};
 			/** @description Error */
