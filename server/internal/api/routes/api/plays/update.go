@@ -17,19 +17,20 @@ import (
 type UpdatePlayInput struct {
 	ID   string `path:"id" doc:"Play ID"`
 	Body struct {
-		Name            *string         `json:"name,omitempty" doc:"Optional custom game name" maxLength:"80"`
-		Description     *string         `json:"description,omitempty" doc:"Optional game description" maxLength:"1000"`
-		StartsAt        *string         `json:"starts_at,omitempty" doc:"Start time in RFC3339 format"`
-		DurationMinutes *int            `json:"duration_minutes,omitempty" doc:"Duration in minutes (must be multiple of 15, max 300)" minimum:"15" maximum:"300"`
-		Timezone        *string         `json:"timezone,omitempty" doc:"IANA timezone, e.g. Asia/Singapore"`
-		GameType        *model.GameType `json:"game_type,omitempty" doc:"Game type" enum:"doubles,singles,mixed_doubles,"`
-		LevelMin        *string         `json:"level_min,omitempty" doc:"Minimum level code"`
-		LevelMax        *string         `json:"level_max,omitempty" doc:"Maximum level code"`
-		Fee             *int64          `json:"fee,omitempty" doc:"Fee in cents" minimum:"0"`
-		FeeClear        bool            `json:"fee_clear,omitempty" doc:"Clear the fee"`
-		MaxPlayers      *int64          `json:"max_players,omitempty" doc:"Maximum number of players" minimum:"1"`
-		Courts          *int64          `json:"courts,omitempty" doc:"Number of courts" minimum:"1"`
-		CourtsClear     bool            `json:"courts_clear,omitempty" doc:"Clear the court count"`
+		Name            *string               `json:"name,omitempty" doc:"Optional custom game name" maxLength:"80"`
+		Description     *string               `json:"description,omitempty" doc:"Optional game description" maxLength:"1000"`
+		Visibility      *model.PlayVisibility `json:"visibility,omitempty" doc:"Set to unlisted to hide from public discovery while keeping direct-link access" enum:"public,unlisted"`
+		StartsAt        *string               `json:"starts_at,omitempty" doc:"Start time in RFC3339 format"`
+		DurationMinutes *int                  `json:"duration_minutes,omitempty" doc:"Duration in minutes (must be multiple of 15, max 300)" minimum:"15" maximum:"300"`
+		Timezone        *string               `json:"timezone,omitempty" doc:"IANA timezone, e.g. Asia/Singapore"`
+		GameType        *model.GameType       `json:"game_type,omitempty" doc:"Game type" enum:"doubles,singles,mixed_doubles,"`
+		LevelMin        *string               `json:"level_min,omitempty" doc:"Minimum level code"`
+		LevelMax        *string               `json:"level_max,omitempty" doc:"Maximum level code"`
+		Fee             *int64                `json:"fee,omitempty" doc:"Fee in cents" minimum:"0"`
+		FeeClear        bool                  `json:"fee_clear,omitempty" doc:"Clear the fee"`
+		MaxPlayers      *int64                `json:"max_players,omitempty" doc:"Maximum number of players" minimum:"1"`
+		Courts          *int64                `json:"courts,omitempty" doc:"Number of courts" minimum:"1"`
+		CourtsClear     bool                  `json:"courts_clear,omitempty" doc:"Clear the court count"`
 	}
 }
 
@@ -91,6 +92,10 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 			if err != nil {
 				return nil, huma.Error422UnprocessableEntity(err.Error())
 			}
+		}
+		visibility, err := cleanPlayVisibility(input.Body.Visibility, "")
+		if err != nil {
+			return nil, err
 		}
 
 		startsAt, endsAt, err := updatePlayTimes(play.StartsAt, play.EndsAt, input.Body.StartsAt, input.Body.DurationMinutes)
@@ -164,6 +169,7 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 			ID:          input.ID,
 			Name:        name,
 			Description: description,
+			Visibility:  visibility,
 			GameType:    gameType,
 			StartsAt:    startsAt,
 			EndsAt:      endsAt,
@@ -212,6 +218,9 @@ func updatePlayChangedFields(input *UpdatePlayInput) []string {
 	}
 	if input.Body.Description != nil {
 		fields = append(fields, "description")
+	}
+	if input.Body.Visibility != nil {
+		fields = append(fields, "visibility")
 	}
 	if input.Body.StartsAt != nil {
 		fields = append(fields, "starts_at")
@@ -307,6 +316,18 @@ func cleanedOptionalString(value string) *string {
 	return &trimmed
 }
 
+func cleanPlayVisibility(input *model.PlayVisibility, fallback model.PlayVisibility) (model.PlayVisibility, error) {
+	if input == nil {
+		return fallback, nil
+	}
+	switch *input {
+	case model.PlayVisibilityPublic, model.PlayVisibilityUnlisted:
+		return *input, nil
+	default:
+		return "", huma.Error422UnprocessableEntity("visibility must be public or unlisted")
+	}
+}
+
 func levelOrdForUpdate(sport model.Sport, field string, value *string) (*int64, error) {
 	if value == nil {
 		return nil, nil
@@ -331,6 +352,7 @@ func publicPlayFromDB(play db.Play) PlayPublic {
 		HostName:    play.HostName,
 		Name:        play.Name,
 		Description: play.Description,
+		Visibility:  play.Visibility,
 		StartsAt:    play.StartsAt.Format(time.RFC3339),
 		EndsAt:      play.EndsAt.Format(time.RFC3339),
 		Timezone:    play.Timezone,

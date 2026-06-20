@@ -494,6 +494,11 @@ export interface components {
 			 * @description Stored venue ID selected from venue search
 			 */
 			venue_id?: number;
+			/**
+			 * @description Set to unlisted to hide from public discovery while keeping direct-link access
+			 * @enum {string}
+			 */
+			visibility?: 'public' | 'unlisted';
 		};
 		ErrorDetail: {
 			/** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -766,6 +771,11 @@ export interface components {
 			venue_postal_code?: string;
 			/** @enum {string} */
 			viewer_state?: 'not_joined' | 'confirmed' | 'waitlisted' | 'added' | 'creator';
+			/**
+			 * @description Public games appear in discovery. Unlisted games are viewable by link only.
+			 * @enum {string}
+			 */
+			visibility: 'public' | 'unlisted';
 			waitlist?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
 			/** Format: int64 */
 			waitlist_count?: number;
@@ -868,6 +878,11 @@ export interface components {
 			starts_at?: string;
 			/** @description IANA timezone, e.g. Asia/Singapore */
 			timezone?: string;
+			/**
+			 * @description Set to unlisted to hide from public discovery while keeping direct-link access
+			 * @enum {string}
+			 */
+			visibility?: 'public' | 'unlisted';
 		};
 		User: {
 			/**

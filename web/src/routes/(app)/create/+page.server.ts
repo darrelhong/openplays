@@ -14,6 +14,7 @@ type CreateFormValues = {
 	venue_id: string;
 	name: string;
 	description: string;
+	visibility: string;
 	date: string;
 	start_time: string;
 	starts_at: string;
@@ -40,6 +41,7 @@ function createFormValues(formData: FormData): CreateFormValues {
 		venue_id: stringValue(formData, 'venue_id'),
 		name: stringValue(formData, 'name'),
 		description: stringValue(formData, 'description'),
+		visibility: stringValue(formData, 'visibility'),
 		date: stringValue(formData, 'date'),
 		start_time: stringValue(formData, 'start_time'),
 		starts_at: stringValue(formData, 'starts_at'),
@@ -69,6 +71,7 @@ export const actions: Actions = {
 		const venueId = optionalNumber(values.venue_id);
 		const name = values.name.trim();
 		const description = values.description.trim();
+		const visibility = values.visibility || 'public';
 		const startsAt = values.starts_at;
 		const durationStr = values.duration_minutes;
 		const timezone = values.timezone;
@@ -88,6 +91,9 @@ export const actions: Actions = {
 		if (name.length > 80) return fail(400, { error: 'Name must be at most 80 characters', values });
 		if (description.length > 1000) {
 			return fail(400, { error: 'Description must be at most 1000 characters', values });
+		}
+		if (visibility !== 'public' && visibility !== 'unlisted') {
+			return fail(400, { error: 'Visibility is invalid', values });
 		}
 		if (!startsAt) return fail(400, { error: 'Start time is required', values });
 		if (!durationStr) return fail(400, { error: 'Duration is required', values });
@@ -116,6 +122,7 @@ export const actions: Actions = {
 			venue_id: venueId,
 			name: name || undefined,
 			description: description || undefined,
+			visibility: visibility as 'public' | 'unlisted',
 			starts_at: startsAt,
 			duration_minutes: durationMinutes,
 			timezone,

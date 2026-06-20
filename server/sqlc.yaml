@@ -28,6 +28,10 @@ sql:
               import: "openplays/server/internal/model"
               type: "GenderPref"
               pointer: true
+          - column: "plays.visibility"
+            go_type:
+              import: "openplays/server/internal/model"
+              type: "PlayVisibility"
           - column: "play_participants.status"
             go_type:
               import: "openplays/server/internal/model"

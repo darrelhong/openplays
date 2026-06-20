@@ -94,6 +94,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 			id: 'created-play',
 			name: createdBody.name,
 			description: createdBody.description,
+			visibility: createdBody.visibility,
 			venue: createdBody.venue,
 			venue_name: createdBody.venue,
 			venue_id: createdBody.venue_id,
@@ -119,6 +120,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 	await selectOption(page, 'Sport', 'Badminton');
 	await page.getByLabel('Name').fill('Friday Friendly');
 	await page.getByLabel('Description').fill('Bring water and shuttles.');
+	await page.getByRole('checkbox', { name: /Set visibility as unlisted/ }).click();
 	await page.getByLabel('Venue').fill('Test Sports Hall');
 	const venueOption = page.getByRole('option', { name: /Test Sports Hall/ });
 	await expect(venueOption).toBeVisible();
@@ -144,6 +146,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 		game_type: 'doubles',
 		name: 'Friday Friendly',
 		description: 'Bring water and shuttles.',
+		visibility: 'unlisted',
 		venue: 'Test Sports Hall',
 		venue_id: '77',
 		date: '2026-07-10',
@@ -174,6 +177,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 		game_type: 'doubles',
 		name: 'Friday Friendly',
 		description: 'Bring water and shuttles.',
+		visibility: 'unlisted',
 		venue: 'Test Sports Hall',
 		venue_id: 77,
 		fee: 1250,
@@ -183,6 +187,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 	});
 	await expect(page.getByRole('heading', { name: 'Friday Friendly' })).toBeVisible();
 	await expect(page.getByText('Bring water and shuttles.')).toBeVisible();
+	await expect(page.getByText('Unlisted')).toBeVisible();
 	await expect(page.getByText('Test Sports Hall')).toBeVisible();
 	await expect(page.getByText('Doubles')).toBeVisible();
 	await expect(page.getByText('$12.50')).toBeVisible();

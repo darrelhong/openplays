@@ -5,6 +5,7 @@
 	import { Select } from '$lib/components/ui/select/index';
 	import { TennisSlider } from '$lib/components/ui/slider/index';
 	import { DatePicker } from '$lib/components/ui/date-picker/index';
+	import { Checkbox } from '$lib/components/ui/checkbox/index';
 	import Button from '$lib/components/ui/button.svelte';
 	import { BADMINTON_LEVELS, SPORTS, GAME_TYPES, DURATIONS } from '$lib/consts/index';
 	import { CalendarDate } from '@internationalized/date';
@@ -17,6 +18,7 @@
 		venue_id?: string;
 		name?: string;
 		description?: string;
+		visibility?: string;
 		date?: string;
 		start_time?: string;
 		starts_at?: string;
@@ -37,6 +39,7 @@
 	let selectedSport = $state(initialSport);
 	let selectedVenue = $state(initialValues?.venue ?? '');
 	let selectedVenueID = $state(initialValues?.venue_id ?? '');
+	let unlisted = $state(initialValues?.visibility === 'unlisted');
 	let selectedGameType = $state(initialValues?.game_type ?? '');
 	let selectedLevelMin = $state(initialValues?.level_min ?? '');
 	let selectedLevelMax = $state(initialValues?.level_max ?? '');
@@ -112,6 +115,7 @@
 		<input type="hidden" name="starts_at" value={startsAt} />
 		<input type="hidden" name="duration_minutes" value={selectedDuration} />
 		<input type="hidden" name="timezone" value="Asia/Singapore" />
+		<input type="hidden" name="visibility" value={unlisted ? 'unlisted' : 'public'} />
 
 		<!-- Sport -->
 		<div>
@@ -254,6 +258,18 @@
 		<FormField label="Courts" id="courts">
 			<TextInput id="courts" name="courts" type="number" value={initialValues?.courts ?? ''} />
 		</FormField>
+
+		<Checkbox
+			bind:checked={unlisted}
+			class="items-start"
+			rootClass="mt-0.5"
+			labelClass="grid gap-0.5"
+		>
+			<span>Set visibility as unlisted</span>
+			<span class="text-muted">
+				(Will not appear in public searches but anyone with the link can view)
+			</span>
+		</Checkbox>
 
 		{#if form?.error}
 			<p class="text-sm text-destructive">{form.error}</p>

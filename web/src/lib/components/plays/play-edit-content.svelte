@@ -2,6 +2,7 @@
 	import Save from '@lucide/svelte/icons/save';
 	import CircleX from '@lucide/svelte/icons/circle-x';
 	import Button from '$lib/components/ui/button.svelte';
+	import { Checkbox } from '$lib/components/ui/checkbox/index';
 	import ActionConfirmDialog from '$lib/components/ui/dialog/action-confirm-dialog.svelte';
 	import { TennisSlider } from '$lib/components/ui/slider/index';
 	import { BADMINTON_LEVELS, DURATIONS, GAME_TYPES } from '$lib/consts/index';
@@ -12,6 +13,7 @@
 	type EditFormValues = {
 		name: string;
 		description: string;
+		visibility: string;
 		date: string;
 		start_time: string;
 		duration_minutes: string;
@@ -39,6 +41,7 @@
 	const TZ_OFFSET = '+08:00';
 	const initialEditValues = initialEditFormValues();
 	const editValues = $derived(form?.values ?? initialEditValues);
+	let unlisted = $state(initialEditValues.visibility === 'unlisted');
 	const editError = $derived(
 		form?.intent === 'update' || form?.intent === 'cancel' ? form.error : undefined
 	);
@@ -65,11 +68,18 @@
 		return form?.values ?? editFormValuesFromPlay(play);
 	}
 
+	$effect(() => {
+		if (form?.values) {
+			unlisted = form.values.visibility === 'unlisted';
+		}
+	});
+
 	function editFormValuesFromPlay(currentPlay: Play): EditFormValues {
 		const startsAt = localDateTimeParts(currentPlay.starts_at, currentPlay.timezone);
 		return {
 			name: currentPlay.name ?? '',
 			description: currentPlay.description ?? '',
+			visibility: currentPlay.visibility ?? 'public',
 			date: startsAt.date,
 			start_time: startsAt.time,
 			duration_minutes: durationMinutesValue(currentPlay),
@@ -160,6 +170,7 @@
 		<form method="POST" action="?/update" class="space-y-3">
 			<input type="hidden" name="timezone" value={editValues.timezone} />
 			<input type="hidden" name="tz_offset" value={editValues.tz_offset} />
+			<input type="hidden" name="visibility" value={unlisted ? 'unlisted' : 'public'} />
 
 			<label for="edit-name" class="text-sm text-muted block">
 				Name
@@ -310,7 +321,19 @@
 				/>
 			</label>
 
-			<Button type="submit" size="sm" class="gap-1.5">
+			<Checkbox
+				bind:checked={unlisted}
+				class="items-start"
+				rootClass="mt-0.5"
+				labelClass="grid gap-0.5"
+			>
+				<span>Set visibility as unlisted</span>
+				<span class="text-muted">
+					(Will not appear in public searches but anyone with the link can view)
+				</span>
+			</Checkbox>
+
+			<Button type="submit" size="sm" class="mt-2 gap-1.5">
 				<Save class="h-3.5 w-3.5" aria-hidden="true" />
 				Save changes
 			</Button>

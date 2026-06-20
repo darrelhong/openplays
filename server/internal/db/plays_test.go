@@ -250,6 +250,58 @@ func TestListUpcomingPlays_ExcludesCancelled(t *testing.T) {
 	}
 }
 
+func TestListUpcomingPlays_ExcludesUnlisted(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	userID := "unlisted-list-host"
+	googleID := "google-" + userID
+	if _, err := queries.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		ID:          userID,
+		Email:       userID + "@example.com",
+		DisplayName: "Unlisted List Host",
+		GoogleID:    &googleID,
+	}); err != nil {
+		t.Fatalf("UpsertUserByGoogleID: %v", err)
+	}
+
+	publicPlay, err := queries.CreatePlay(ctx, makeUserPlayParams("public-list-play", "Public Host", userID, futureTime()))
+	if err != nil {
+		t.Fatalf("CreatePlay public: %v", err)
+	}
+	unlistedParams := makeUserPlayParams("unlisted-list-play", "Unlisted Host", userID, futureTime().Add(time.Hour))
+	unlistedParams.Visibility = model.PlayVisibilityUnlisted
+	unlistedPlay, err := queries.CreatePlay(ctx, unlistedParams)
+	if err != nil {
+		t.Fatalf("CreatePlay unlisted: %v", err)
+	}
+
+	rows, err := queries.ListUpcomingPlays(ctx, db.ListUpcomingPlaysParams{PageSize: 100})
+	if err != nil {
+		t.Fatalf("ListUpcomingPlays: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != publicPlay.ID {
+		t.Fatalf("rows = %#v, want only public play %s", rows, publicPlay.ID)
+	}
+
+	total, err := queries.CountUpcomingPlays(ctx, db.CountUpcomingPlaysParams{})
+	if err != nil {
+		t.Fatalf("CountUpcomingPlays: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("total = %d, want 1", total)
+	}
+
+	got, err := queries.GetPlayByID(ctx, unlistedPlay.ID)
+	if err != nil {
+		t.Fatalf("GetPlayByID unlisted: %v", err)
+	}
+	if got.Visibility != model.PlayVisibilityUnlisted {
+		t.Fatalf("unlisted visibility = %q, want unlisted", got.Visibility)
+	}
+}
+
 func TestListMyUpcomingPlays_IncludesRosterRelationships(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

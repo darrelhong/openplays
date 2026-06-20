@@ -353,6 +353,9 @@
 				<Badge variant={isUserCreated ? 'info' : 'muted'}>
 					{sourceLabel}
 				</Badge>
+				{#if play.visibility === 'unlisted'}
+					<Badge variant="outline">Unlisted</Badge>
+				{/if}
 				{#if isCancelled}
 					<Badge variant="warning">Cancelled</Badge>
 				{/if}

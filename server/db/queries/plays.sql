@@ -52,7 +52,7 @@ INSERT INTO plays (
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
-    source, created_by
+    source, created_by, visibility
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?,
@@ -60,7 +60,7 @@ INSERT INTO plays (
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
-    'user', ?
+    'user', ?, COALESCE(NULLIF(sqlc.arg('visibility'), ''), 'public')
 )
 RETURNING *;
 
@@ -68,6 +68,7 @@ RETURNING *;
 SELECT * FROM plays
 WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND cancelled_at IS NULL
+  AND visibility = 'public'
   AND listing_type = 'play'
 ORDER BY starts_at ASC;
 
@@ -78,7 +79,7 @@ ORDER BY starts_at ASC;
 -- to match the sort order. Both cursor params must be provided together.
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -93,6 +94,7 @@ LEFT JOIN venues v ON v.id = p.venue_id
 LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND p.cancelled_at IS NULL
+  AND p.visibility = 'public'
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -111,6 +113,7 @@ LIMIT sqlc.arg('page_size');
 SELECT COUNT(*) FROM plays p
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND p.cancelled_at IS NULL
+  AND p.visibility = 'public'
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -125,7 +128,7 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 -- TODO: Audit remaining created_by usage and drop plays.created_by if play_hosts fully replaces it.
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -189,7 +192,7 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 -- Forward-only cursor pagination using composite (distance_km, id).
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -209,6 +212,7 @@ INNER JOIN venues v ON v.id = p.venue_id
 LEFT JOIN users u ON u.id = p.created_by
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND p.cancelled_at IS NULL
+  AND p.visibility = 'public'
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -236,6 +240,7 @@ SELECT COUNT(*) FROM plays p
 INNER JOIN venues v ON v.id = p.venue_id
 WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND p.cancelled_at IS NULL
+  AND p.visibility = 'public'
   AND (sqlc.narg('starts_after') IS NULL OR p.starts_at >= sqlc.narg('starts_after'))
   AND (sqlc.narg('starts_before') IS NULL OR p.starts_at < sqlc.narg('starts_before'))
   AND (sqlc.narg('listing_type') IS NULL OR p.listing_type = sqlc.narg('listing_type'))
@@ -247,7 +252,7 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 -- name: GetPlayByID :one
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at, p.cancelled_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -267,6 +272,7 @@ UPDATE plays
 SET
     name = sqlc.arg('name'),
     description = sqlc.arg('description'),
+    visibility = COALESCE(NULLIF(sqlc.arg('visibility'), ''), visibility),
     game_type = sqlc.arg('game_type'),
     starts_at = sqlc.arg('starts_at'),
     ends_at = sqlc.arg('ends_at'),

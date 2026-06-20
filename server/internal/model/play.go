@@ -77,6 +77,22 @@ func (l ListingType) Schema(r huma.Registry) *huma.Schema {
 	return schema
 }
 
+// PlayVisibility controls whether a play appears in public discovery.
+type PlayVisibility string
+
+const (
+	// Public plays appear in public discovery.
+	PlayVisibilityPublic PlayVisibility = "public"
+	// Unlisted plays are hidden from public discovery but viewable by direct link.
+	PlayVisibilityUnlisted PlayVisibility = "unlisted"
+)
+
+func (v PlayVisibility) Schema(r huma.Registry) *huma.Schema {
+	schema := r.Schema(reflect.TypeOf(""), false, "")
+	schema.Enum = []any{string(PlayVisibilityPublic), string(PlayVisibilityUnlisted)}
+	return schema
+}
+
 // PlayParticipantStatus is a user's or guest's roster state for a play.
 type PlayParticipantStatus string
 

@@ -48,6 +48,7 @@ func TestUpdatePlay_HostCanUpdateEditableFields(t *testing.T) {
 	body := fmt.Sprintf(`{
 		"name": "  Saturday Ladder  ",
 		"description": "  Fast rotations after warm-up.  ",
+		"visibility": "unlisted",
 		"starts_at": %q,
 		"duration_minutes": 90,
 		"timezone": "Asia/Singapore",
@@ -95,6 +96,9 @@ func TestUpdatePlay_HostCanUpdateEditableFields(t *testing.T) {
 	}
 	if got.Description == nil || *got.Description != "Fast rotations after warm-up." {
 		t.Fatalf("description = %v, want Fast rotations after warm-up.", got.Description)
+	}
+	if got.Visibility != model.PlayVisibilityUnlisted {
+		t.Fatalf("visibility = %q, want unlisted", got.Visibility)
 	}
 	wantEnd := startsAt.Add(90 * time.Minute).Format(time.RFC3339)
 	if got.EndsAt.Format(time.RFC3339) != wantEnd {

@@ -13,6 +13,7 @@ type UpdatePlayBody = components['schemas']['UpdatePlayInputBody'];
 type UpdatePlayValues = {
 	name: string;
 	description: string;
+	visibility: string;
 	date: string;
 	start_time: string;
 	duration_minutes: string;
@@ -70,6 +71,7 @@ function updatePlayValues(formData: FormData): UpdatePlayValues {
 	return {
 		name: stringValue(formData, 'name'),
 		description: stringValue(formData, 'description'),
+		visibility: stringValue(formData, 'visibility'),
 		date: stringValue(formData, 'date'),
 		start_time: stringValue(formData, 'start_time'),
 		duration_minutes: stringValue(formData, 'duration_minutes'),
@@ -104,6 +106,9 @@ export const actions: Actions = {
 		}
 		if (values.description.trim().length > 1000) {
 			return failUpdate(400, 'Description must be at most 1000 characters', values);
+		}
+		if (values.visibility !== 'public' && values.visibility !== 'unlisted') {
+			return failUpdate(400, 'Visibility is invalid', values);
 		}
 		if (!values.date) return failUpdate(400, 'Date is required', values);
 		if (!values.start_time) return failUpdate(400, 'Start time is required', values);
@@ -152,6 +157,7 @@ export const actions: Actions = {
 		const body: UpdatePlayBody = {
 			name: values.name,
 			description: values.description,
+			visibility: values.visibility as UpdatePlayBody['visibility'],
 			starts_at: startsAt,
 			duration_minutes: durationMinutes,
 			timezone: values.timezone,

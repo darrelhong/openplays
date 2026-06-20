@@ -20,6 +20,7 @@
 	const hasViewerStateBadge = $derived(
 		plays.some((play) => play.viewer_state && play.viewer_state !== 'not_joined')
 	);
+	const hasUnlisted = $derived(plays.some((play) => play.visibility === 'unlisted'));
 </script>
 
 <div class="hidden lg:block">
@@ -40,6 +41,9 @@
 					<th>Time</th>
 					<th>Host</th>
 					<th>Sport</th>
+					{#if hasUnlisted}
+						<th>Visibility</th>
+					{/if}
 					<th>Level</th>
 					<th>Fee</th>
 					<th>Slots/Type</th>
@@ -76,6 +80,13 @@
 								{capitalize(play.sport)}
 							</Badge>
 						</td>
+						{#if hasUnlisted}
+							<td>
+								{#if play.visibility === 'unlisted'}
+									<Badge variant="outline">Unlisted</Badge>
+								{/if}
+							</td>
+						{/if}
 						<td>{formatLevel(play.level_min, play.level_max)}</td>
 						<td>{formatPlayFee(play)}</td>
 						<td>

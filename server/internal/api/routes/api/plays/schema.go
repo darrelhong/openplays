@@ -9,27 +9,28 @@ import (
 
 // PlayPublic is the API response schema for a play.
 type PlayPublic struct {
-	ID          string            `json:"id"`
-	CreatedAt   *string           `json:"created_at,omitempty"`
-	UpdatedAt   *string           `json:"updated_at,omitempty"`
-	ListingType model.ListingType `json:"listing_type"`
-	Sport       model.Sport       `json:"sport"`
-	GameType    *model.GameType   `json:"game_type,omitempty"`
-	HostName    string            `json:"host_name"`
-	Name        *string           `json:"name,omitempty" doc:"Optional custom display name for user-created games"`
-	Description *string           `json:"description,omitempty" doc:"Optional description for user-created games"`
-	StartsAt    string            `json:"starts_at"`
-	EndsAt      string            `json:"ends_at"`
-	Timezone    string            `json:"timezone"`
-	CancelledAt *string           `json:"cancelled_at,omitempty"`
-	Venue       string            `json:"venue" doc:"Raw venue name as extracted from the message"`
-	VenueName   string            `json:"venue_name" doc:"Display name: resolved venue name, or raw venue name, or 'No venue'"`
-	VenueID     *int64            `json:"venue_id,omitempty"`
+	ID          string               `json:"id"`
+	CreatedAt   *string              `json:"created_at,omitempty"`
+	UpdatedAt   *string              `json:"updated_at,omitempty"`
+	ListingType model.ListingType    `json:"listing_type"`
+	Sport       model.Sport          `json:"sport"`
+	GameType    *model.GameType      `json:"game_type,omitempty"`
+	HostName    string               `json:"host_name"`
+	Name        *string              `json:"name,omitempty" doc:"Optional custom display name for user-created games"`
+	Description *string              `json:"description,omitempty" doc:"Optional description for user-created games"`
+	Visibility  model.PlayVisibility `json:"visibility" doc:"Public games appear in discovery. Unlisted games are viewable by link only." enum:"public,unlisted"`
+	StartsAt    string               `json:"starts_at"`
+	EndsAt      string               `json:"ends_at"`
+	Timezone    string               `json:"timezone"`
+	CancelledAt *string              `json:"cancelled_at,omitempty"`
+	Venue       string               `json:"venue" doc:"Raw venue name as extracted from the message"`
+	VenueName   string               `json:"venue_name" doc:"Display name: resolved venue name, or raw venue name, or 'No venue'"`
+	VenueID     *int64               `json:"venue_id,omitempty"`
 
-	VenuePostalCode *string  `json:"venue_postal_code,omitempty"`
-	VenueLatitude   *float64 `json:"venue_latitude,omitempty"`
-	VenueLongitude  *float64 `json:"venue_longitude,omitempty"`
-	VenueGooglePlaceID *string `json:"venue_google_place_id,omitempty"`
+	VenuePostalCode    *string  `json:"venue_postal_code,omitempty"`
+	VenueLatitude      *float64 `json:"venue_latitude,omitempty"`
+	VenueLongitude     *float64 `json:"venue_longitude,omitempty"`
+	VenueGooglePlaceID *string  `json:"venue_google_place_id,omitempty"`
 
 	LevelMin *string `json:"level_min,omitempty"`
 	LevelMax *string `json:"level_max,omitempty"`

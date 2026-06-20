@@ -47,6 +47,7 @@ type Play struct {
 	CancelledBy          *string
 	Name                 *string
 	Description          *string
+	Visibility           model.PlayVisibility
 }
 
 type PlayEvent struct {

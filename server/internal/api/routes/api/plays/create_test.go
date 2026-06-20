@@ -44,6 +44,12 @@ func (f *fakeCreatePlayStore) CreatePlay(_ context.Context, arg db.CreatePlayPar
 	p.HostName = arg.HostName
 	p.Name = arg.Name
 	p.Description = arg.Description
+	if visibility, ok := arg.Visibility.(model.PlayVisibility); ok {
+		p.Visibility = visibility
+	}
+	if p.Visibility == "" {
+		p.Visibility = model.PlayVisibilityPublic
+	}
 	p.StartsAt = arg.StartsAt
 	p.EndsAt = arg.EndsAt
 	p.CreatedBy = arg.CreatedBy
@@ -154,6 +160,9 @@ func TestCreatePlay_Success(t *testing.T) {
 	if playStore.lastArgs.Description == nil || *playStore.lastArgs.Description != "Bring water" {
 		t.Fatalf("description = %v, want trimmed description", playStore.lastArgs.Description)
 	}
+	if playStore.lastArgs.Visibility != model.PlayVisibilityPublic {
+		t.Fatalf("visibility = %v, want public", playStore.lastArgs.Visibility)
+	}
 	var out plays.PlayPublic
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -163,6 +172,47 @@ func TestCreatePlay_Success(t *testing.T) {
 	}
 	if out.Description == nil || *out.Description != "Bring water" {
 		t.Fatalf("response description = %v, want Bring water", out.Description)
+	}
+	if out.Visibility != model.PlayVisibilityPublic {
+		t.Fatalf("response visibility = %q, want public", out.Visibility)
+	}
+}
+
+func TestCreatePlay_CanCreateUnlisted(t *testing.T) {
+	now := time.Now()
+	playStore := &fakeCreatePlayStore{
+		play: db.Play{
+			ID: "play-1", ListingType: model.ListingPlay, Currency: "SGD",
+			Timezone: "Asia/Singapore", CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setupCreateTest(activeSession(), playStore)
+	defer ts.Close()
+
+	body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","visibility":"unlisted","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+		futureStart().Format(time.RFC3339))
+	req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if playStore.lastArgs.Visibility != model.PlayVisibilityUnlisted {
+		t.Fatalf("visibility = %v, want unlisted", playStore.lastArgs.Visibility)
+	}
+	var out plays.PlayPublic
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.Visibility != model.PlayVisibilityUnlisted {
+		t.Fatalf("response visibility = %q, want unlisted", out.Visibility)
 	}
 }
 

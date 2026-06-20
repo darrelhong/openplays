@@ -120,6 +120,62 @@ func TestGetPlayDetail_VisibilityAndDerivedCounts(t *testing.T) {
 	}
 }
 
+func TestGetPlayDetail_UnlistedGameIsViewableByLink(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-unlisted-host")
+	playID := createUserPlay(t, ctx, queries, creatorID, 4, ptrString("MB"), ptrString("HI"))
+	play, err := queries.GetPlayByID(ctx, playID)
+	if err != nil {
+		t.Fatalf("GetPlayByID seed: %v", err)
+	}
+	if _, err := queries.UpdateUserCreatedPlay(ctx, db.UpdateUserCreatedPlayParams{
+		ID:          playID,
+		Visibility:  model.PlayVisibilityUnlisted,
+		Name:        play.Name,
+		Description: play.Description,
+		GameType:    play.GameType,
+		StartsAt:    play.StartsAt,
+		EndsAt:      play.EndsAt,
+		Timezone:    play.Timezone,
+		LevelMin:    play.LevelMin,
+		LevelMax:    play.LevelMax,
+		LevelMinOrd: play.LevelMinOrd,
+		LevelMaxOrd: play.LevelMaxOrd,
+		Fee:         play.Fee,
+		MaxPlayers:  play.MaxPlayers,
+		Courts:      play.Courts,
+	}); err != nil {
+		t.Fatalf("UpdateUserCreatedPlay visibility: %v", err)
+	}
+
+	ts := setupGetDetailTest(&fakeAuthStore{sessionErr: context.Canceled}, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		Visibility model.PlayVisibility `json:"visibility"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.Visibility != model.PlayVisibilityUnlisted {
+		t.Fatalf("visibility = %q, want unlisted", out.Visibility)
+	}
+}
+
 func TestGetPlayDetail_HistoryEventsVisibleToCurrentParticipantsOnly(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

@@ -136,6 +136,7 @@ export function makePlay(overrides: Partial<Play> = {}): Play {
 		max_players: 6,
 		slots_left: 5,
 		courts: 2,
+		visibility: 'public',
 		contacts: null,
 		meta: null,
 		source: 'user',

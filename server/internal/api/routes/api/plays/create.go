@@ -16,24 +16,25 @@ import (
 
 type CreateInput struct {
 	Body struct {
-		Sport           model.Sport       `json:"sport" required:"true" doc:"Sport type" enum:"badminton,tennis,football,pickleball"`
-		Venue           string            `json:"venue" required:"true" doc:"Venue name (free text)"`
-		VenueID         *int64            `json:"venue_id,omitempty" doc:"Stored venue ID selected from venue search"`
-		Name            *string           `json:"name,omitempty" doc:"Optional custom game name" maxLength:"80"`
-		Description     *string           `json:"description,omitempty" doc:"Optional game description" maxLength:"1000"`
-		StartsAt        string            `json:"starts_at" required:"true" doc:"Start time in RFC3339 format"`
-		DurationMinutes int               `json:"duration_minutes" required:"true" doc:"Duration in minutes (must be multiple of 15, max 300)" minimum:"15" maximum:"300"`
-		Timezone        string            `json:"timezone" doc:"IANA timezone, e.g. Asia/Singapore" default:"Asia/Singapore"`
-		GameType        *model.GameType   `json:"game_type,omitempty" doc:"Game type" enum:"doubles,singles,mixed_doubles,"`
-		LevelMin        *string           `json:"level_min,omitempty" doc:"Minimum level code"`
-		LevelMax        *string           `json:"level_max,omitempty" doc:"Maximum level code"`
-		Fee             *int64            `json:"fee,omitempty" doc:"Fee in cents"`
-		Currency        string            `json:"currency" doc:"Currency code" default:"SGD"`
-		MaxPlayers      *int64            `json:"max_players,omitempty" doc:"Maximum number of players"`
-		SlotsLeft       *int64            `json:"slots_left,omitempty" doc:"Available slots"`
-		Courts          *int64            `json:"courts,omitempty" doc:"Number of courts"`
-		Contacts        model.Contacts    `json:"contacts,omitempty" doc:"Contact methods"`
-		GenderPref      *model.GenderPref `json:"gender_pref,omitempty" doc:"Gender preference" enum:"all,male_only,female_only,"`
+		Sport           model.Sport           `json:"sport" required:"true" doc:"Sport type" enum:"badminton,tennis,football,pickleball"`
+		Venue           string                `json:"venue" required:"true" doc:"Venue name (free text)"`
+		VenueID         *int64                `json:"venue_id,omitempty" doc:"Stored venue ID selected from venue search"`
+		Name            *string               `json:"name,omitempty" doc:"Optional custom game name" maxLength:"80"`
+		Description     *string               `json:"description,omitempty" doc:"Optional game description" maxLength:"1000"`
+		Visibility      *model.PlayVisibility `json:"visibility,omitempty" doc:"Set to unlisted to hide from public discovery while keeping direct-link access" enum:"public,unlisted"`
+		StartsAt        string                `json:"starts_at" required:"true" doc:"Start time in RFC3339 format"`
+		DurationMinutes int                   `json:"duration_minutes" required:"true" doc:"Duration in minutes (must be multiple of 15, max 300)" minimum:"15" maximum:"300"`
+		Timezone        string                `json:"timezone" doc:"IANA timezone, e.g. Asia/Singapore" default:"Asia/Singapore"`
+		GameType        *model.GameType       `json:"game_type,omitempty" doc:"Game type" enum:"doubles,singles,mixed_doubles,"`
+		LevelMin        *string               `json:"level_min,omitempty" doc:"Minimum level code"`
+		LevelMax        *string               `json:"level_max,omitempty" doc:"Maximum level code"`
+		Fee             *int64                `json:"fee,omitempty" doc:"Fee in cents"`
+		Currency        string                `json:"currency" doc:"Currency code" default:"SGD"`
+		MaxPlayers      *int64                `json:"max_players,omitempty" doc:"Maximum number of players"`
+		SlotsLeft       *int64                `json:"slots_left,omitempty" doc:"Available slots"`
+		Courts          *int64                `json:"courts,omitempty" doc:"Number of courts"`
+		Contacts        model.Contacts        `json:"contacts,omitempty" doc:"Contact methods"`
+		GenderPref      *model.GenderPref     `json:"gender_pref,omitempty" doc:"Gender preference" enum:"all,male_only,female_only,"`
 	}
 }
 
@@ -92,6 +93,10 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		if err != nil {
 			return nil, huma.Error422UnprocessableEntity(err.Error())
 		}
+		visibility, err := cleanPlayVisibility(input.Body.Visibility, model.PlayVisibilityPublic)
+		if err != nil {
+			return nil, err
+		}
 
 		// Compute level ordinals if provided
 		var levelMinOrd, levelMaxOrd *int64
@@ -134,6 +139,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			HostName:    user.DisplayName,
 			Name:        name,
 			Description: description,
+			Visibility:  visibility,
 			StartsAt:    startsAt,
 			EndsAt:      endsAt,
 			Timezone:    input.Body.Timezone,
@@ -207,6 +213,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 				HostName:           play.HostName,
 				Name:               play.Name,
 				Description:        play.Description,
+				Visibility:         play.Visibility,
 				StartsAt:           play.StartsAt.Format(time.RFC3339),
 				EndsAt:             play.EndsAt.Format(time.RFC3339),
 				Timezone:           play.Timezone,

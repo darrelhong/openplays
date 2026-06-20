@@ -22,7 +22,7 @@ WHERE user_id = ? AND play_id IN (sqlc.slice('play_ids'));
 -- Paginated upcoming listings favourited by the current user.
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
