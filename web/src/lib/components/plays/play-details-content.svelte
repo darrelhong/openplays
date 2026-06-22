@@ -46,15 +46,16 @@
 	const historyEvents = $derived(play.history_events ?? []);
 	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
 	const addedCount = $derived(play.added_count ?? addedParticipants.length);
+	const rosteredCount = $derived(confirmedCount + addedCount);
 	const isCancelled = $derived(play.cancelled_at != null);
 	const openSlots = $derived(isCancelled ? 0 : Math.max(play.slots_left ?? 0, 0));
 	const openSlotRows = $derived(
-		Array.from({ length: Math.min(openSlots, 12) }, (_, index) => confirmedCount + index + 1)
+		Array.from({ length: Math.min(openSlots, 12) }, (_, index) => rosteredCount + index + 1)
 	);
 	const slotsLeftLabel = $derived(isCancelled ? '0' : (play.slots_left ?? '-'));
 	const hiddenOpenSlotCount = $derived(Math.max(openSlots - openSlotRows.length, 0));
 	const playerCountLabel = $derived(
-		play.max_players == null ? String(confirmedCount) : `${confirmedCount}/${play.max_players}`
+		play.max_players == null ? String(rosteredCount) : `${rosteredCount}/${play.max_players}`
 	);
 	const extraEntries = $derived(
 		Object.entries(meta).filter(([key]) => !knownMetaKeys.includes(key))
@@ -168,26 +169,31 @@
 {/snippet}
 
 {#snippet confirmedPlayer(participant: Participant)}
-	<li class="py-2 flex gap-3 items-center justify-between">
-		<div class="flex gap-3 min-w-0 items-center">
-			{@render playerAvatar(participant)}
-			<div class="min-w-0">
-				<p class="text-sm text-foreground font-medium break-words">
-					{participantName(participant)}
-				</p>
-				{#if participant.is_host}
-					<p class="text-xs text-muted">Host</p>
-				{:else if participant.is_guest}
-					<p class="text-xs text-muted">Guest</p>
-				{/if}
+	<li class="py-2">
+		<div class="flex gap-3 items-center justify-between">
+			<div class="flex gap-3 min-w-0 items-center">
+				{@render playerAvatar(participant)}
+				<div class="min-w-0">
+					<p class="text-sm text-foreground font-medium break-words">
+						{participantName(participant)}
+					</p>
+					{#if participant.is_host}
+						<p class="text-xs text-muted">Host</p>
+					{:else if participant.is_guest}
+						<p class="text-xs text-muted">Guest</p>
+					{/if}
+				</div>
+			</div>
+			<div class="shrink-0">
+				{@render confirmedBadge()}
 			</div>
 		</div>
-		<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
-			{@render confirmedBadge()}
-			{#if canManageActive && !participant.is_host}
+
+		{#if canManageActive && !participant.is_host}
+			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
 				{@render removeParticipantDialog(participant)}
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</li>
 {/snippet}
 
@@ -277,26 +283,6 @@
 		</div>
 		<Badge variant="outline" class="h-6">Open</Badge>
 	</li>
-{/snippet}
-
-{#snippet addedRosterSection()}
-	<section>
-		<div class="mb-2 flex gap-3 items-center justify-between">
-			<h2 class="text-sm text-foreground font-semibold">Added</h2>
-			<span class="text-xs text-muted">{addedParticipants.length}</span>
-		</div>
-		{#if addedParticipants.length > 0}
-			<ul class="px-3 border border-border rounded-md divide-border divide-y">
-				{#each addedParticipants as participant (participant.id)}
-					{@render addedPlayer(participant)}
-				{/each}
-			</ul>
-		{:else}
-			<p class="text-sm text-muted px-3 py-3 border border-border rounded-md border-dashed">
-				None yet
-			</p>
-		{/if}
-	</section>
 {/snippet}
 
 {#snippet rosterSection(title: string, participants: Participant[])}
@@ -461,6 +447,9 @@
 						{#each confirmedParticipants as participant (participant.id)}
 							{@render confirmedPlayer(participant)}
 						{/each}
+						{#each addedParticipants as participant (participant.id)}
+							{@render addedPlayer(participant)}
+						{/each}
 						{#each openSlotRows as slotNumber (slotNumber)}
 							{@render openPlayerSlot()}
 						{/each}
@@ -469,14 +458,9 @@
 						{/if}
 					</ul>
 
-					{#if canManageActive || addedParticipants.length > 0 || waitlist.length > 0}
+					{#if canManageActive || waitlist.length > 0}
 						<div class="mt-4 space-y-4">
-							{#if canManageActive || addedParticipants.length > 0}
-								{@render addedRosterSection()}
-							{/if}
-							{#if canManageActive || waitlist.length > 0}
-								{@render rosterSection('Waitlist', waitlist)}
-							{/if}
+							{@render rosterSection('Waitlist', waitlist)}
 						</div>
 					{/if}
 
