@@ -1,0 +1,23 @@
+package notifications
+
+type DeliveryPolicy struct {
+	Feed bool
+	Push bool
+}
+
+var deliveryPoliciesByKind = map[string]DeliveryPolicy{
+	"play.waitlist_joined":  {Feed: true, Push: true},
+	"play.player_added":     {Feed: true, Push: true},
+	"play.player_joined":    {Feed: true, Push: true},
+	"play.player_confirmed": {Feed: true, Push: true},
+	"play.player_left":      {Feed: true, Push: true},
+}
+
+var defaultDeliveryPolicy = DeliveryPolicy{Feed: true, Push: true}
+
+func deliveryPolicyForKind(kind string) DeliveryPolicy {
+	if policy, ok := deliveryPoliciesByKind[kind]; ok {
+		return policy
+	}
+	return defaultDeliveryPolicy
+}
