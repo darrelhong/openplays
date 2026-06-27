@@ -135,6 +135,20 @@ type UserBlock struct {
 	CreatedAt time.Time
 }
 
+type UserNotification struct {
+	ID        string
+	UserID    string
+	Title     string
+	Body      *string
+	Url       *string
+	Tag       *string
+	Kind      *string
+	PlayID    *string
+	Data      *string
+	ReadAt    *time.Time
+	CreatedAt time.Time
+}
+
 type Venue struct {
 	ID            int64
 	PostalCode    *string
@@ -150,4 +164,22 @@ type Venue struct {
 type VenueAlias struct {
 	Alias   string
 	VenueID int64
+}
+
+type WebPushSubscription struct {
+	Endpoint         string
+	UserID           string
+	Auth             string
+	P256dh           string
+	ExpirationTimeMs *int64
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type WebPushVapidKey struct {
+	ID         int64
+	PublicKey  string
+	PrivateKey string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }

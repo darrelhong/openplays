@@ -3,6 +3,7 @@ module openplays/server
 go 1.26.1
 
 require (
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/celestix/gotgproto v1.0.0-beta22
 	github.com/danielgtaylor/huma/v2 v2.37.3
 	github.com/glebarez/sqlite v1.11.0
@@ -28,6 +29,7 @@ require (
 	github.com/go-faster/jx v1.1.0 // indirect
 	github.com/go-faster/xor v1.0.0 // indirect
 	github.com/go-faster/yaml v0.4.6 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/gotd/ige v0.2.2 // indirect
 	github.com/gotd/neo v0.1.5 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
