@@ -9,6 +9,8 @@ import (
 
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
+	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 )
 
 type LeaveInput struct {
@@ -20,11 +22,12 @@ type LeaveStore interface {
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	GetPlayParticipantByPlayAndUser(ctx context.Context, arg db.GetPlayParticipantByPlayAndUserParams) (db.PlayParticipant, error)
 	DeletePlayParticipantByPlayAndUser(ctx context.Context, arg db.DeletePlayParticipantByPlayAndUserParams) error
+	ListPlayHostUserIDsByPlay(ctx context.Context, playID string) ([]string, error)
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
-func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Context, func(huma.Context))) {
+func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
 	huma.Register(api, huma.Operation{
 		OperationID: "leave-play",
 		Summary:     "Leave a play",
@@ -91,6 +94,11 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 		if play.CreatedBy != nil && play.MaxPlayers != nil {
 			if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {
 				return nil, huma.Error500InternalServerError("failed to update slots_left")
+			}
+		}
+		if participant.Status == model.ParticipantConfirmed || participant.Status == model.ParticipantAdded {
+			if hostUserIDs, err := store.ListPlayHostUserIDsByPlay(ctx, input.ID); err == nil {
+				_ = notifications.NotifyHostsPlayerLeft(ctx, notifier, notifications.PlaySnapshotFromDB(play), hostUserIDs, user.ID, user.DisplayName)
 			}
 		}
 

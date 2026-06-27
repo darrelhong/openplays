@@ -18,18 +18,68 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 	"openplays/server/internal/testdb"
 )
 
-func setupHostRosterTest(authStore *fakeAuthStore, store *db.Queries) *httptest.Server {
+func setupHostRosterTest(authStore *fakeAuthStore, store *db.Queries, notifiers ...notifications.Sender) *httptest.Server {
 	svc := auth.NewService(authStore)
+	var notifier notifications.Sender
+	if len(notifiers) > 0 {
+		notifier = notifiers[0]
+	}
 
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("test", "0.0.1"))
 	grp := huma.NewGroup(api, "/api/plays")
-	plays.RegisterHostRosterManagement(grp, store, authmw.RequireAuth(api, svc))
+	plays.RegisterHostRosterManagement(grp, store, authmw.RequireAuth(api, svc), notifier)
 
 	return httptest.NewServer(r)
+}
+
+func TestHostAddWaitlistedParticipant_NotifiesAddedPlayer(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "host-notify-added")
+	waitlistedID := createRouteTestUser(t, ctx, queries, "player-notify-added")
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	waitlisted := seedWaitlistedParticipant(t, ctx, queries, playID, waitlistedID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	notifier := &fakeNotificationSender{}
+	ts := setupHostRosterTest(sessionWithProfile(creatorID, nil), queries, notifier)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/plays/%s/participants/%d/accept", ts.URL, playID, waitlisted.ID), nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if len(notifier.calls) != 1 {
+		t.Fatalf("notification calls = %d, want 1", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.userID != waitlistedID {
+		t.Fatalf("notification user = %q, want added player %q", call.userID, waitlistedID)
+	}
+	if call.payload.Kind != "play.player_added" {
+		t.Fatalf("notification kind = %q, want play.player_added", call.payload.Kind)
+	}
+	if call.payload.URL != "/play/"+playID {
+		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
 }
 
 func TestHostAddWaitlistedParticipant_WhenSlotOpen(t *testing.T) {

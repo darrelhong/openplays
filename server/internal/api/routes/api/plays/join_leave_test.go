@@ -20,20 +20,73 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 	"openplays/server/internal/testdb"
 )
 
-func setupJoinLeaveTest(authStore *fakeAuthStore, store *db.Queries) *httptest.Server {
+func setupJoinLeaveTest(authStore *fakeAuthStore, store *db.Queries, notifiers ...notifications.Sender) *httptest.Server {
 	svc := auth.NewService(authStore)
+	var notifier notifications.Sender
+	if len(notifiers) > 0 {
+		notifier = notifiers[0]
+	}
 
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("test", "0.0.1"))
 	grp := huma.NewGroup(api, "/api/plays")
-	plays.RegisterJoin(grp, store, authmw.RequireAuth(api, svc))
-	plays.RegisterLeave(grp, store, authmw.RequireAuth(api, svc))
-	plays.RegisterConfirmParticipant(grp, store, authmw.RequireAuth(api, svc))
+	plays.RegisterJoin(grp, store, authmw.RequireAuth(api, svc), notifier)
+	plays.RegisterLeave(grp, store, authmw.RequireAuth(api, svc), notifier)
+	plays.RegisterConfirmParticipant(grp, store, authmw.RequireAuth(api, svc), notifier)
 
 	return httptest.NewServer(r)
+}
+
+func TestJoinPlay_WaitlistNotifiesHost(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-notify-waitlist")
+	existingID := createRouteTestUser(t, ctx, queries, "existing-notify-waitlist")
+	joinerID := createRouteTestUser(t, ctx, queries, "joiner-notify-waitlist")
+
+	playID := createUserPlay(t, ctx, queries, creatorID, 2, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedConfirmedParticipant(t, ctx, queries, playID, existingID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	notifier := &fakeNotificationSender{}
+	authStore := sessionWithProfile(joinerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries, notifier)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/join", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if len(notifier.calls) != 1 {
+		t.Fatalf("notification calls = %d, want 1", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.userID != creatorID {
+		t.Fatalf("notification user = %q, want host %q", call.userID, creatorID)
+	}
+	if call.payload.Kind != "play.waitlist_joined" {
+		t.Fatalf("notification kind = %q, want play.waitlist_joined", call.payload.Kind)
+	}
+	if call.payload.URL != "/play/"+playID {
+		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
 }
 
 func TestJoinPlay_AutoConfirmWhenRatingMatchesAndSpaceExists(t *testing.T) {
@@ -50,8 +103,9 @@ func TestJoinPlay_AutoConfirmWhenRatingMatchesAndSpaceExists(t *testing.T) {
 		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
 	}
 
+	notifier := &fakeNotificationSender{}
 	authStore := sessionWithProfile(joinerID, ptrString(`{"badminton":{"level":"HB"}}`))
-	ts := setupJoinLeaveTest(authStore, queries)
+	ts := setupJoinLeaveTest(authStore, queries, notifier)
 	defer ts.Close()
 
 	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/join", nil)
@@ -79,6 +133,22 @@ func TestJoinPlay_AutoConfirmWhenRatingMatchesAndSpaceExists(t *testing.T) {
 	}
 	if out.SlotsLeft == nil || *out.SlotsLeft != 1 {
 		t.Fatalf("slots_left = %v, want 1", out.SlotsLeft)
+	}
+	if len(notifier.calls) != 1 {
+		t.Fatalf("notification calls = %d, want 1", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.userID != creatorID {
+		t.Fatalf("notification user = %q, want host %q", call.userID, creatorID)
+	}
+	if call.payload.Kind != "play.player_joined" {
+		t.Fatalf("notification kind = %q, want play.player_joined", call.payload.Kind)
+	}
+	if call.payload.Body != "Test User joined the game" {
+		t.Fatalf("notification body = %q, want player joined copy", call.payload.Body)
+	}
+	if call.payload.URL != "/play/"+playID {
+		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
 	}
 }
 
@@ -302,6 +372,140 @@ func TestLeavePlay_RemovesParticipantAndFreesSlot(t *testing.T) {
 	}
 }
 
+func TestLeavePlay_NotifiesHostWhenPlayerLeavesGame(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-notify-left")
+	joinerID := createRouteTestUser(t, ctx, queries, "joiner-notify-left")
+
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedConfirmedParticipant(t, ctx, queries, playID, joinerID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	notifier := &fakeNotificationSender{}
+	authStore := sessionWithProfile(joinerID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries, notifier)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/plays/"+playID+"/participants/me", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", resp.StatusCode)
+	}
+	if len(notifier.calls) != 1 {
+		t.Fatalf("notification calls = %d, want 1", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.userID != creatorID {
+		t.Fatalf("notification user = %q, want host %q", call.userID, creatorID)
+	}
+	if call.payload.Kind != "play.player_left" {
+		t.Fatalf("notification kind = %q, want play.player_left", call.payload.Kind)
+	}
+	if call.payload.Body != "Test User left the game" {
+		t.Fatalf("notification body = %q, want player left copy", call.payload.Body)
+	}
+	if call.payload.URL != "/play/"+playID {
+		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
+}
+
+func TestLeavePlay_NotifiesHostWhenAddedPlayerLeavesGame(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-notify-added-left")
+	addedID := createRouteTestUser(t, ctx, queries, "added-notify-left")
+
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedAddedParticipant(t, ctx, queries, playID, addedID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	notifier := &fakeNotificationSender{}
+	authStore := sessionWithProfile(addedID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries, notifier)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/plays/"+playID+"/participants/me", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", resp.StatusCode)
+	}
+	if len(notifier.calls) != 1 {
+		t.Fatalf("notification calls = %d, want 1", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.userID != creatorID {
+		t.Fatalf("notification user = %q, want host %q", call.userID, creatorID)
+	}
+	if call.payload.Kind != "play.player_left" {
+		t.Fatalf("notification kind = %q, want play.player_left", call.payload.Kind)
+	}
+	if call.payload.URL != "/play/"+playID {
+		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
+}
+
+func TestLeavePlay_DoesNotNotifyHostWhenPlayerLeavesWaitlist(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-no-notify-waitlist-left")
+	waitlistedID := createRouteTestUser(t, ctx, queries, "waitlisted-no-notify-left")
+
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedWaitlistedParticipant(t, ctx, queries, playID, waitlistedID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	notifier := &fakeNotificationSender{}
+	authStore := sessionWithProfile(waitlistedID, ptrString(`{"badminton":{"level":"HB"}}`))
+	ts := setupJoinLeaveTest(authStore, queries, notifier)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodDelete, ts.URL+"/api/plays/"+playID+"/participants/me", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", resp.StatusCode)
+	}
+	if len(notifier.calls) != 0 {
+		t.Fatalf("notification calls = %d, want 0", len(notifier.calls))
+	}
+}
+
 func TestLeavePlay_RejectsHostLeavingRoster(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
@@ -351,8 +555,9 @@ func TestConfirmParticipant_ChangesAddedToConfirmed(t *testing.T) {
 		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
 	}
 
+	notifier := &fakeNotificationSender{}
 	authStore := sessionWithProfile(playerID, ptrString(`{"badminton":{"level":"HB"}}`))
-	ts := setupJoinLeaveTest(authStore, queries)
+	ts := setupJoinLeaveTest(authStore, queries, notifier)
 	defer ts.Close()
 
 	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/participants/me/confirm", nil)
@@ -391,6 +596,22 @@ func TestConfirmParticipant_ChangesAddedToConfirmed(t *testing.T) {
 	}
 	if participant.Status != model.ParticipantConfirmed {
 		t.Fatalf("participant status = %q, want confirmed", participant.Status)
+	}
+	if len(notifier.calls) != 1 {
+		t.Fatalf("notification calls = %d, want 1", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.userID != creatorID {
+		t.Fatalf("notification user = %q, want host %q", call.userID, creatorID)
+	}
+	if call.payload.Kind != "play.player_confirmed" {
+		t.Fatalf("notification kind = %q, want play.player_confirmed", call.payload.Kind)
+	}
+	if call.payload.Body != "Test User confirmed their spot" {
+		t.Fatalf("notification body = %q, want player confirmed copy", call.payload.Body)
+	}
+	if call.payload.URL != "/play/"+playID {
+		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
 	}
 }
 

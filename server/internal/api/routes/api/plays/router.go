@@ -6,11 +6,12 @@ import (
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
+	"openplays/server/internal/notifications"
 )
 
 // Register registers play endpoints.
 // Public: /plays list and get. Protected: /plays mutations and /me/plays.
-func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
+func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier notifications.Sender) {
 	grp := huma.NewGroup(api, "/plays")
 
 	RegisterMyList(api, queries, authmw.RequireAuth(api, svc))
@@ -25,8 +26,8 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 	RegisterUpdate(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterDelete(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterFavourite(grp, queries, authmw.RequireAuth(api, svc))
-	RegisterJoin(grp, queries, authmw.RequireAuth(api, svc))
-	RegisterLeave(grp, queries, authmw.RequireAuth(api, svc))
-	RegisterConfirmParticipant(grp, queries, authmw.RequireAuth(api, svc))
-	RegisterHostRosterManagement(grp, queries, authmw.RequireAuth(api, svc))
+	RegisterJoin(grp, queries, authmw.RequireAuth(api, svc), notifier)
+	RegisterLeave(grp, queries, authmw.RequireAuth(api, svc), notifier)
+	RegisterConfirmParticipant(grp, queries, authmw.RequireAuth(api, svc), notifier)
+	RegisterHostRosterManagement(grp, queries, authmw.RequireAuth(api, svc), notifier)
 }

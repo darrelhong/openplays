@@ -11,6 +11,7 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 )
 
 type JoinInput struct {
@@ -29,11 +30,12 @@ type JoinStore interface {
 	GetPlayParticipantByPlayAndUser(ctx context.Context, arg db.GetPlayParticipantByPlayAndUserParams) (db.PlayParticipant, error)
 	CreatePlayParticipant(ctx context.Context, arg db.CreatePlayParticipantParams) (db.PlayParticipant, error)
 	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
+	ListPlayHostUserIDsByPlay(ctx context.Context, playID string) ([]string, error)
 	UpdatePlaySlotsLeft(ctx context.Context, id string) error
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
-func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Context, func(huma.Context))) {
+func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
 	huma.Register(api, huma.Operation{
 		OperationID: "join-play",
 		Summary:     "Join a play",
@@ -119,6 +121,14 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 
 		if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {
 			return nil, huma.Error500InternalServerError("failed to update slots_left")
+		}
+		if hostUserIDs, err := store.ListPlayHostUserIDsByPlay(ctx, input.ID); err == nil {
+			playSnapshot := notifications.PlaySnapshotFromDB(play)
+			if status == model.ParticipantWaitlisted {
+				_ = notifications.NotifyHostWaitlistJoined(ctx, notifier, playSnapshot, hostUserIDs, user.DisplayName)
+			} else if status == model.ParticipantConfirmed {
+				_ = notifications.NotifyHostsPlayerJoined(ctx, notifier, playSnapshot, hostUserIDs, user.ID, user.DisplayName)
+			}
 		}
 
 		finalReservedCount := reservedCount

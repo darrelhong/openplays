@@ -10,6 +10,7 @@ import (
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 )
 
 type AcceptParticipantInput struct {
@@ -41,7 +42,7 @@ type HostRosterStore interface {
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
-func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddleware func(huma.Context, func(huma.Context))) {
+func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
 	huma.Register(api, huma.Operation{
 		OperationID: "accept-play-participant",
 		Summary:     "Add a waitlisted participant",
@@ -106,6 +107,9 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 			Metadata:           metadata,
 		}); err != nil {
 			return nil, huma.Error500InternalServerError("failed to record play event")
+		}
+		if subject.UserID != nil {
+			_ = notifications.NotifyPlayerAdded(ctx, notifier, notifications.PlaySnapshotFromDB(play), *subject.UserID)
 		}
 
 		slots := deriveSlotsLeft(*play.MaxPlayers, reservedCount+1)
