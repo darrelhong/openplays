@@ -13,6 +13,7 @@
 	import type { Snippet } from 'svelte';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import UserDropdownMenu from '$lib/components/nav/user-dropdown-menu.svelte';
+	import NotificationPopover from '$lib/components/notifications/notification-popover.svelte';
 	import { getTheme, setTheme, type Theme } from '$lib/theme.svelte';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
@@ -68,10 +69,13 @@
 			</button>
 
 			{#if data.user}
+				<div class="sm:order-2">
+					<NotificationPopover />
+				</div>
 				<div class="sm:hidden">
 					<UserDropdownMenu user={data.user} />
 				</div>
-				<div class="gap-3 hidden items-center sm:flex">
+				<div class="gap-3 hidden items-center sm:flex sm:order-1">
 					<a href={resolve('/my-games')} class="text-sm text-muted hover:text-foreground"
 						>My Games</a
 					>
@@ -81,20 +85,20 @@
 					<a href={resolve('/create')} class="text-sm text-muted hover:text-foreground"
 						>Create Game</a
 					>
-					<a
-						href={resolve('/profile')}
-						class="text-foreground flex gap-2 items-center hover:text-foreground/80"
-					>
-						<UserAvatar
-							src={data.user.photo_url}
-							nameForFallback={data.user.username ?? data.user.display_name}
-						/>
-						<span class="text-sm">{data.user.username ?? data.user.display_name}</span>
-					</a>
-					<form method="POST" action="/logout">
-						<button type="submit" class="text-sm text-muted hover:text-foreground">Logout</button>
-					</form>
 				</div>
+				<a
+					href={resolve('/profile')}
+					class="text-foreground gap-2 hidden items-center hover:text-foreground/80 sm:flex sm:order-3"
+				>
+					<UserAvatar
+						src={data.user.photo_url}
+						nameForFallback={data.user.username ?? data.user.display_name}
+					/>
+					<span class="text-sm">{data.user.username ?? data.user.display_name}</span>
+				</a>
+				<form method="POST" action="/logout" class="hidden sm:block sm:order-4">
+					<button type="submit" class="text-sm text-muted hover:text-foreground">Logout</button>
+				</form>
 			{:else}
 				<!-- Don't show sign in button on login page -->
 				{#if data.showLoginButton && page.url.pathname !== '/login'}

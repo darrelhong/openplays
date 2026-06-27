@@ -148,6 +148,86 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/notifications/': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List notifications
+		 * @description Returns the current user's latest notifications.
+		 */
+		get: operations['list-notifications'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/notifications/push/subscriptions': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Subscribe to Web Push
+		 * @description Stores a Web Push subscription for the current user.
+		 */
+		post: operations['subscribe-web-push'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/notifications/push/vapid-public-key': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Get Web Push public key
+		 * @description Returns the VAPID public key for Web Push subscriptions.
+		 */
+		get: operations['get-web-push-vapid-public-key'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/notifications/read': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Mark notifications read
+		 * @description Marks notifications as read for the current user.
+		 */
+		post: operations['mark-notifications-read'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/plays/': {
 		parameters: {
 			query?: never;
@@ -622,6 +702,15 @@ export interface components {
 			readonly $schema?: string;
 			items: components['schemas']['VenuePublic'][] | null;
 		};
+		ListOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ListOutputBody.json
+			 */
+			readonly $schema?: string;
+			notifications: components['schemas']['UserNotification'][] | null;
+		};
 		LoginInputBody: {
 			/**
 			 * Format: uri
@@ -641,6 +730,16 @@ export interface components {
 			readonly $schema?: string;
 			session_token: string;
 			user: components['schemas']['User'];
+		};
+		MarkReadInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/MarkReadInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Notification IDs to mark read. Empty marks all notifications read. */
+			ids?: string[] | null;
 		};
 		PagePlayPublic: {
 			/**
@@ -780,6 +879,22 @@ export interface components {
 			/** Format: int64 */
 			waitlist_count?: number;
 		};
+		PushSubscription: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PushSubscription.json
+			 */
+			readonly $schema?: string;
+			endpoint: string;
+			/** Format: int64 */
+			expirationTime?: number;
+			keys: components['schemas']['PushSubscriptionKeys'];
+		};
+		PushSubscriptionKeys: {
+			auth: string;
+			p256dh: string;
+		};
 		ResolveInputBody: {
 			/**
 			 * Format: uri
@@ -902,12 +1017,31 @@ export interface components {
 			updated_at: string;
 			username?: string;
 		};
+		UserNotification: {
+			body?: string;
+			created_at: string;
+			id: string;
+			kind?: string;
+			play_id?: string;
+			read_at?: string;
+			title: string;
+			url?: string;
+		};
 		UserSummary: {
 			display_name: string;
 			id: string;
 			photo_url?: string;
 			rating_code?: string;
 			username?: string;
+		};
+		VAPIDPublicKeyOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/VAPIDPublicKeyOutputBody.json
+			 */
+			readonly $schema?: string;
+			public_key: string;
 		};
 		VenuePublic: {
 			/**
@@ -1198,6 +1332,129 @@ export interface operations {
 				content: {
 					'application/json': components['schemas']['PagePlayPublic'];
 				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-notifications': {
+		parameters: {
+			query?: {
+				/** @description Maximum notifications to return */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ListOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'subscribe-web-push': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['PushSubscription'];
+			};
+		};
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'get-web-push-vapid-public-key': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['VAPIDPublicKeyOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'mark-notifications-read': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['MarkReadInputBody'];
+			};
+		};
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 			/** @description Error */
 			default: {
