@@ -9,9 +9,9 @@ func TestDeliveryPolicyForPlayKinds(t *testing.T) {
 		want DeliveryPolicy
 	}{
 		{
-			name: "waitlist joined stores feed only",
+			name: "waitlist joined stores feed and push",
 			kind: "play.waitlist_joined",
-			want: DeliveryPolicy{Feed: true, Push: false},
+			want: DeliveryPolicy{Feed: true, Push: true},
 		},
 		{
 			name: "player added stores feed and push",

@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { HOST, makePlay, SEED_USERS, startMockApi, type MockApi } from '$lib/testing/mock-api';
+import { dismissPushPrompt } from '$lib/testing/e2e';
 import type { IncomingMessage } from 'node:http';
 
 let mock: MockApi;
@@ -116,6 +117,7 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 	});
 
 	await page.goto('/create');
+	await dismissPushPrompt(page);
 
 	await selectOption(page, 'Sport', 'Badminton');
 	await page.getByLabel('Name').fill('Friday Friendly');

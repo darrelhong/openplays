@@ -37,6 +37,12 @@ func TestNotifyDoesNotBlockOnPushDelivery(t *testing.T) {
 }
 
 func TestNotifyCanStoreFeedWithoutPushDelivery(t *testing.T) {
+	// No real kind is feed-only today; register a synthetic one so the
+	// Push-gating branch in Notify stays covered.
+	const feedOnlyKind = "test.feed_only"
+	deliveryPoliciesByKind[feedOnlyKind] = DeliveryPolicy{Feed: true, Push: false}
+	t.Cleanup(func() { delete(deliveryPoliciesByKind, feedOnlyKind) })
+
 	store := &blockingWebPushStore{
 		listStarted: make(chan struct{}),
 		unblockList: make(chan struct{}),
@@ -50,7 +56,7 @@ func TestNotifyCanStoreFeedWithoutPushDelivery(t *testing.T) {
 
 	err := service.Notify(context.Background(), "user-1", Payload{
 		Title: "Friday Friendly",
-		Kind:  "play.waitlist_joined",
+		Kind:  feedOnlyKind,
 	})
 	if err != nil {
 		t.Fatalf("Notify: %v", err)

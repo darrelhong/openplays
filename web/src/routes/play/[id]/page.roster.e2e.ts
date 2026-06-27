@@ -7,6 +7,7 @@ import {
 	startMockApi,
 	type MockApi
 } from '$lib/testing/mock-api';
+import { dismissPushPrompt } from '$lib/testing/e2e';
 
 /**
  * End-to-end coverage of the play-detail roster flows in
@@ -61,6 +62,7 @@ test('eligible user joins a game directly', async ({ page, context }) => {
 	});
 
 	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
 
 	await expect(page.getByRole('button', { name: 'Join game' })).toBeVisible();
 	await confirmAction(page, 'Join game', 'Join game');
@@ -83,6 +85,7 @@ test('ineligible user joins the waitlist', async ({ page, context }) => {
 	});
 
 	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
 
 	await expect(page.getByRole('button', { name: 'Join waitlist' })).toBeVisible();
 	await confirmAction(page, 'Join waitlist', 'Join waitlist');
@@ -103,6 +106,7 @@ test('added player confirms their spot', async ({ page, context }) => {
 	});
 
 	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
 
 	await confirmAction(page, 'Confirm spot', 'Confirm spot');
 
@@ -118,6 +122,7 @@ test('added player declines their spot', async ({ page, context }) => {
 	});
 
 	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
 
 	await confirmAction(page, 'Decline', 'Decline');
 
@@ -139,6 +144,7 @@ test('confirmed user leaves the game', async ({ page, context }) => {
 	});
 
 	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
 
 	await confirmAction(page, 'Leave game', 'Leave game');
 
@@ -155,6 +161,7 @@ test('host adds a waitlisted player into the game', async ({ page, context }) =>
 	});
 
 	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
 
 	await confirmAction(page, 'Add Seed Low Intermediate', 'Add player');
 
@@ -173,6 +180,7 @@ test('host removes a waitlisted player', async ({ page, context }) => {
 	});
 
 	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
 
 	await confirmAction(page, 'Remove Seed Low Intermediate', 'Remove player');
 
@@ -192,6 +200,7 @@ test('host cancels the game from the edit page', async ({ page, context }) => {
 	});
 
 	await page.goto('/play/play-1/edit');
+	await dismissPushPrompt(page);
 	await confirmAction(page, 'Cancel game', 'Cancel game');
 
 	await expect(page).toHaveURL(/\/play\/play-1$/);

@@ -55,7 +55,7 @@
 				size="xs"
 				variant="ghost"
 				class="p-0 shrink-0 w-6"
-				aria-label="Close"
+				aria-label="Dismiss notification prompt"
 				onclick={onDismiss}
 			>
 				<X class="size-4" />
