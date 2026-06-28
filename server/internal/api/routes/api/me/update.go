@@ -11,6 +11,7 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/usernames"
 )
 
 type UpdateInput struct {
@@ -46,14 +47,14 @@ func RegisterUpdate(api huma.API, store ProfileStore) {
 			return nil, huma.Error422UnprocessableEntity("display_name cannot be empty")
 		}
 
-		// Username: if provided, trim and validate non-empty
+		// Username: if provided, normalize and validate for profile URLs.
 		username := user.Username
 		if input.Body.Username != nil {
-			trimmed := strings.TrimSpace(*input.Body.Username)
-			if trimmed == "" {
-				return nil, huma.Error422UnprocessableEntity("username cannot be empty")
+			normalized, err := usernames.Normalize(*input.Body.Username)
+			if err != nil {
+				return nil, huma.Error422UnprocessableEntity(err.Error())
 			}
-			username = &trimmed
+			username = &normalized
 		}
 
 		sportsProfile := user.SportsProfile

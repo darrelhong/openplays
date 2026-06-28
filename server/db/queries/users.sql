@@ -1,6 +1,6 @@
 -- name: UpsertUserByGoogleID :one
-INSERT INTO users (id, email, display_name, photo_url, google_id, updated_at)
-VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, google_id, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
 ON CONFLICT(google_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
@@ -9,8 +9,8 @@ ON CONFLICT(google_id) DO UPDATE SET
 RETURNING *;
 
 -- name: UpsertUserByFacebookID :one
-INSERT INTO users (id, email, display_name, photo_url, facebook_id, updated_at)
-VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, facebook_id, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
 ON CONFLICT(facebook_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
@@ -33,6 +33,23 @@ SELECT * FROM users WHERE id = ?;
 
 -- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = ?;
+
+-- name: GetActiveUserProfileByUsername :one
+SELECT id, display_name, username, photo_url, sports_profile
+FROM users
+WHERE username = ? AND status = 'active';
+
+-- name: CountRosteredPlaysByUser :one
+SELECT COUNT(DISTINCT play_id)
+FROM (
+    SELECT play_id
+    FROM play_hosts ph
+    WHERE ph.user_id = sqlc.arg('user_id')
+    UNION
+    SELECT play_id
+    FROM play_participants pp
+    WHERE pp.user_id = sqlc.arg('user_id') AND pp.status IN ('confirmed', 'added')
+);
 
 -- name: SearchActiveUsers :many
 SELECT id, display_name, username, photo_url, sports_profile

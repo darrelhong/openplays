@@ -16,9 +16,11 @@ import (
 
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/usernames"
 )
 
 const SessionDuration = 30 * 24 * time.Hour // 30 days rolling
+const usernameCollisionRetries = 8
 
 var (
 	ErrInvalidToken  = errors.New("invalid token")
@@ -132,52 +134,74 @@ func (s *Service) Login(ctx context.Context, id Identity) (*LoginResult, error) 
 func (s *Service) upsertUser(ctx context.Context, id Identity) (db.User, error) {
 	photoURL := ptrOrNil(id.PhotoURL)
 	email := normalizeEmail(id.Email)
+	usernameBase := usernames.BaseFromDisplayName(id.DisplayName)
 
 	var user db.User
 	var err error
 
-	switch id.Provider {
-	case ProviderGoogle:
-		providerID := id.ProviderID
-		user, err = s.store.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
-			ID:          uuid.New().String(),
-			Email:       email,
-			DisplayName: id.DisplayName,
-			PhotoUrl:    photoURL,
-			GoogleID:    &providerID,
-		})
-		// Email conflict → user exists via Facebook, link Google to that account
-		if err != nil && isEmailConflict(err) {
-			user, err = s.store.LinkGoogleID(ctx, db.LinkGoogleIDParams{
-				GoogleID: &providerID,
-				Email:    email,
-			})
+	for attempt := 0; attempt <= usernameCollisionRetries; attempt++ {
+		username := usernameBase
+		if attempt > 0 {
+			username, err = usernames.WithRandomSuffix(usernameBase)
+			if err != nil {
+				return db.User{}, err
+			}
 		}
-	case ProviderFacebook:
-		providerID := id.ProviderID
-		user, err = s.store.UpsertUserByFacebookID(ctx, db.UpsertUserByFacebookIDParams{
-			ID:          uuid.New().String(),
-			Email:       email,
-			DisplayName: id.DisplayName,
-			PhotoUrl:    photoURL,
-			FacebookID:  &providerID,
-		})
-		// Email conflict → user exists via Google, link Facebook to that account
-		if err != nil && isEmailConflict(err) {
-			user, err = s.store.LinkFacebookID(ctx, db.LinkFacebookIDParams{
-				FacebookID: &providerID,
-				Email:      email,
+
+		switch id.Provider {
+		case ProviderGoogle:
+			providerID := id.ProviderID
+			user, err = s.store.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+				ID:          uuid.New().String(),
+				Email:       email,
+				Username:    &username,
+				DisplayName: id.DisplayName,
+				PhotoUrl:    photoURL,
+				GoogleID:    &providerID,
 			})
+			// Email conflict → user exists via Facebook, link Google to that account
+			if err != nil && isEmailConflict(err) {
+				user, err = s.store.LinkGoogleID(ctx, db.LinkGoogleIDParams{
+					GoogleID: &providerID,
+					Email:    email,
+				})
+			}
+		case ProviderFacebook:
+			providerID := id.ProviderID
+			user, err = s.store.UpsertUserByFacebookID(ctx, db.UpsertUserByFacebookIDParams{
+				ID:          uuid.New().String(),
+				Email:       email,
+				Username:    &username,
+				DisplayName: id.DisplayName,
+				PhotoUrl:    photoURL,
+				FacebookID:  &providerID,
+			})
+			// Email conflict → user exists via Google, link Facebook to that account
+			if err != nil && isEmailConflict(err) {
+				user, err = s.store.LinkFacebookID(ctx, db.LinkFacebookIDParams{
+					FacebookID: &providerID,
+					Email:      email,
+				})
+			}
+		default:
+			return db.User{}, fmt.Errorf("unsupported provider: %s", id.Provider)
 		}
-	default:
-		return db.User{}, fmt.Errorf("unsupported provider: %s", id.Provider)
+
+		if err != nil && isUsernameConflict(err) {
+			continue
+		}
+		return user, err
 	}
 
-	return user, err
+	return db.User{}, fmt.Errorf("generate username: %w", err)
 }
 
 func isEmailConflict(err error) bool {
 	return strings.Contains(err.Error(), "UNIQUE constraint failed: users.email")
+}
+
+func isUsernameConflict(err error) bool {
+	return strings.Contains(err.Error(), "UNIQUE constraint failed: users.username")
 }
 
 // GetSession validates a session token and returns the user.

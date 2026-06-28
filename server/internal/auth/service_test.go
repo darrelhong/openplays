@@ -16,6 +16,8 @@ import (
 type fakeStore struct {
 	upsertUser db.User
 	upsertErr  error
+	upsertErrs []error
+	upsertArgs []db.UpsertUserByGoogleIDParams
 
 	// For link testing: user returned when linking
 	linkUser db.User
@@ -37,6 +39,14 @@ type fakeStore struct {
 }
 
 func (f *fakeStore) UpsertUserByGoogleID(_ context.Context, arg db.UpsertUserByGoogleIDParams) (db.User, error) {
+	f.upsertArgs = append(f.upsertArgs, arg)
+	if len(f.upsertErrs) > 0 {
+		err := f.upsertErrs[0]
+		f.upsertErrs = f.upsertErrs[1:]
+		if err != nil {
+			return db.User{}, err
+		}
+	}
 	if f.upsertErr != nil {
 		return db.User{}, f.upsertErr
 	}
@@ -45,6 +55,7 @@ func (f *fakeStore) UpsertUserByGoogleID(_ context.Context, arg db.UpsertUserByG
 		u.ID = arg.ID // simulate new user getting assigned ID
 	}
 	u.Email = arg.Email
+	u.Username = arg.Username
 	u.DisplayName = arg.DisplayName
 	u.PhotoUrl = arg.PhotoUrl
 	if arg.GoogleID != nil {
@@ -62,6 +73,7 @@ func (f *fakeStore) UpsertUserByFacebookID(_ context.Context, arg db.UpsertUserB
 		u.ID = arg.ID
 	}
 	u.Email = arg.Email
+	u.Username = arg.Username
 	u.DisplayName = arg.DisplayName
 	u.PhotoUrl = arg.PhotoUrl
 	if arg.FacebookID != nil {
@@ -142,6 +154,9 @@ func TestLogin_ValidIdentity_CreatesUserAndSession(t *testing.T) {
 	if result.User.DisplayName != "Test User" {
 		t.Errorf("name = %q, want Test User", result.User.DisplayName)
 	}
+	if result.User.Username == nil || *result.User.Username != "test_user" {
+		t.Fatalf("username = %v, want test_user", result.User.Username)
+	}
 	if result.SessionToken == "" {
 		t.Error("session token empty")
 	}
@@ -168,6 +183,36 @@ func TestLogin_BannedUser_Rejected(t *testing.T) {
 	}
 	if store.createSessionCalled {
 		t.Error("session should not be created for banned user")
+	}
+}
+
+func TestLogin_UsernameCollisionRetriesWithRandomSuffix(t *testing.T) {
+	store := &fakeStore{
+		upsertUser: activeUser(),
+		upsertErrs: []error{
+			errors.New("UNIQUE constraint failed: users.username"),
+			nil,
+		},
+	}
+	svc := auth.NewService(store)
+
+	result, err := svc.Login(context.Background(), googleIdentity("test@gmail.com", "Test User"))
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	if len(store.upsertArgs) != 2 {
+		t.Fatalf("upsert calls = %d, want 2", len(store.upsertArgs))
+	}
+	first := store.upsertArgs[0].Username
+	second := store.upsertArgs[1].Username
+	if first == nil || *first != "test_user" {
+		t.Fatalf("first username = %v, want test_user", first)
+	}
+	if second == nil || *second == "test_user" {
+		t.Fatalf("second username = %v, want suffixed retry", second)
+	}
+	if result.User.Username == nil || *result.User.Username != *second {
+		t.Fatalf("result username = %v, want %s", result.User.Username, *second)
 	}
 }
 

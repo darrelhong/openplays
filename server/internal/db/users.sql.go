@@ -10,6 +10,26 @@ import (
 	"time"
 )
 
+const countRosteredPlaysByUser = `-- name: CountRosteredPlaysByUser :one
+SELECT COUNT(DISTINCT play_id)
+FROM (
+    SELECT play_id
+    FROM play_hosts ph
+    WHERE ph.user_id = ?1
+    UNION
+    SELECT play_id
+    FROM play_participants pp
+    WHERE pp.user_id = ?1 AND pp.status IN ('confirmed', 'added')
+)
+`
+
+func (q *Queries) CountRosteredPlaysByUser(ctx context.Context, userID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRosteredPlaysByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createBlock = `-- name: CreateBlock :exec
 INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id) VALUES (?, ?)
 `
@@ -79,6 +99,33 @@ DELETE FROM sessions WHERE user_id = ?
 func (q *Queries) DeleteUserSessions(ctx context.Context, userID string) error {
 	_, err := q.db.ExecContext(ctx, deleteUserSessions, userID)
 	return err
+}
+
+const getActiveUserProfileByUsername = `-- name: GetActiveUserProfileByUsername :one
+SELECT id, display_name, username, photo_url, sports_profile
+FROM users
+WHERE username = ? AND status = 'active'
+`
+
+type GetActiveUserProfileByUsernameRow struct {
+	ID            string
+	DisplayName   string
+	Username      *string
+	PhotoUrl      *string
+	SportsProfile *string
+}
+
+func (q *Queries) GetActiveUserProfileByUsername(ctx context.Context, username *string) (GetActiveUserProfileByUsernameRow, error) {
+	row := q.db.QueryRowContext(ctx, getActiveUserProfileByUsername, username)
+	var i GetActiveUserProfileByUsernameRow
+	err := row.Scan(
+		&i.ID,
+		&i.DisplayName,
+		&i.Username,
+		&i.PhotoUrl,
+		&i.SportsProfile,
+	)
+	return i, err
 }
 
 const getSessionWithUser = `-- name: GetSessionWithUser :one
@@ -444,8 +491,8 @@ func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusPara
 }
 
 const upsertUserByFacebookID = `-- name: UpsertUserByFacebookID :one
-INSERT INTO users (id, email, display_name, photo_url, facebook_id, updated_at)
-VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, facebook_id, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
 ON CONFLICT(facebook_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
@@ -457,6 +504,7 @@ RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, 
 type UpsertUserByFacebookIDParams struct {
 	ID          string
 	Email       string
+	Username    *string
 	DisplayName string
 	PhotoUrl    *string
 	FacebookID  *string
@@ -466,6 +514,7 @@ func (q *Queries) UpsertUserByFacebookID(ctx context.Context, arg UpsertUserByFa
 	row := q.db.QueryRowContext(ctx, upsertUserByFacebookID,
 		arg.ID,
 		arg.Email,
+		arg.Username,
 		arg.DisplayName,
 		arg.PhotoUrl,
 		arg.FacebookID,
@@ -489,8 +538,8 @@ func (q *Queries) UpsertUserByFacebookID(ctx context.Context, arg UpsertUserByFa
 }
 
 const upsertUserByGoogleID = `-- name: UpsertUserByGoogleID :one
-INSERT INTO users (id, email, display_name, photo_url, google_id, updated_at)
-VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, google_id, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
 ON CONFLICT(google_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
@@ -502,6 +551,7 @@ RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, 
 type UpsertUserByGoogleIDParams struct {
 	ID          string
 	Email       string
+	Username    *string
 	DisplayName string
 	PhotoUrl    *string
 	GoogleID    *string
@@ -511,6 +561,7 @@ func (q *Queries) UpsertUserByGoogleID(ctx context.Context, arg UpsertUserByGoog
 	row := q.db.QueryRowContext(ctx, upsertUserByGoogleID,
 		arg.ID,
 		arg.Email,
+		arg.Username,
 		arg.DisplayName,
 		arg.PhotoUrl,
 		arg.GoogleID,

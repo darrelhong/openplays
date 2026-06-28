@@ -13,4 +13,5 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 	grp := huma.NewGroup(api, "/users")
 	grp.UseMiddleware(authmw.RequireAuth(api, svc))
 	RegisterSearch(grp, queries)
+	RegisterProfile(grp, queries)
 }
