@@ -40,6 +40,7 @@ SELECT
     pp.guest_name,
     pp.rating_code,
     u.display_name,
+    u.username,
     u.photo_url,
     u.sports_profile
 FROM play_participants pp
@@ -55,6 +56,7 @@ SELECT
     pp.guest_name,
     pp.rating_code,
     u.display_name,
+    u.username,
     u.photo_url,
     u.sports_profile
 FROM play_participants pp
@@ -70,6 +72,7 @@ SELECT
     pp.guest_name,
     pp.rating_code,
     u.display_name,
+    u.username,
     u.photo_url,
     u.sports_profile
 FROM play_participants pp

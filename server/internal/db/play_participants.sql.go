@@ -187,6 +187,7 @@ SELECT
     pp.guest_name,
     pp.rating_code,
     u.display_name,
+    u.username,
     u.photo_url,
     u.sports_profile
 FROM play_participants pp
@@ -202,6 +203,7 @@ type ListConfirmedParticipantPreviewsByPlayRow struct {
 	GuestName     *string
 	RatingCode    *string
 	DisplayName   *string
+	Username      *string
 	PhotoUrl      *string
 	SportsProfile *string
 }
@@ -222,6 +224,7 @@ func (q *Queries) ListConfirmedParticipantPreviewsByPlay(ctx context.Context, pl
 			&i.GuestName,
 			&i.RatingCode,
 			&i.DisplayName,
+			&i.Username,
 			&i.PhotoUrl,
 			&i.SportsProfile,
 		); err != nil {
@@ -246,6 +249,7 @@ SELECT
     pp.guest_name,
     pp.rating_code,
     u.display_name,
+    u.username,
     u.photo_url,
     u.sports_profile
 FROM play_participants pp
@@ -261,6 +265,7 @@ type ListConfirmedParticipantPreviewsByPlaysRow struct {
 	GuestName     *string
 	RatingCode    *string
 	DisplayName   *string
+	Username      *string
 	PhotoUrl      *string
 	SportsProfile *string
 }
@@ -291,6 +296,7 @@ func (q *Queries) ListConfirmedParticipantPreviewsByPlays(ctx context.Context, p
 			&i.GuestName,
 			&i.RatingCode,
 			&i.DisplayName,
+			&i.Username,
 			&i.PhotoUrl,
 			&i.SportsProfile,
 		); err != nil {
@@ -315,6 +321,7 @@ SELECT
     pp.guest_name,
     pp.rating_code,
     u.display_name,
+    u.username,
     u.photo_url,
     u.sports_profile
 FROM play_participants pp
@@ -335,6 +342,7 @@ type ListParticipantPreviewsByPlayAndStatusRow struct {
 	GuestName     *string
 	RatingCode    *string
 	DisplayName   *string
+	Username      *string
 	PhotoUrl      *string
 	SportsProfile *string
 }
@@ -355,6 +363,7 @@ func (q *Queries) ListParticipantPreviewsByPlayAndStatus(ctx context.Context, ar
 			&i.GuestName,
 			&i.RatingCode,
 			&i.DisplayName,
+			&i.Username,
 			&i.PhotoUrl,
 			&i.SportsProfile,
 		); err != nil {

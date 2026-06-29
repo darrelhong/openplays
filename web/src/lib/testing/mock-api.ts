@@ -21,6 +21,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 export type Participant = {
 	id: number;
 	display_name: string;
+	username?: string;
 	rating_code: string | null;
 	is_guest: boolean;
 	is_host: boolean;
@@ -93,6 +94,7 @@ export const SEED_USERS: Record<string, SeedUser> = {
 export const HOST: Participant = {
 	id: 39,
 	display_name: 'Seed Host',
+	username: 'seedhost',
 	rating_code: 'HB',
 	is_guest: false,
 	is_host: true
@@ -105,6 +107,7 @@ export function participantFor(user: SeedUser, overrides: Partial<Participant> =
 	return {
 		id: nextParticipantId++,
 		display_name: user.display_name,
+		username: user.username,
 		rating_code: user.sports_profile.badminton?.level ?? null,
 		is_guest: false,
 		is_host: false,

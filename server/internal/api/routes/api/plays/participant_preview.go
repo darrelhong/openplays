@@ -96,6 +96,7 @@ type participantPreviewRow struct {
 	GuestName     *string
 	RatingCode    *string
 	DisplayName   *string
+	Username      *string
 	PhotoUrl      *string
 	SportsProfile *string
 }
@@ -110,6 +111,7 @@ func singleParticipantPreviewRows(rows []db.ListConfirmedParticipantPreviewsByPl
 			GuestName:     row.GuestName,
 			RatingCode:    row.RatingCode,
 			DisplayName:   row.DisplayName,
+			Username:      row.Username,
 			PhotoUrl:      row.PhotoUrl,
 			SportsProfile: row.SportsProfile,
 		})
@@ -125,6 +127,7 @@ func batchParticipantPreviewRow(row db.ListConfirmedParticipantPreviewsByPlaysRo
 		GuestName:     row.GuestName,
 		RatingCode:    row.RatingCode,
 		DisplayName:   row.DisplayName,
+		Username:      row.Username,
 		PhotoUrl:      row.PhotoUrl,
 		SportsProfile: row.SportsProfile,
 	}
@@ -140,6 +143,7 @@ func statusParticipantPreviewRows(rows []db.ListParticipantPreviewsByPlayAndStat
 			GuestName:     row.GuestName,
 			RatingCode:    row.RatingCode,
 			DisplayName:   row.DisplayName,
+			Username:      row.Username,
 			PhotoUrl:      row.PhotoUrl,
 			SportsProfile: row.SportsProfile,
 		})
@@ -154,6 +158,7 @@ func mapParticipantPreviewRows(sport model.Sport, rows []participantPreviewRow, 
 			ID:          row.ID,
 			UserID:      row.UserID,
 			DisplayName: participantPreviewName(row, includeNames),
+			Username:    row.Username,
 			PhotoURL:    cleanStringPtr(row.PhotoUrl),
 			RatingCode:  participantPreviewRating(sport, row),
 			IsGuest:     row.UserID == nil,
@@ -193,6 +198,7 @@ func appendMissingHostPreviews(ctx context.Context, queries interface {
 			PlayID:        playID,
 			UserID:        &id,
 			DisplayName:   &displayName,
+			Username:      user.Username,
 			PhotoUrl:      user.PhotoUrl,
 			SportsProfile: user.SportsProfile,
 		}}

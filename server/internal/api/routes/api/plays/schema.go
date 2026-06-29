@@ -95,6 +95,7 @@ type PlayParticipantPreviewPublic struct {
 	ID          int64   `json:"id"`
 	UserID      *string `json:"-"`
 	DisplayName *string `json:"display_name,omitempty"`
+	Username    *string `json:"username,omitempty"`
 	PhotoURL    *string `json:"photo_url,omitempty"`
 	RatingCode  *string `json:"rating_code,omitempty"`
 	IsGuest     bool    `json:"is_guest"`

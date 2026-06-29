@@ -1,12 +1,12 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Check from '@lucide/svelte/icons/check';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import ActionConfirmDialog from '$lib/components/ui/dialog/action-confirm-dialog.svelte';
 	import BaseAvatar from '$lib/components/ui/avatar/base-avatar.svelte';
-	import { Badge, RatingBadge } from '$lib/components/ui/badge/index';
+	import { Badge } from '$lib/components/ui/badge/index';
 	import Button from '$lib/components/ui/button.svelte';
-	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import {
 		capitalize,
 		formatDate,
@@ -17,6 +17,7 @@
 	} from '$lib/utils/formatting';
 	import { canDirectJoin, getPlayJoinLabel } from '$lib/utils/play-join-label';
 	import PlayFavouriteButton from './play-favourite-button.svelte';
+	import PlayParticipantIdentity from './play-participant-identity.svelte';
 	import type { components } from '$lib/api/types.gen';
 	import type { Play } from './types';
 
@@ -155,35 +156,10 @@
 	</ActionConfirmDialog>
 {/snippet}
 
-{#snippet playerAvatar(participant: Participant)}
-	<div class="shrink-0 relative">
-		<UserAvatar
-			src={participant.photo_url}
-			nameForFallback={participantName(participant)}
-			className="h-9 w-9 text-xs"
-		/>
-		{#if participant.rating_code}
-			<RatingBadge value={participant.rating_code} class="absolute -bottom-1 -right-1" />
-		{/if}
-	</div>
-{/snippet}
-
 {#snippet confirmedPlayer(participant: Participant)}
 	<li class="py-2">
 		<div class="flex gap-3 items-center justify-between">
-			<div class="flex gap-3 min-w-0 items-center">
-				{@render playerAvatar(participant)}
-				<div class="min-w-0">
-					<p class="text-sm text-foreground font-medium break-words">
-						{participantName(participant)}
-					</p>
-					{#if participant.is_host}
-						<p class="text-xs text-muted">Host</p>
-					{:else if participant.is_guest}
-						<p class="text-xs text-muted">Guest</p>
-					{/if}
-				</div>
-			</div>
+			<PlayParticipantIdentity {participant} />
 			<div class="shrink-0">
 				{@render confirmedBadge()}
 			</div>
@@ -200,19 +176,10 @@
 {#snippet addedPlayer(participant: Participant)}
 	<li class="py-2">
 		<div class="flex gap-3 items-center justify-between">
-			<div class="flex gap-3 min-w-0 items-center">
-				{@render playerAvatar(participant)}
-				<div class="min-w-0">
-					<p class="text-sm text-foreground font-medium break-words">
-						{participantName(participant)}
-					</p>
-					{#if participant.is_guest}
-						<p class="text-xs text-muted">Guest</p>
-					{:else}
-						<p class="text-xs text-muted">Awaiting player confirmation</p>
-					{/if}
-				</div>
-			</div>
+			<PlayParticipantIdentity
+				{participant}
+				secondary={participant.is_guest ? 'Guest' : 'Awaiting player confirmation'}
+			/>
 			<div class="shrink-0">
 				{@render addedBadge()}
 			</div>
@@ -252,17 +219,7 @@
 
 {#snippet waitlistPlayer(participant: Participant)}
 	<li class="py-2 flex gap-3 items-center justify-between">
-		<div class="flex gap-3 min-w-0 items-center">
-			{@render playerAvatar(participant)}
-			<div class="min-w-0">
-				<p class="text-sm text-foreground font-medium break-words">
-					{participantName(participant)}
-				</p>
-				{#if participant.is_guest}
-					<p class="text-xs text-muted">Guest</p>
-				{/if}
-			</div>
-		</div>
+		<PlayParticipantIdentity {participant} />
 		{#if canManageActive}
 			<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
 				{@render addParticipantDialog(participant)}
@@ -393,7 +350,15 @@
 			{/if}
 			<div class="flex gap-4">
 				<dt class="text-muted w-24">Host</dt>
-				<dd>{play.host_name}</dd>
+				<dd>
+					{#if play.creator_username}
+						<a href={resolve(`/${play.creator_username}`)} class="hover:underline"
+							>{play.host_name}</a
+						>
+					{:else}
+						{play.host_name}
+					{/if}
+				</dd>
 			</div>
 			{#if play.game_type}
 				<div class="flex gap-4">
