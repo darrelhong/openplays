@@ -418,6 +418,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/users/{username}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Get user profile
+		 * @description Returns a minimal public profile for an active user. Requires authentication.
+		 */
+		get: operations['get-user-profile'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/venues/': {
 		parameters: {
 			query?: never;
@@ -792,6 +812,7 @@ export interface components {
 			is_host: boolean;
 			photo_url?: string;
 			rating_code?: string;
+			username?: string;
 		};
 		PlayPublic: {
 			/**
@@ -878,6 +899,29 @@ export interface components {
 			waitlist?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
 			/** Format: int64 */
 			waitlist_count?: number;
+		};
+		PublicUserProfile: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PublicUserProfile.json
+			 */
+			readonly $schema?: string;
+			display_name: string;
+			id: string;
+			photo_url?: string;
+			/** Format: int64 */
+			rostered_play_count: number;
+			sports: components['schemas']['PublicUserProfileSport'][] | null;
+			sports_profile?: components['schemas']['SportsProfile'];
+			username: string;
+		};
+		PublicUserProfileSport: {
+			rating_code?: string;
+			/** Format: int64 */
+			rostered_play_count: number;
+			/** @enum {string} */
+			sport: 'badminton' | 'tennis' | 'football' | 'pickleball';
 		};
 		PushSubscription: {
 			/**
@@ -1895,6 +1939,38 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['SearchPage'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'get-user-profile': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Username */
+				username: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PublicUserProfile'];
 				};
 			};
 			/** @description Error */

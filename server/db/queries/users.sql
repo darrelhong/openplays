@@ -51,6 +51,22 @@ FROM (
     WHERE pp.user_id = sqlc.arg('user_id') AND pp.status IN ('confirmed', 'added')
 );
 
+-- name: CountRosteredPlaysByUserAndSport :many
+WITH rostered_play_ids AS (
+    SELECT play_id
+    FROM play_hosts ph
+    WHERE ph.user_id = sqlc.arg('user_id')
+    UNION
+    SELECT play_id
+    FROM play_participants pp
+    WHERE pp.user_id = sqlc.arg('user_id') AND pp.status IN ('confirmed', 'added')
+)
+SELECT p.sport, COUNT(DISTINCT p.id) AS play_count
+FROM plays p
+JOIN rostered_play_ids r ON r.play_id = p.id
+GROUP BY p.sport
+ORDER BY p.sport ASC;
+
 -- name: SearchActiveUsers :many
 SELECT id, display_name, username, photo_url, sports_profile
 FROM users

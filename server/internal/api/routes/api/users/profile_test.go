@@ -77,6 +77,23 @@ func TestGetUserProfile_ReturnsMinimalProfileAndRosterCount(t *testing.T) {
 	if raw["rostered_play_count"] != float64(2) {
 		t.Fatalf("rostered_play_count = %v, want 2", raw["rostered_play_count"])
 	}
+	sports, ok := raw["sports"].([]any)
+	if !ok || len(sports) != 1 {
+		t.Fatalf("sports = %#v, want one sport summary", raw["sports"])
+	}
+	badminton, ok := sports[0].(map[string]any)
+	if !ok {
+		t.Fatalf("sports[0] = %#v, want object", sports[0])
+	}
+	if badminton["sport"] != "badminton" {
+		t.Fatalf("sport = %v, want badminton", badminton["sport"])
+	}
+	if badminton["rating_code"] != "LI" {
+		t.Fatalf("rating_code = %v, want LI", badminton["rating_code"])
+	}
+	if badminton["rostered_play_count"] != float64(2) {
+		t.Fatalf("sport rostered_play_count = %v, want 2", badminton["rostered_play_count"])
+	}
 }
 
 func TestGetUserProfile_NoAuthReturns401(t *testing.T) {

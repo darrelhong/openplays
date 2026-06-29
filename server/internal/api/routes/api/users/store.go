@@ -15,4 +15,5 @@ type SearchStore interface {
 type ProfileStore interface {
 	GetActiveUserProfileByUsername(ctx context.Context, username *string) (db.GetActiveUserProfileByUsernameRow, error)
 	CountRosteredPlaysByUser(ctx context.Context, userID string) (int64, error)
+	CountRosteredPlaysByUserAndSport(ctx context.Context, userID string) ([]db.CountRosteredPlaysByUserAndSportRow, error)
 }

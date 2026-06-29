@@ -17,12 +17,19 @@ type ProfileInput struct {
 }
 
 type PublicUserProfile struct {
-	ID                 string               `json:"id"`
-	DisplayName        string               `json:"display_name"`
-	Username           string               `json:"username"`
-	PhotoURL           *string              `json:"photo_url,omitempty"`
-	SportsProfile      *model.SportsProfile `json:"sports_profile,omitempty"`
-	RosteredPlayCount  int64                `json:"rostered_play_count"`
+	ID                string                   `json:"id"`
+	DisplayName       string                   `json:"display_name"`
+	Username          string                   `json:"username"`
+	PhotoURL          *string                  `json:"photo_url,omitempty"`
+	SportsProfile     *model.SportsProfile     `json:"sports_profile,omitempty"`
+	Sports            []PublicUserProfileSport `json:"sports"`
+	RosteredPlayCount int64                    `json:"rostered_play_count"`
+}
+
+type PublicUserProfileSport struct {
+	Sport             model.Sport `json:"sport"`
+	RatingCode        *string     `json:"rating_code,omitempty"`
+	RosteredPlayCount int64       `json:"rostered_play_count"`
 }
 
 type ProfileOutput struct {
@@ -54,12 +61,16 @@ func RegisterProfile(api huma.API, store ProfileStore) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to count user plays")
 		}
+		sportCounts, err := store.CountRosteredPlaysByUserAndSport(ctx, row.ID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to count user plays by sport")
+		}
 
-		return &ProfileOutput{Body: mapPublicUserProfile(row, count)}, nil
+		return &ProfileOutput{Body: mapPublicUserProfile(row, count, sportCounts)}, nil
 	})
 }
 
-func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlayCount int64) PublicUserProfile {
+func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlayCount int64, sportCounts []db.CountRosteredPlaysByUserAndSportRow) PublicUserProfile {
 	profile, _ := model.ParseSportsProfile(row.SportsProfile)
 	username := ""
 	if row.Username != nil {
@@ -71,6 +82,30 @@ func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlay
 		Username:          username,
 		PhotoURL:          row.PhotoUrl,
 		SportsProfile:     profile,
+		Sports:            publicUserProfileSports(profile, sportCounts),
 		RosteredPlayCount: rosteredPlayCount,
 	}
+}
+
+func publicUserProfileSports(profile *model.SportsProfile, sportCounts []db.CountRosteredPlaysByUserAndSportRow) []PublicUserProfileSport {
+	countsBySport := make(map[model.Sport]int64, len(sportCounts))
+	for _, row := range sportCounts {
+		countsBySport[row.Sport] = row.PlayCount
+	}
+
+	out := make([]PublicUserProfileSport, 0, len(model.SportValues))
+	for _, value := range model.SportValues {
+		sport := model.Sport(value)
+		ratingCode := profile.LevelFor(sport)
+		count := countsBySport[sport]
+		if ratingCode == nil && count == 0 {
+			continue
+		}
+		out = append(out, PublicUserProfileSport{
+			Sport:             sport,
+			RatingCode:        ratingCode,
+			RosteredPlayCount: count,
+		})
+	}
+	return out
 }

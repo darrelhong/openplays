@@ -8,6 +8,8 @@ package db
 import (
 	"context"
 	"time"
+
+	"openplays/server/internal/model"
 )
 
 const countRosteredPlaysByUser = `-- name: CountRosteredPlaysByUser :one
@@ -28,6 +30,51 @@ func (q *Queries) CountRosteredPlaysByUser(ctx context.Context, userID string) (
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countRosteredPlaysByUserAndSport = `-- name: CountRosteredPlaysByUserAndSport :many
+WITH rostered_play_ids AS (
+    SELECT play_id
+    FROM play_hosts ph
+    WHERE ph.user_id = ?1
+    UNION
+    SELECT play_id
+    FROM play_participants pp
+    WHERE pp.user_id = ?1 AND pp.status IN ('confirmed', 'added')
+)
+SELECT p.sport, COUNT(DISTINCT p.id) AS play_count
+FROM plays p
+JOIN rostered_play_ids r ON r.play_id = p.id
+GROUP BY p.sport
+ORDER BY p.sport ASC
+`
+
+type CountRosteredPlaysByUserAndSportRow struct {
+	Sport     model.Sport
+	PlayCount int64
+}
+
+func (q *Queries) CountRosteredPlaysByUserAndSport(ctx context.Context, userID string) ([]CountRosteredPlaysByUserAndSportRow, error) {
+	rows, err := q.db.QueryContext(ctx, countRosteredPlaysByUserAndSport, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountRosteredPlaysByUserAndSportRow
+	for rows.Next() {
+		var i CountRosteredPlaysByUserAndSportRow
+		if err := rows.Scan(&i.Sport, &i.PlayCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const createBlock = `-- name: CreateBlock :exec
