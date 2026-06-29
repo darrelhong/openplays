@@ -216,6 +216,26 @@ func TestLogin_UsernameCollisionRetriesWithRandomSuffix(t *testing.T) {
 	}
 }
 
+func TestLogin_ReservedUsernameUsesRandomSuffix(t *testing.T) {
+	store := &fakeStore{upsertUser: activeUser()}
+	svc := auth.NewService(store)
+
+	result, err := svc.Login(context.Background(), googleIdentity("play@gmail.com", "Play"))
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	if len(store.upsertArgs) != 1 {
+		t.Fatalf("upsert calls = %d, want 1", len(store.upsertArgs))
+	}
+	username := store.upsertArgs[0].Username
+	if username == nil || *username == "play" {
+		t.Fatalf("username = %v, want suffixed reserved username", username)
+	}
+	if result.User.Username == nil || *result.User.Username != *username {
+		t.Fatalf("result username = %v, want %s", result.User.Username, *username)
+	}
+}
+
 func TestLogin_UpsertFails_ReturnsError(t *testing.T) {
 	store := &fakeStore{upsertErr: errors.New("db down")}
 	svc := auth.NewService(store)

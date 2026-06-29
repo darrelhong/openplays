@@ -31,6 +31,10 @@ func TestNormalize(t *testing.T) {
 	if _, err := Normalize("seed-player"); err == nil {
 		t.Fatal("Normalize accepted hyphenated username")
 	}
+
+	if _, err := Normalize("play"); err == nil {
+		t.Fatal("Normalize accepted reserved route username")
+	}
 }
 
 func TestWithRandomSuffix(t *testing.T) {

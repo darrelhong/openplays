@@ -16,6 +16,35 @@ var ErrInvalid = errors.New("invalid username")
 
 const suffixAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 
+var reserved = map[string]struct{}{
+	"__dev":         {},
+	"about":         {},
+	"admin":         {},
+	"api":           {},
+	"auth":          {},
+	"contact":       {},
+	"create":        {},
+	"demo":          {},
+	"docs":          {},
+	"favourites":    {},
+	"help":          {},
+	"login":         {},
+	"logout":        {},
+	"me":            {},
+	"messages":      {},
+	"my_games":      {},
+	"my-games":      {},
+	"notifications": {},
+	"openplays":     {},
+	"play":          {},
+	"privacy":       {},
+	"profile":       {},
+	"search":        {},
+	"settings":      {},
+	"terms":         {},
+	"users":         {},
+}
+
 func BaseFromDisplayName(displayName string) string {
 	base := slug(displayName)
 	if base == "" {
@@ -37,7 +66,15 @@ func Normalize(value string) (string, error) {
 			return "", fmt.Errorf("%w: use only lowercase letters, numbers, and underscores", ErrInvalid)
 		}
 	}
+	if IsReserved(normalized) {
+		return "", fmt.Errorf("%w: reserved username", ErrInvalid)
+	}
 	return normalized, nil
+}
+
+func IsReserved(value string) bool {
+	_, ok := reserved[strings.ToLower(strings.TrimSpace(value))]
+	return ok
 }
 
 func WithRandomSuffix(base string) (string, error) {

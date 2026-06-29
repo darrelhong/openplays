@@ -141,7 +141,7 @@ func (s *Service) upsertUser(ctx context.Context, id Identity) (db.User, error) 
 
 	for attempt := 0; attempt <= usernameCollisionRetries; attempt++ {
 		username := usernameBase
-		if attempt > 0 {
+		if attempt > 0 || usernames.IsReserved(usernameBase) {
 			username, err = usernames.WithRandomSuffix(usernameBase)
 			if err != nil {
 				return db.User{}, err
