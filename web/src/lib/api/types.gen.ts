@@ -168,6 +168,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/chat/play-conversations': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Create or get a play chat conversation
+		 * @description Idempotently creates or returns a play chat conversation for current roster users.
+		 */
+		post: operations['create-play-chat-conversation'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/dev/login': {
 		parameters: {
 			query?: never;
@@ -760,6 +780,15 @@ export interface components {
 			 * @enum {string}
 			 */
 			visibility?: 'public' | 'unlisted';
+		};
+		CreatePlayConversationInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/CreatePlayConversationInputBody.json
+			 */
+			readonly $schema?: string;
+			play_id: string;
 		};
 		ErrorDetail: {
 			/** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -1603,6 +1632,39 @@ export interface operations {
 		requestBody: {
 			content: {
 				'application/json': components['schemas']['CreateDMConversationInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ChatConversationSummary'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'create-play-chat-conversation': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CreatePlayConversationInputBody'];
 			};
 		};
 		responses: {

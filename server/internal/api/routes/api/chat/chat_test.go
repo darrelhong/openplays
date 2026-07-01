@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"openplays/server/internal/api/routes/api/chat"
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
+	"openplays/server/internal/model"
 	"openplays/server/internal/testdb"
 )
 
@@ -164,8 +166,121 @@ func TestBlockedDMIsHiddenAndForbiddenUntilUnblocked(t *testing.T) {
 	}
 }
 
+func TestPlayConversationFlow(t *testing.T) {
+	ts, queries := setupChatTest(t)
+	defer ts.Close()
+	ctx := context.Background()
+
+	host := createChatTestUser(t, ctx, queries, "play-chat-host", "Host Tan", "play_chat_host", "active")
+	confirmed := createChatTestUser(t, ctx, queries, "play-chat-confirmed", "Confirmed Lee", "play_chat_confirmed", "active")
+	added := createChatTestUser(t, ctx, queries, "play-chat-added", "Added Goh", "play_chat_added", "active")
+	waitlisted := createChatTestUser(t, ctx, queries, "play-chat-waitlisted", "Waitlisted Ng", "play_chat_waitlisted", "active")
+	outsider := createChatTestUser(t, ctx, queries, "play-chat-outsider", "Outsider Lim", "play_chat_outsider", "active")
+	createChatSession(t, ctx, queries, host.ID, "host-token")
+	createChatSession(t, ctx, queries, confirmed.ID, "confirmed-token")
+	createChatSession(t, ctx, queries, added.ID, "added-token")
+	createChatSession(t, ctx, queries, waitlisted.ID, "waitlisted-token")
+	createChatSession(t, ctx, queries, outsider.ID, "outsider-token")
+
+	play := createChatTestPlay(t, ctx, queries, "play-chat-game", host.ID, "Wednesday Doubles")
+	createChatPlayParticipant(t, ctx, queries, play.ID, confirmed.ID, model.ParticipantConfirmed)
+	createChatPlayParticipant(t, ctx, queries, play.ID, added.ID, model.ParticipantAdded)
+	createChatPlayParticipant(t, ctx, queries, play.ID, waitlisted.ID, model.ParticipantWaitlisted)
+
+	waitlistedCreate := map[string]string{"play_id": play.ID}
+	doJSON[map[string]any](t, http.MethodPost, ts.URL+"/api/chat/play-conversations", "waitlisted-token", waitlistedCreate, http.StatusForbidden)
+	doJSON[map[string]any](t, http.MethodPost, ts.URL+"/api/chat/play-conversations", "outsider-token", waitlistedCreate, http.StatusForbidden)
+
+	conversation := doJSON[conversationResponse](t, http.MethodPost, ts.URL+"/api/chat/play-conversations", "host-token", map[string]string{
+		"play_id": play.ID,
+	}, http.StatusOK)
+	if conversation.ID == "" {
+		t.Fatal("conversation id is empty")
+	}
+	if conversation.Kind != "play" {
+		t.Fatalf("kind = %q, want play", conversation.Kind)
+	}
+	if conversation.PlayID == nil || *conversation.PlayID != play.ID {
+		t.Fatalf("play_id = %v, want %s", conversation.PlayID, play.ID)
+	}
+	if conversation.Title != "Wednesday Doubles" {
+		t.Fatalf("title = %q, want custom play name", conversation.Title)
+	}
+
+	again := doJSON[conversationResponse](t, http.MethodPost, ts.URL+"/api/chat/play-conversations", "confirmed-token", map[string]string{
+		"play_id": play.ID,
+	}, http.StatusOK)
+	if again.ID != conversation.ID {
+		t.Fatalf("second conversation id = %q, want %q", again.ID, conversation.ID)
+	}
+
+	message := doJSON[messageResponse](t, http.MethodPost, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "confirmed-token", map[string]string{
+		"body": "see everyone there",
+	}, http.StatusOK)
+	if message.Body == nil || *message.Body != "see everyone there" {
+		t.Fatalf("message body = %v, want play chat body", message.Body)
+	}
+
+	hostMessages := doJSON[listMessagesResponse](t, http.MethodGet, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "host-token", nil, http.StatusOK)
+	if len(hostMessages.Items) != 1 {
+		t.Fatalf("host messages len = %d, want 1", len(hostMessages.Items))
+	}
+	addedMessages := doJSON[listMessagesResponse](t, http.MethodGet, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "added-token", nil, http.StatusOK)
+	if len(addedMessages.Items) != 1 {
+		t.Fatalf("added messages len = %d, want 1", len(addedMessages.Items))
+	}
+	doJSON[map[string]any](t, http.MethodGet, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "waitlisted-token", nil, http.StatusForbidden)
+	doJSON[map[string]any](t, http.MethodPost, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "outsider-token", map[string]string{
+		"body": "can I join?",
+	}, http.StatusForbidden)
+
+	hostConversations := doJSON[listConversationsResponse](t, http.MethodGet, ts.URL+"/api/chat/conversations", "host-token", nil, http.StatusOK)
+	if len(hostConversations.Items) != 1 {
+		t.Fatalf("host conversations len = %d, want 1", len(hostConversations.Items))
+	}
+	if hostConversations.Items[0].ID != conversation.ID {
+		t.Fatalf("listed conversation = %q, want %q", hostConversations.Items[0].ID, conversation.ID)
+	}
+	if hostConversations.Items[0].UnreadCount != 1 {
+		t.Fatalf("host unread_count = %d, want 1", hostConversations.Items[0].UnreadCount)
+	}
+}
+
+func TestPlayConversationAccessFollowsCurrentRoster(t *testing.T) {
+	ts, queries := setupChatTest(t)
+	defer ts.Close()
+	ctx := context.Background()
+
+	host := createChatTestUser(t, ctx, queries, "play-chat-current-host", "Host Tan", "play_chat_current_host", "active")
+	player := createChatTestUser(t, ctx, queries, "play-chat-current-player", "Player Lee", "play_chat_current_player", "active")
+	createChatSession(t, ctx, queries, host.ID, "host-token")
+	createChatSession(t, ctx, queries, player.ID, "player-token")
+
+	play := createChatTestPlay(t, ctx, queries, "play-chat-current-game", host.ID, "Current Roster Game")
+	participant := createChatPlayParticipant(t, ctx, queries, play.ID, player.ID, model.ParticipantConfirmed)
+	conversation := doJSON[conversationResponse](t, http.MethodPost, ts.URL+"/api/chat/play-conversations", "player-token", map[string]string{
+		"play_id": play.ID,
+	}, http.StatusOK)
+	doJSON[messageResponse](t, http.MethodPost, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "player-token", map[string]string{
+		"body": "I am in",
+	}, http.StatusOK)
+
+	if err := queries.DeletePlayParticipant(ctx, participant.ID); err != nil {
+		t.Fatalf("DeletePlayParticipant: %v", err)
+	}
+
+	doJSON[map[string]any](t, http.MethodGet, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "player-token", nil, http.StatusForbidden)
+	playerConversations := doJSON[listConversationsResponse](t, http.MethodGet, ts.URL+"/api/chat/conversations", "player-token", nil, http.StatusOK)
+	if len(playerConversations.Items) != 0 {
+		t.Fatalf("player conversations len after leaving roster = %d, want 0", len(playerConversations.Items))
+	}
+}
+
 type conversationResponse struct {
 	ID          string           `json:"id"`
+	Kind        string           `json:"kind"`
+	Title       string           `json:"title"`
+	PlayID      *string          `json:"play_id"`
 	OtherUser   *userSummary     `json:"other_user"`
 	LastMessage *messageResponse `json:"last_message"`
 	UnreadCount int64            `json:"unread_count"`
@@ -226,6 +341,53 @@ func createChatSession(t *testing.T, ctx context.Context, queries *db.Queries, u
 	}
 }
 
+func createChatTestPlay(t *testing.T, ctx context.Context, queries *db.Queries, id, creatorID, name string) db.Play {
+	t.Helper()
+	gameType := model.GameDoubles
+	maxPlayers := int64(4)
+	slotsLeft := int64(3)
+	playName := name
+	play, err := queries.CreatePlay(ctx, db.CreatePlayParams{
+		ID:          id,
+		ListingType: model.ListingPlay,
+		Sport:       model.SportBadminton,
+		GameType:    &gameType,
+		HostName:    "Host",
+		Name:        &playName,
+		StartsAt:    time.Now().Add(time.Hour),
+		EndsAt:      time.Now().Add(2 * time.Hour),
+		Timezone:    "Asia/Singapore",
+		Venue:       "Test Sports Hall",
+		Currency:    "SGD",
+		MaxPlayers:  &maxPlayers,
+		SlotsLeft:   &slotsLeft,
+		Contacts:    model.Contacts{},
+		Meta:        model.Meta{},
+		CreatedBy:   &creatorID,
+		Visibility:  "public",
+	})
+	if err != nil {
+		t.Fatalf("CreatePlay: %v", err)
+	}
+	if _, err := queries.CreatePlayHost(ctx, db.CreatePlayHostParams{PlayID: play.ID, UserID: creatorID}); err != nil {
+		t.Fatalf("CreatePlayHost: %v", err)
+	}
+	return play
+}
+
+func createChatPlayParticipant(t *testing.T, ctx context.Context, queries *db.Queries, playID, userID string, status model.PlayParticipantStatus) db.PlayParticipant {
+	t.Helper()
+	participant, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID: playID,
+		UserID: &userID,
+		Status: status,
+	})
+	if err != nil {
+		t.Fatalf("CreatePlayParticipant %s: %v", status, err)
+	}
+	return participant
+}
+
 func doJSON[T any](t *testing.T, method, url, token string, body any, wantStatus int) T {
 	t.Helper()
 	var reqBody *bytes.Reader
@@ -254,7 +416,8 @@ func doJSON[T any](t *testing.T, method, url, token string, body any, wantStatus
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != wantStatus {
-		t.Fatalf("%s %s status = %d, want %d", method, url, resp.StatusCode, wantStatus)
+		raw, _ := io.ReadAll(resp.Body)
+		t.Fatalf("%s %s status = %d, want %d: %s", method, url, resp.StatusCode, wantStatus, string(raw))
 	}
 	var out T
 	if wantStatus == http.StatusNoContent {

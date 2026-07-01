@@ -9,6 +9,13 @@ RETURNING *;
 INSERT OR IGNORE INTO chat_dm_participants (conversation_id, user_id)
 VALUES (?, ?);
 
+-- name: CreatePlayConversation :one
+INSERT INTO chat_conversations (id, kind, play_id)
+VALUES (?, 'play', ?)
+ON CONFLICT(play_id) WHERE play_id IS NOT NULL DO UPDATE SET
+    updated_at = chat_conversations.updated_at
+RETURNING *;
+
 -- name: GetChatConversation :one
 SELECT * FROM chat_conversations
 WHERE id = ?;
@@ -88,6 +95,87 @@ WHERE c.kind = 'dm'
   )
 ORDER BY COALESCE(lm.created_at, c.updated_at) DESC, c.id DESC
 LIMIT sqlc.arg('limit');
+
+-- name: ListPlayConversationsByUser :many
+SELECT
+    c.id,
+    c.kind,
+    c.play_id,
+    c.created_at,
+    c.updated_at,
+    COALESCE(NULLIF(p.name, ''), v.name, NULLIF(p.venue, ''), 'Game') AS title,
+    lm.id AS last_message_id,
+    lm.sender_user_id AS last_message_sender_user_id,
+    lm.body AS last_message_body,
+    lm.deleted_at AS last_message_deleted_at,
+    lm.created_at AS last_message_created_at,
+    sender.display_name AS last_message_sender_display_name,
+    sender.username AS last_message_sender_username,
+    sender.photo_url AS last_message_sender_photo_url,
+    (
+        SELECT COUNT(*)
+        FROM chat_messages unread
+        LEFT JOIN chat_read_states rs
+            ON rs.conversation_id = unread.conversation_id
+            AND rs.user_id = sqlc.arg('viewer_id')
+        WHERE unread.conversation_id = c.id
+          AND unread.sender_user_id <> sqlc.arg('viewer_id')
+          AND unread.deleted_at IS NULL
+          AND unread.id > COALESCE(rs.last_read_message_id, 0)
+    ) AS unread_count
+FROM chat_conversations c
+JOIN plays p ON p.id = c.play_id
+LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN chat_messages lm
+    ON lm.id = (
+        SELECT id
+        FROM chat_messages
+        WHERE conversation_id = c.id
+        ORDER BY id DESC
+        LIMIT 1
+    )
+LEFT JOIN users sender ON sender.id = lm.sender_user_id
+WHERE c.kind = 'play'
+  AND c.play_id IS NOT NULL
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = sqlc.arg('viewer_id')
+    )
+    OR p.created_by = sqlc.arg('viewer_id')
+    OR EXISTS (
+        SELECT 1
+        FROM play_participants pp
+        WHERE pp.play_id = p.id
+          AND pp.user_id = sqlc.arg('viewer_id')
+          AND pp.status IN ('confirmed', 'added')
+    )
+  )
+ORDER BY COALESCE(lm.created_at, c.updated_at) DESC, c.id DESC
+LIMIT sqlc.arg('limit');
+
+-- name: IsPlayChatMember :one
+SELECT EXISTS (
+    SELECT 1
+    FROM plays p
+    WHERE p.id = sqlc.arg('play_id')
+      AND (
+        EXISTS (
+            SELECT 1
+            FROM play_hosts ph
+            WHERE ph.play_id = p.id AND ph.user_id = sqlc.arg('user_id')
+        )
+        OR p.created_by = sqlc.arg('user_id')
+        OR EXISTS (
+            SELECT 1
+            FROM play_participants pp
+            WHERE pp.play_id = p.id
+              AND pp.user_id = sqlc.arg('user_id')
+              AND pp.status IN ('confirmed', 'added')
+        )
+      )
+);
 
 -- name: CreateChatMessage :one
 INSERT INTO chat_messages (conversation_id, sender_user_id, body)

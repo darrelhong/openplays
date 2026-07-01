@@ -47,6 +47,11 @@ type ChatMessagePublic struct {
 	CanDelete bool            `json:"can_delete"`
 }
 
+type chatConversationListItem struct {
+	Summary    ChatConversationSummary
+	ActivityAt time.Time
+}
+
 func mapUserSummary(id, displayName string, username, photoURL *string) ChatUserSummary {
 	return ChatUserSummary{
 		ID:          id,
@@ -56,7 +61,7 @@ func mapUserSummary(id, displayName string, username, photoURL *string) ChatUser
 	}
 }
 
-func mapConversation(row db.ListDMConversationsByUserRow) ChatConversationSummary {
+func mapDMConversation(row db.ListDMConversationsByUserRow) chatConversationListItem {
 	otherUser := mapUserSummary(row.OtherUserID, row.OtherDisplayName, row.OtherUsername, row.OtherPhotoUrl)
 	summary := ChatConversationSummary{
 		ID:          row.ID,
@@ -68,18 +73,66 @@ func mapConversation(row db.ListDMConversationsByUserRow) ChatConversationSummar
 		UnreadCount: row.UnreadCount,
 		UpdatedAt:   row.UpdatedAt.Format(time.RFC3339),
 	}
+	activityAt := row.UpdatedAt
 	if row.LastMessageID != nil && row.LastMessageSenderUserID != nil && row.LastMessageCreatedAt != nil {
-		senderName := stringValue(row.LastMessageSenderDisplayName)
-		sender := mapUserSummary(*row.LastMessageSenderUserID, senderName, row.LastMessageSenderUsername, row.LastMessageSenderPhotoUrl)
-		summary.LastMessage = &ChatMessagePreview{
-			ID:        *row.LastMessageID,
-			Sender:    sender,
-			Body:      visibleMessageBody(row.LastMessageBody, row.LastMessageDeletedAt),
-			DeletedAt: optionalTime(row.LastMessageDeletedAt),
-			CreatedAt: row.LastMessageCreatedAt.Format(time.RFC3339),
-		}
+		summary.LastMessage = mapMessagePreview(
+			*row.LastMessageID,
+			*row.LastMessageSenderUserID,
+			row.LastMessageSenderDisplayName,
+			row.LastMessageSenderUsername,
+			row.LastMessageSenderPhotoUrl,
+			row.LastMessageBody,
+			row.LastMessageDeletedAt,
+			*row.LastMessageCreatedAt,
+		)
+		activityAt = *row.LastMessageCreatedAt
 	}
-	return summary
+	return chatConversationListItem{Summary: summary, ActivityAt: activityAt}
+}
+
+func mapPlayConversation(row db.ListPlayConversationsByUserRow) chatConversationListItem {
+	summary := ChatConversationSummary{
+		ID:          row.ID,
+		Kind:        row.Kind,
+		Title:       row.Title,
+		PlayID:      row.PlayID,
+		UnreadCount: row.UnreadCount,
+		UpdatedAt:   row.UpdatedAt.Format(time.RFC3339),
+	}
+	activityAt := row.UpdatedAt
+	if row.LastMessageID != nil && row.LastMessageSenderUserID != nil && row.LastMessageCreatedAt != nil {
+		summary.LastMessage = mapMessagePreview(
+			*row.LastMessageID,
+			*row.LastMessageSenderUserID,
+			row.LastMessageSenderDisplayName,
+			row.LastMessageSenderUsername,
+			row.LastMessageSenderPhotoUrl,
+			row.LastMessageBody,
+			row.LastMessageDeletedAt,
+			*row.LastMessageCreatedAt,
+		)
+		activityAt = *row.LastMessageCreatedAt
+	}
+	return chatConversationListItem{Summary: summary, ActivityAt: activityAt}
+}
+
+func mapMessagePreview(
+	id int64,
+	senderUserID string,
+	senderDisplayName *string,
+	senderUsername *string,
+	senderPhotoURL *string,
+	body *string,
+	deletedAt *time.Time,
+	createdAt time.Time,
+) *ChatMessagePreview {
+	return &ChatMessagePreview{
+		ID:        id,
+		Sender:    mapUserSummary(senderUserID, stringValue(senderDisplayName), senderUsername, senderPhotoURL),
+		Body:      visibleMessageBody(body, deletedAt),
+		DeletedAt: optionalTime(deletedAt),
+		CreatedAt: createdAt.Format(time.RFC3339),
+	}
 }
 
 func mapMessage(row db.GetChatMessageWithSenderRow, viewerID string) ChatMessagePublic {

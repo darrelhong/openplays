@@ -78,6 +78,33 @@ func (q *Queries) CreateDMParticipant(ctx context.Context, arg CreateDMParticipa
 	return err
 }
 
+const createPlayConversation = `-- name: CreatePlayConversation :one
+INSERT INTO chat_conversations (id, kind, play_id)
+VALUES (?, 'play', ?)
+ON CONFLICT(play_id) WHERE play_id IS NOT NULL DO UPDATE SET
+    updated_at = chat_conversations.updated_at
+RETURNING id, kind, play_id, dm_key, created_at, updated_at
+`
+
+type CreatePlayConversationParams struct {
+	ID     string
+	PlayID *string
+}
+
+func (q *Queries) CreatePlayConversation(ctx context.Context, arg CreatePlayConversationParams) (ChatConversation, error) {
+	row := q.db.QueryRowContext(ctx, createPlayConversation, arg.ID, arg.PlayID)
+	var i ChatConversation
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.PlayID,
+		&i.DmKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getChatConversation = `-- name: GetChatConversation :one
 SELECT id, kind, play_id, dm_key, created_at, updated_at FROM chat_conversations
 WHERE id = ?
@@ -190,6 +217,41 @@ func (q *Queries) GetDMConversationPeer(ctx context.Context, arg GetDMConversati
 		&i.Status,
 	)
 	return i, err
+}
+
+const isPlayChatMember = `-- name: IsPlayChatMember :one
+SELECT EXISTS (
+    SELECT 1
+    FROM plays p
+    WHERE p.id = ?1
+      AND (
+        EXISTS (
+            SELECT 1
+            FROM play_hosts ph
+            WHERE ph.play_id = p.id AND ph.user_id = ?2
+        )
+        OR p.created_by = ?2
+        OR EXISTS (
+            SELECT 1
+            FROM play_participants pp
+            WHERE pp.play_id = p.id
+              AND pp.user_id = ?2
+              AND pp.status IN ('confirmed', 'added')
+        )
+      )
+)
+`
+
+type IsPlayChatMemberParams struct {
+	PlayID string
+	UserID string
+}
+
+func (q *Queries) IsPlayChatMember(ctx context.Context, arg IsPlayChatMemberParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isPlayChatMember, arg.PlayID, arg.UserID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const listChatMessages = `-- name: ListChatMessages :many
@@ -369,6 +431,128 @@ func (q *Queries) ListDMConversationsByUser(ctx context.Context, arg ListDMConve
 			&i.OtherDisplayName,
 			&i.OtherUsername,
 			&i.OtherPhotoUrl,
+			&i.LastMessageID,
+			&i.LastMessageSenderUserID,
+			&i.LastMessageBody,
+			&i.LastMessageDeletedAt,
+			&i.LastMessageCreatedAt,
+			&i.LastMessageSenderDisplayName,
+			&i.LastMessageSenderUsername,
+			&i.LastMessageSenderPhotoUrl,
+			&i.UnreadCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlayConversationsByUser = `-- name: ListPlayConversationsByUser :many
+SELECT
+    c.id,
+    c.kind,
+    c.play_id,
+    c.created_at,
+    c.updated_at,
+    COALESCE(NULLIF(p.name, ''), v.name, NULLIF(p.venue, ''), 'Game') AS title,
+    lm.id AS last_message_id,
+    lm.sender_user_id AS last_message_sender_user_id,
+    lm.body AS last_message_body,
+    lm.deleted_at AS last_message_deleted_at,
+    lm.created_at AS last_message_created_at,
+    sender.display_name AS last_message_sender_display_name,
+    sender.username AS last_message_sender_username,
+    sender.photo_url AS last_message_sender_photo_url,
+    (
+        SELECT COUNT(*)
+        FROM chat_messages unread
+        LEFT JOIN chat_read_states rs
+            ON rs.conversation_id = unread.conversation_id
+            AND rs.user_id = ?1
+        WHERE unread.conversation_id = c.id
+          AND unread.sender_user_id <> ?1
+          AND unread.deleted_at IS NULL
+          AND unread.id > COALESCE(rs.last_read_message_id, 0)
+    ) AS unread_count
+FROM chat_conversations c
+JOIN plays p ON p.id = c.play_id
+LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN chat_messages lm
+    ON lm.id = (
+        SELECT id
+        FROM chat_messages
+        WHERE conversation_id = c.id
+        ORDER BY id DESC
+        LIMIT 1
+    )
+LEFT JOIN users sender ON sender.id = lm.sender_user_id
+WHERE c.kind = 'play'
+  AND c.play_id IS NOT NULL
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = ?1
+    )
+    OR p.created_by = ?1
+    OR EXISTS (
+        SELECT 1
+        FROM play_participants pp
+        WHERE pp.play_id = p.id
+          AND pp.user_id = ?1
+          AND pp.status IN ('confirmed', 'added')
+    )
+  )
+ORDER BY COALESCE(lm.created_at, c.updated_at) DESC, c.id DESC
+LIMIT ?2
+`
+
+type ListPlayConversationsByUserParams struct {
+	ViewerID string
+	Limit    int64
+}
+
+type ListPlayConversationsByUserRow struct {
+	ID                           string
+	Kind                         string
+	PlayID                       *string
+	CreatedAt                    time.Time
+	UpdatedAt                    time.Time
+	Title                        string
+	LastMessageID                *int64
+	LastMessageSenderUserID      *string
+	LastMessageBody              *string
+	LastMessageDeletedAt         *time.Time
+	LastMessageCreatedAt         *time.Time
+	LastMessageSenderDisplayName *string
+	LastMessageSenderUsername    *string
+	LastMessageSenderPhotoUrl    *string
+	UnreadCount                  int64
+}
+
+func (q *Queries) ListPlayConversationsByUser(ctx context.Context, arg ListPlayConversationsByUserParams) ([]ListPlayConversationsByUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPlayConversationsByUser, arg.ViewerID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPlayConversationsByUserRow
+	for rows.Next() {
+		var i ListPlayConversationsByUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.PlayID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Title,
 			&i.LastMessageID,
 			&i.LastMessageSenderUserID,
 			&i.LastMessageBody,

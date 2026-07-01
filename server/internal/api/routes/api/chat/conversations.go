@@ -36,6 +36,16 @@ type CreateDMConversationOutput struct {
 	Body ChatConversationSummary
 }
 
+type CreatePlayConversationInput struct {
+	Body struct {
+		PlayID string `json:"play_id" required:"true"`
+	}
+}
+
+type CreatePlayConversationOutput struct {
+	Body ChatConversationSummary
+}
+
 func RegisterConversations(api huma.API, store Store) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-chat-conversations",
@@ -53,17 +63,42 @@ func RegisterConversations(api huma.API, store Store) {
 		if limit <= 0 {
 			limit = 50
 		}
-		rows, err := store.ListDMConversationsByUser(ctx, db.ListDMConversationsByUserParams{
+		dmRows, err := store.ListDMConversationsByUser(ctx, db.ListDMConversationsByUserParams{
 			ViewerID: user.ID,
 			Limit:    limit,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list conversations")
 		}
+		playRows, err := store.ListPlayConversationsByUser(ctx, db.ListPlayConversationsByUserParams{
+			ViewerID: user.ID,
+			Limit:    limit,
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to list conversations")
+		}
+
+		items := make([]chatConversationListItem, 0, len(dmRows)+len(playRows))
+		for _, row := range dmRows {
+			items = append(items, mapDMConversation(row))
+		}
+		for _, row := range playRows {
+			items = append(items, mapPlayConversation(row))
+		}
+		sort.SliceStable(items, func(i, j int) bool {
+			if items[i].ActivityAt.Equal(items[j].ActivityAt) {
+				return items[i].Summary.ID > items[j].Summary.ID
+			}
+			return items[i].ActivityAt.After(items[j].ActivityAt)
+		})
+		if int64(len(items)) > limit {
+			items = items[:limit]
+		}
+
 		out := &ListChatConversationsOutput{}
-		out.Body.Items = make([]ChatConversationSummary, 0, len(rows))
-		for _, row := range rows {
-			out.Body.Items = append(out.Body.Items, mapConversation(row))
+		out.Body.Items = make([]ChatConversationSummary, 0, len(items))
+		for _, item := range items {
+			out.Body.Items = append(out.Body.Items, item.Summary)
 		}
 		return out, nil
 	})
@@ -134,6 +169,53 @@ func RegisterConversations(api huma.API, store Store) {
 		}
 		return out, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "create-play-chat-conversation",
+		Summary:     "Create or get a play chat conversation",
+		Description: "Idempotently creates or returns a play chat conversation for current roster users.",
+		Method:      http.MethodPost,
+		Path:        "/play-conversations",
+		Tags:        []string{"Chat"},
+	}, func(ctx context.Context, input *CreatePlayConversationInput) (*CreatePlayConversationOutput, error) {
+		user := authmw.UserFromContext(ctx)
+		if user == nil {
+			return nil, huma.Error401Unauthorized("not authenticated")
+		}
+		playID := strings.TrimSpace(input.Body.PlayID)
+		if playID == "" {
+			return nil, huma.Error422UnprocessableEntity("play_id is required")
+		}
+		play, err := store.GetPlayByID(ctx, playID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, huma.Error404NotFound("play not found")
+		}
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get play")
+		}
+		if err := authorizePlayChatByPlayID(ctx, store, playID, user.ID); err != nil {
+			return nil, err
+		}
+
+		conversation, err := store.CreatePlayConversation(ctx, db.CreatePlayConversationParams{
+			ID:     uuid.NewString(),
+			PlayID: &playID,
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to create conversation")
+		}
+
+		out := &CreatePlayConversationOutput{}
+		out.Body = ChatConversationSummary{
+			ID:          conversation.ID,
+			Kind:        conversation.Kind,
+			Title:       playConversationTitle(play),
+			PlayID:      conversation.PlayID,
+			UnreadCount: 0,
+			UpdatedAt:   conversation.UpdatedAt.Format(time.RFC3339),
+		}
+		return out, nil
+	})
 }
 
 func dmKey(userA, userB string) string {
@@ -149,4 +231,11 @@ func isBlocked(ctx context.Context, store Store, userA, userB string) (bool, err
 		BlockerID_2: userB,
 		BlockedID_2: userA,
 	})
+}
+
+func playConversationTitle(play db.GetPlayByIDRow) string {
+	if play.Name != nil && *play.Name != "" {
+		return *play.Name
+	}
+	return play.VenueName
 }

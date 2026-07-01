@@ -64,7 +64,7 @@ func RegisterMessages(api huma.API, store Store) {
 		if user == nil {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
-		if _, err := authorizeDM(ctx, store, input.ID, user.ID); err != nil {
+		if _, err := authorizeConversation(ctx, store, input.ID, user.ID); err != nil {
 			return nil, err
 		}
 		limit := input.Limit
@@ -100,7 +100,7 @@ func RegisterMessages(api huma.API, store Store) {
 		if user == nil {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
-		if _, err := authorizeDM(ctx, store, input.ID, user.ID); err != nil {
+		if _, err := authorizeConversation(ctx, store, input.ID, user.ID); err != nil {
 			return nil, err
 		}
 		body := strings.TrimSpace(input.Body.Body)
@@ -140,7 +140,7 @@ func RegisterMessages(api huma.API, store Store) {
 		if user == nil {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
-		if _, err := authorizeDM(ctx, store, input.ID, user.ID); err != nil {
+		if _, err := authorizeConversation(ctx, store, input.ID, user.ID); err != nil {
 			return nil, err
 		}
 		if input.Body.LastReadMessageID <= 0 {
@@ -168,7 +168,7 @@ func RegisterMessages(api huma.API, store Store) {
 		if user == nil {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
-		if _, err := authorizeDM(ctx, store, input.ID, user.ID); err != nil {
+		if _, err := authorizeConversation(ctx, store, input.ID, user.ID); err != nil {
 			return nil, err
 		}
 		if _, err := store.SoftDeleteChatMessageBySender(ctx, db.SoftDeleteChatMessageBySenderParams{
@@ -198,6 +198,33 @@ func RegisterMessages(api huma.API, store Store) {
 	})
 }
 
+func authorizeConversation(ctx context.Context, store Store, conversationID, viewerID string) (db.ChatConversation, error) {
+	conversation, err := store.GetChatConversation(ctx, conversationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return db.ChatConversation{}, huma.Error404NotFound("conversation not found")
+	}
+	if err != nil {
+		return db.ChatConversation{}, huma.Error500InternalServerError("failed to get conversation")
+	}
+
+	switch conversation.Kind {
+	case conversationKindDM:
+		if _, err := authorizeDM(ctx, store, conversationID, viewerID); err != nil {
+			return db.ChatConversation{}, err
+		}
+	case conversationKindPlay:
+		if conversation.PlayID == nil {
+			return db.ChatConversation{}, huma.Error500InternalServerError("play conversation is missing play_id")
+		}
+		if err := authorizePlayChatByPlayID(ctx, store, *conversation.PlayID, viewerID); err != nil {
+			return db.ChatConversation{}, err
+		}
+	default:
+		return db.ChatConversation{}, huma.Error500InternalServerError("unsupported conversation kind")
+	}
+	return conversation, nil
+}
+
 func authorizeDM(ctx context.Context, store Store, conversationID, viewerID string) (db.GetDMConversationPeerRow, error) {
 	peer, err := store.GetDMConversationPeer(ctx, db.GetDMConversationPeerParams{
 		ConversationID: conversationID,
@@ -218,4 +245,18 @@ func authorizeDM(ctx context.Context, store Store, conversationID, viewerID stri
 		return db.GetDMConversationPeerRow{}, huma.Error403Forbidden("direct message is blocked")
 	}
 	return peer, nil
+}
+
+func authorizePlayChatByPlayID(ctx context.Context, store Store, playID, viewerID string) error {
+	allowed, err := store.IsPlayChatMember(ctx, db.IsPlayChatMemberParams{
+		PlayID: playID,
+		UserID: viewerID,
+	})
+	if err != nil {
+		return huma.Error500InternalServerError("failed to check play chat access")
+	}
+	if !allowed {
+		return huma.Error403Forbidden("play chat is only available to current roster users")
+	}
+	return nil
 }
