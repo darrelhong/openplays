@@ -64,6 +64,110 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/chat/conversations': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List chat conversations
+		 * @description Returns the current user's latest visible conversations.
+		 */
+		get: operations['list-chat-conversations'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/chat/conversations/{id}/messages': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List chat messages
+		 * @description Returns the latest visible messages for a conversation.
+		 */
+		get: operations['list-chat-messages'];
+		put?: never;
+		/**
+		 * Send chat message
+		 * @description Sends a plain text message to a conversation.
+		 */
+		post: operations['send-chat-message'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/chat/conversations/{id}/messages/{messageID}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		post?: never;
+		/**
+		 * Delete chat message
+		 * @description Soft-deletes a message sent by the current user.
+		 */
+		delete: operations['delete-chat-message'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/chat/conversations/{id}/read': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Mark chat conversation read
+		 * @description Stores the current user's read cursor for a conversation.
+		 */
+		post: operations['mark-chat-conversation-read'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/chat/dms': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Create or get a direct message conversation
+		 * @description Idempotently creates or returns a DM conversation with another active user.
+		 */
+		post: operations['create-dm-conversation'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/dev/login': {
 		parameters: {
 			query?: never;
@@ -502,6 +606,54 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
 	schemas: {
+		ChatConversationSummary: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ChatConversationSummary.json
+			 */
+			readonly $schema?: string;
+			avatar_url?: string;
+			id: string;
+			/** @enum {string} */
+			kind: 'dm' | 'play';
+			last_message?: components['schemas']['ChatMessagePreview'];
+			other_user?: components['schemas']['ChatUserSummary'];
+			play_id?: string;
+			title: string;
+			/** Format: int64 */
+			unread_count: number;
+			updated_at: string;
+		};
+		ChatMessagePreview: {
+			body?: string;
+			created_at: string;
+			deleted_at?: string;
+			/** Format: int64 */
+			id: number;
+			sender: components['schemas']['ChatUserSummary'];
+		};
+		ChatMessagePublic: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ChatMessagePublic.json
+			 */
+			readonly $schema?: string;
+			body?: string;
+			can_delete: boolean;
+			created_at: string;
+			deleted_at?: string;
+			/** Format: int64 */
+			id: number;
+			sender: components['schemas']['ChatUserSummary'];
+		};
+		ChatUserSummary: {
+			display_name: string;
+			id: string;
+			photo_url?: string;
+			username?: string;
+		};
 		ConfirmParticipantOutputBody: {
 			/**
 			 * Format: uri
@@ -517,6 +669,15 @@ export interface components {
 		ContactMethod: {
 			type: string;
 			value: string;
+		};
+		CreateDMConversationInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/CreateDMConversationInputBody.json
+			 */
+			readonly $schema?: string;
+			recipient_user_id: string;
 		};
 		CreateInputBody: {
 			/**
@@ -722,6 +883,24 @@ export interface components {
 			readonly $schema?: string;
 			items: components['schemas']['VenuePublic'][] | null;
 		};
+		ListChatConversationsOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ListChatConversationsOutputBody.json
+			 */
+			readonly $schema?: string;
+			items: components['schemas']['ChatConversationSummary'][] | null;
+		};
+		ListChatMessagesOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/ListChatMessagesOutputBody.json
+			 */
+			readonly $schema?: string;
+			items: components['schemas']['ChatMessagePublic'][] | null;
+		};
 		ListOutputBody: {
 			/**
 			 * Format: uri
@@ -750,6 +929,16 @@ export interface components {
 			readonly $schema?: string;
 			session_token: string;
 			user: components['schemas']['User'];
+		};
+		MarkChatConversationReadInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/MarkChatConversationReadInputBody.json
+			 */
+			readonly $schema?: string;
+			/** Format: int64 */
+			last_read_message_id: number;
 		};
 		MarkReadInputBody: {
 			/**
@@ -967,6 +1156,15 @@ export interface components {
 			 */
 			readonly $schema?: string;
 			items: components['schemas']['UserSummary'][] | null;
+		};
+		SendChatMessageInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/SendChatMessageInputBody.json
+			 */
+			readonly $schema?: string;
+			body: string;
 		};
 		SportLevelProfile: {
 			level?: string;
@@ -1212,6 +1410,210 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-chat-conversations': {
+		parameters: {
+			query?: {
+				/** @description Maximum conversations to return */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ListChatConversationsOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-chat-messages': {
+		parameters: {
+			query?: {
+				/** @description Maximum messages to return */
+				limit?: number;
+				/** @description Fetch messages older than this message ID */
+				before_id?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Conversation ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ListChatMessagesOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'send-chat-message': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Conversation ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['SendChatMessageInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ChatMessagePublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'delete-chat-message': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Conversation ID */
+				id: string;
+				/** @description Message ID */
+				messageID: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'mark-chat-conversation-read': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Conversation ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['MarkChatConversationReadInputBody'];
+			};
+		};
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'create-dm-conversation': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['CreateDMConversationInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['ChatConversationSummary'];
+				};
 			};
 			/** @description Error */
 			default: {

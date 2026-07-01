@@ -1,0 +1,152 @@
+package chat
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
+
+	"openplays/server/internal/api/authmw"
+	"openplays/server/internal/db"
+)
+
+type ListChatConversationsInput struct {
+	Limit int64 `query:"limit" minimum:"1" maximum:"50" default:"50" doc:"Maximum conversations to return"`
+}
+
+type ListChatConversationsOutput struct {
+	Body struct {
+		Items []ChatConversationSummary `json:"items"`
+	}
+}
+
+type CreateDMConversationInput struct {
+	Body struct {
+		RecipientUserID string `json:"recipient_user_id" required:"true"`
+	}
+}
+
+type CreateDMConversationOutput struct {
+	Body ChatConversationSummary
+}
+
+func RegisterConversations(api huma.API, store Store) {
+	huma.Register(api, huma.Operation{
+		OperationID: "list-chat-conversations",
+		Summary:     "List chat conversations",
+		Description: "Returns the current user's latest visible conversations.",
+		Method:      http.MethodGet,
+		Path:        "/conversations",
+		Tags:        []string{"Chat"},
+	}, func(ctx context.Context, input *ListChatConversationsInput) (*ListChatConversationsOutput, error) {
+		user := authmw.UserFromContext(ctx)
+		if user == nil {
+			return nil, huma.Error401Unauthorized("not authenticated")
+		}
+		limit := input.Limit
+		if limit <= 0 {
+			limit = 50
+		}
+		rows, err := store.ListDMConversationsByUser(ctx, db.ListDMConversationsByUserParams{
+			ViewerID: user.ID,
+			Limit:    limit,
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to list conversations")
+		}
+		out := &ListChatConversationsOutput{}
+		out.Body.Items = make([]ChatConversationSummary, 0, len(rows))
+		for _, row := range rows {
+			out.Body.Items = append(out.Body.Items, mapConversation(row))
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "create-dm-conversation",
+		Summary:     "Create or get a direct message conversation",
+		Description: "Idempotently creates or returns a DM conversation with another active user.",
+		Method:      http.MethodPost,
+		Path:        "/dms",
+		Tags:        []string{"Chat"},
+	}, func(ctx context.Context, input *CreateDMConversationInput) (*CreateDMConversationOutput, error) {
+		user := authmw.UserFromContext(ctx)
+		if user == nil {
+			return nil, huma.Error401Unauthorized("not authenticated")
+		}
+		recipientID := strings.TrimSpace(input.Body.RecipientUserID)
+		if recipientID == "" {
+			return nil, huma.Error422UnprocessableEntity("recipient_user_id is required")
+		}
+		if recipientID == user.ID {
+			return nil, huma.Error422UnprocessableEntity("cannot message yourself")
+		}
+
+		recipient, err := store.GetUserByID(ctx, recipientID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, huma.Error404NotFound("recipient not found")
+		}
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get recipient")
+		}
+		if recipient.Status != "active" {
+			return nil, huma.Error422UnprocessableEntity("recipient is not active")
+		}
+		if blocked, err := isBlocked(ctx, store, user.ID, recipient.ID); err != nil {
+			return nil, huma.Error500InternalServerError("failed to check block status")
+		} else if blocked {
+			return nil, huma.Error403Forbidden("direct message is blocked")
+		}
+
+		key := dmKey(user.ID, recipient.ID)
+		conversation, err := store.CreateDMConversation(ctx, db.CreateDMConversationParams{
+			ID:    uuid.NewString(),
+			DmKey: &key,
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to create conversation")
+		}
+		for _, participantID := range []string{user.ID, recipient.ID} {
+			if err := store.CreateDMParticipant(ctx, db.CreateDMParticipantParams{
+				ConversationID: conversation.ID,
+				UserID:         participantID,
+			}); err != nil {
+				return nil, huma.Error500InternalServerError("failed to create conversation participant")
+			}
+		}
+
+		otherUser := mapUserSummary(recipient.ID, recipient.DisplayName, recipient.Username, recipient.PhotoUrl)
+		out := &CreateDMConversationOutput{}
+		out.Body = ChatConversationSummary{
+			ID:          conversation.ID,
+			Kind:        conversation.Kind,
+			Title:       recipient.DisplayName,
+			AvatarURL:   recipient.PhotoUrl,
+			OtherUser:   &otherUser,
+			UnreadCount: 0,
+			UpdatedAt:   conversation.UpdatedAt.Format(time.RFC3339),
+		}
+		return out, nil
+	})
+}
+
+func dmKey(userA, userB string) string {
+	ids := []string{userA, userB}
+	sort.Strings(ids)
+	return ids[0] + ":" + ids[1]
+}
+
+func isBlocked(ctx context.Context, store Store, userA, userB string) (bool, error) {
+	return store.IsBlocked(ctx, db.IsBlockedParams{
+		BlockerID:   userA,
+		BlockedID:   userB,
+		BlockerID_2: userB,
+		BlockedID_2: userA,
+	})
+}

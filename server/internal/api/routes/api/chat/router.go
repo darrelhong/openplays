@@ -1,0 +1,17 @@
+package chat
+
+import (
+	"github.com/danielgtaylor/huma/v2"
+
+	"openplays/server/internal/api/authmw"
+	"openplays/server/internal/auth"
+	"openplays/server/internal/db"
+)
+
+func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
+	grp := huma.NewGroup(api, "/chat")
+	grp.UseMiddleware(authmw.RequireAuth(api, svc))
+
+	RegisterConversations(grp, queries)
+	RegisterMessages(grp, queries)
+}

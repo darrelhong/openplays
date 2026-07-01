@@ -12,6 +12,7 @@ import (
 
 	"openplays/server/internal/api/authmw"
 	authRouter "openplays/server/internal/api/routes/api/auth"
+	chatRouter "openplays/server/internal/api/routes/api/chat"
 	devRouter "openplays/server/internal/api/routes/api/dev"
 	meRouter "openplays/server/internal/api/routes/api/me"
 	notificationsRouter "openplays/server/internal/api/routes/api/notifications"
@@ -27,6 +28,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifi
 
 	// Public routes
 	authRouter.Register(grp, svc, googleVerifier, facebookVerifier, authRouter.CookieConfig{Secure: cookieSecure})
+	chatRouter.Register(grp, queries, svc)
 	notificationsRouter.Register(grp, pushService, authmw.RequireAuth(api, svc))
 	playsRouter.Register(grp, queries, svc, pushService)
 	venuesRouter.Register(grp, queries, svc, places)

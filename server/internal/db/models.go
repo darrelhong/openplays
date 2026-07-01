@@ -10,6 +10,37 @@ import (
 	"openplays/server/internal/model"
 )
 
+type ChatConversation struct {
+	ID        string
+	Kind      string
+	PlayID    *string
+	DmKey     *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type ChatDmParticipant struct {
+	ConversationID string
+	UserID         string
+	CreatedAt      time.Time
+}
+
+type ChatMessage struct {
+	ID             int64
+	ConversationID string
+	SenderUserID   string
+	Body           *string
+	DeletedAt      *time.Time
+	CreatedAt      time.Time
+}
+
+type ChatReadState struct {
+	ConversationID    string
+	UserID            string
+	LastReadMessageID int64
+	ReadAt            time.Time
+}
+
 type Play struct {
 	ID                   string
 	CreatedAt            time.Time
