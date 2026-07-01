@@ -18,6 +18,7 @@ type Store interface {
 	ListPlayConversationsByUser(ctx context.Context, arg db.ListPlayConversationsByUserParams) ([]db.ListPlayConversationsByUserRow, error)
 	GetDMConversationPeer(ctx context.Context, arg db.GetDMConversationPeerParams) (db.GetDMConversationPeerRow, error)
 	IsPlayChatMember(ctx context.Context, arg db.IsPlayChatMemberParams) (bool, error)
+	ListPlayChatRecipientUserIDs(ctx context.Context, arg db.ListPlayChatRecipientUserIDsParams) ([]string, error)
 	CreateChatMessage(ctx context.Context, arg db.CreateChatMessageParams) (db.ChatMessage, error)
 	GetChatMessageWithSender(ctx context.Context, arg db.GetChatMessageWithSenderParams) (db.GetChatMessageWithSenderRow, error)
 	ListChatMessages(ctx context.Context, arg db.ListChatMessagesParams) ([]db.ListChatMessagesRow, error)

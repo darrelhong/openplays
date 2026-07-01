@@ -454,6 +454,55 @@ func (q *Queries) ListDMConversationsByUser(ctx context.Context, arg ListDMConve
 	return items, nil
 }
 
+const listPlayChatRecipientUserIDs = `-- name: ListPlayChatRecipientUserIDs :many
+SELECT ph.user_id
+FROM play_hosts ph
+WHERE ph.play_id = ?1
+  AND ph.user_id <> ?2
+UNION
+SELECT p.created_by AS user_id
+FROM plays p
+WHERE p.id = ?1
+  AND p.created_by IS NOT NULL
+  AND p.created_by <> ?2
+UNION
+SELECT pp.user_id
+FROM play_participants pp
+WHERE pp.play_id = ?1
+  AND pp.user_id IS NOT NULL
+  AND pp.user_id <> ?2
+  AND pp.status IN ('confirmed', 'added')
+ORDER BY user_id ASC
+`
+
+type ListPlayChatRecipientUserIDsParams struct {
+	PlayID        string
+	ExcludeUserID string
+}
+
+func (q *Queries) ListPlayChatRecipientUserIDs(ctx context.Context, arg ListPlayChatRecipientUserIDsParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listPlayChatRecipientUserIDs, arg.PlayID, arg.ExcludeUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var user_id string
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlayConversationsByUser = `-- name: ListPlayConversationsByUser :many
 SELECT
     c.id,

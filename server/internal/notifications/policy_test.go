@@ -23,6 +23,11 @@ func TestDeliveryPolicyForPlayKinds(t *testing.T) {
 			kind: "custom.event",
 			want: DeliveryPolicy{Feed: true, Push: true},
 		},
+		{
+			name: "chat message stores debounced feed and push",
+			kind: "chat.message",
+			want: DeliveryPolicy{Feed: true, Push: true, DebounceFeed: true},
+		},
 	}
 
 	for _, tt := range tests {

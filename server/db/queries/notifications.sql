@@ -57,6 +57,31 @@ INSERT INTO user_notifications (
 )
 RETURNING *;
 
+-- name: UpsertChatUserNotificationByTag :one
+INSERT INTO user_notifications (
+    id,
+    user_id,
+    title,
+    body,
+    url,
+    tag,
+    kind,
+    play_id,
+    data
+) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+ON CONFLICT(user_id, tag) WHERE tag IS NOT NULL AND kind = 'chat.message' DO UPDATE SET
+    title = excluded.title,
+    body = excluded.body,
+    url = excluded.url,
+    kind = excluded.kind,
+    play_id = excluded.play_id,
+    data = excluded.data,
+    read_at = NULL,
+    created_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+RETURNING *;
+
 -- name: ListUserNotifications :many
 SELECT * FROM user_notifications
 WHERE user_id = ?

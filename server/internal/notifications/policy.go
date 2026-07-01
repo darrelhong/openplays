@@ -1,8 +1,9 @@
 package notifications
 
 type DeliveryPolicy struct {
-	Feed bool
-	Push bool
+	Feed         bool
+	Push         bool
+	DebounceFeed bool
 }
 
 var deliveryPoliciesByKind = map[string]DeliveryPolicy{
@@ -11,6 +12,7 @@ var deliveryPoliciesByKind = map[string]DeliveryPolicy{
 	"play.player_joined":    {Feed: true, Push: true},
 	"play.player_confirmed": {Feed: true, Push: true},
 	"play.player_left":      {Feed: true, Push: true},
+	"chat.message":          {Feed: true, Push: true, DebounceFeed: true},
 }
 
 var defaultDeliveryPolicy = DeliveryPolicy{Feed: true, Push: true}

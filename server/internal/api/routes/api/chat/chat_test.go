@@ -19,19 +19,24 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 	"openplays/server/internal/testdb"
 )
 
-func setupChatTest(t *testing.T) (*httptest.Server, *db.Queries) {
+func setupChatTest(t *testing.T, notifiers ...notifications.Sender) (*httptest.Server, *db.Queries) {
 	t.Helper()
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	svc := auth.NewService(queries)
+	var notifier notifications.Sender
+	if len(notifiers) > 0 {
+		notifier = notifiers[0]
+	}
 
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("test", "0.0.1"))
 	grp := huma.NewGroup(api, "/api")
-	chat.Register(grp, queries, svc)
+	chat.Register(grp, queries, svc, notifier)
 
 	return httptest.NewServer(r), queries
 }
@@ -166,6 +171,48 @@ func TestBlockedDMIsHiddenAndForbiddenUntilUnblocked(t *testing.T) {
 	}
 }
 
+func TestDMMessageNotifiesPeer(t *testing.T) {
+	notifier := &fakeChatNotificationSender{}
+	ts, queries := setupChatTest(t, notifier)
+	defer ts.Close()
+	ctx := context.Background()
+
+	alice := createChatTestUser(t, ctx, queries, "notify-dm-alice", "Alice Tan", "notify_dm_alice", "active")
+	bob := createChatTestUser(t, ctx, queries, "notify-dm-bob", "Bob Lee", "notify_dm_bob", "active")
+	createChatSession(t, ctx, queries, alice.ID, "alice-token")
+	createChatSession(t, ctx, queries, bob.ID, "bob-token")
+
+	conversation := doJSON[conversationResponse](t, http.MethodPost, ts.URL+"/api/chat/dms", "alice-token", map[string]string{
+		"recipient_user_id": bob.ID,
+	}, http.StatusOK)
+	doJSON[messageResponse](t, http.MethodPost, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "alice-token", map[string]string{
+		"body": "hello bob",
+	}, http.StatusOK)
+
+	if len(notifier.calls) != 1 {
+		t.Fatalf("notification calls = %d, want 1", len(notifier.calls))
+	}
+	call := notifier.calls[0]
+	if call.userID != bob.ID {
+		t.Fatalf("notification user = %q, want Bob", call.userID)
+	}
+	if call.payload.Kind != notifications.ChatMessageKind {
+		t.Fatalf("notification kind = %q, want chat.message", call.payload.Kind)
+	}
+	if call.payload.Tag != "chat:"+conversation.ID {
+		t.Fatalf("notification tag = %q, want chat:%s", call.payload.Tag, conversation.ID)
+	}
+	if call.payload.Title != "Alice Tan" {
+		t.Fatalf("notification title = %q, want sender name", call.payload.Title)
+	}
+	if call.payload.Body != "hello bob" {
+		t.Fatalf("notification body = %q, want message preview", call.payload.Body)
+	}
+	if call.payload.Data["conversation_id"] != conversation.ID || call.payload.Data["conversation_kind"] != "dm" {
+		t.Fatalf("notification data = %#v, want conversation metadata", call.payload.Data)
+	}
+}
+
 func TestPlayConversationFlow(t *testing.T) {
 	ts, queries := setupChatTest(t)
 	defer ts.Close()
@@ -246,6 +293,64 @@ func TestPlayConversationFlow(t *testing.T) {
 	}
 }
 
+func TestPlayMessageNotifiesCurrentRosterExceptSender(t *testing.T) {
+	notifier := &fakeChatNotificationSender{}
+	ts, queries := setupChatTest(t, notifier)
+	defer ts.Close()
+	ctx := context.Background()
+
+	host := createChatTestUser(t, ctx, queries, "notify-play-host", "Host Tan", "notify_play_host", "active")
+	confirmed := createChatTestUser(t, ctx, queries, "notify-play-confirmed", "Confirmed Lee", "notify_play_confirmed", "active")
+	added := createChatTestUser(t, ctx, queries, "notify-play-added", "Added Goh", "notify_play_added", "active")
+	waitlisted := createChatTestUser(t, ctx, queries, "notify-play-waitlisted", "Waitlisted Ng", "notify_play_waitlisted", "active")
+	createChatSession(t, ctx, queries, host.ID, "host-token")
+	createChatSession(t, ctx, queries, confirmed.ID, "confirmed-token")
+
+	play := createChatTestPlay(t, ctx, queries, "notify-play-game", host.ID, "Saturday Smash")
+	createChatPlayParticipant(t, ctx, queries, play.ID, confirmed.ID, model.ParticipantConfirmed)
+	createChatPlayParticipant(t, ctx, queries, play.ID, added.ID, model.ParticipantAdded)
+	createChatPlayParticipant(t, ctx, queries, play.ID, waitlisted.ID, model.ParticipantWaitlisted)
+
+	conversation := doJSON[conversationResponse](t, http.MethodPost, ts.URL+"/api/chat/play-conversations", "host-token", map[string]string{
+		"play_id": play.ID,
+	}, http.StatusOK)
+	doJSON[messageResponse](t, http.MethodPost, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "confirmed-token", map[string]string{
+		"body": "bring shuttles",
+	}, http.StatusOK)
+
+	if len(notifier.calls) != 2 {
+		t.Fatalf("notification calls = %d, want host and added player", len(notifier.calls))
+	}
+	got := map[string]notifications.Payload{}
+	for _, call := range notifier.calls {
+		got[call.userID] = call.payload
+	}
+	for _, userID := range []string{host.ID, added.ID} {
+		payload, ok := got[userID]
+		if !ok {
+			t.Fatalf("missing notification for %s", userID)
+		}
+		if payload.Kind != notifications.ChatMessageKind {
+			t.Fatalf("notification kind for %s = %q, want chat.message", userID, payload.Kind)
+		}
+		if payload.PlayID != play.ID || payload.URL != "/play/"+play.ID {
+			t.Fatalf("notification play context for %s = play_id %q url %q", userID, payload.PlayID, payload.URL)
+		}
+		if payload.Tag != "chat:"+conversation.ID {
+			t.Fatalf("notification tag for %s = %q, want chat:%s", userID, payload.Tag, conversation.ID)
+		}
+		if payload.Body != "Confirmed Lee: bring shuttles" {
+			t.Fatalf("notification body for %s = %q, want sender preview", userID, payload.Body)
+		}
+	}
+	if _, ok := got[confirmed.ID]; ok {
+		t.Fatal("sender should not receive a play chat notification")
+	}
+	if _, ok := got[waitlisted.ID]; ok {
+		t.Fatal("waitlisted user should not receive a play chat notification")
+	}
+}
+
 func TestPlayConversationAccessFollowsCurrentRoster(t *testing.T) {
 	ts, queries := setupChatTest(t)
 	defer ts.Close()
@@ -274,6 +379,23 @@ func TestPlayConversationAccessFollowsCurrentRoster(t *testing.T) {
 	if len(playerConversations.Items) != 0 {
 		t.Fatalf("player conversations len after leaving roster = %d, want 0", len(playerConversations.Items))
 	}
+}
+
+type chatNotificationCall struct {
+	userID  string
+	payload notifications.Payload
+}
+
+type fakeChatNotificationSender struct {
+	calls []chatNotificationCall
+}
+
+func (f *fakeChatNotificationSender) Notify(_ context.Context, userID string, payload notifications.Payload) error {
+	f.calls = append(f.calls, chatNotificationCall{
+		userID:  userID,
+		payload: payload,
+	})
+	return nil
 }
 
 type conversationResponse struct {

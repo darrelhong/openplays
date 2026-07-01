@@ -224,6 +224,54 @@ func TestSQLiteWebPushServicePersistsNotificationsAndVAPIDKeys(t *testing.T) {
 	}
 }
 
+func TestSQLiteWebPushServiceDebouncesChatNotificationsByTag(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	createNotificationTestUser(t, queries)
+
+	service, err := notifications.NewSQLiteWebPushService(context.Background(), queries, "mailto:dev@openplays.app")
+	if err != nil {
+		t.Fatalf("NewSQLiteWebPushService: %v", err)
+	}
+	payload := notifications.Payload{
+		Title: "Alice Tan",
+		Body:  "first message",
+		Kind:  notifications.ChatMessageKind,
+		Tag:   "chat:conversation-1",
+	}
+	if err := service.Notify(context.Background(), "user-1", payload); err != nil {
+		t.Fatalf("Notify first: %v", err)
+	}
+	items, err := service.ListNotifications(context.Background(), "user-1", 50)
+	if err != nil {
+		t.Fatalf("ListNotifications first: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("notifications len after first = %d, want 1", len(items))
+	}
+	if err := service.MarkNotificationsRead(context.Background(), "user-1", nil); err != nil {
+		t.Fatalf("MarkNotificationsRead: %v", err)
+	}
+
+	payload.Body = "second message"
+	if err := service.Notify(context.Background(), "user-1", payload); err != nil {
+		t.Fatalf("Notify second: %v", err)
+	}
+	items, err = service.ListNotifications(context.Background(), "user-1", 50)
+	if err != nil {
+		t.Fatalf("ListNotifications second: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("notifications len after second = %d, want 1", len(items))
+	}
+	if items[0].Body != "second message" {
+		t.Fatalf("notification body = %q, want latest message", items[0].Body)
+	}
+	if items[0].ReadAt != nil {
+		t.Fatalf("read_at = %v, want unread after new message", *items[0].ReadAt)
+	}
+}
+
 func setupNotificationTest(t *testing.T) (*notifications.WebPushService, *httptest.Server) {
 	t.Helper()
 

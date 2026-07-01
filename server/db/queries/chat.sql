@@ -177,6 +177,26 @@ SELECT EXISTS (
       )
 );
 
+-- name: ListPlayChatRecipientUserIDs :many
+SELECT ph.user_id
+FROM play_hosts ph
+WHERE ph.play_id = sqlc.arg('play_id')
+  AND ph.user_id <> sqlc.arg('exclude_user_id')
+UNION
+SELECT p.created_by AS user_id
+FROM plays p
+WHERE p.id = sqlc.arg('play_id')
+  AND p.created_by IS NOT NULL
+  AND p.created_by <> sqlc.arg('exclude_user_id')
+UNION
+SELECT pp.user_id
+FROM play_participants pp
+WHERE pp.play_id = sqlc.arg('play_id')
+  AND pp.user_id IS NOT NULL
+  AND pp.user_id <> sqlc.arg('exclude_user_id')
+  AND pp.status IN ('confirmed', 'added')
+ORDER BY user_id ASC;
+
 -- name: CreateChatMessage :one
 INSERT INTO chat_messages (conversation_id, sender_user_id, body)
 VALUES (?, ?, ?)

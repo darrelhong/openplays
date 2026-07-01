@@ -28,7 +28,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifi
 
 	// Public routes
 	authRouter.Register(grp, svc, googleVerifier, facebookVerifier, authRouter.CookieConfig{Secure: cookieSecure})
-	chatRouter.Register(grp, queries, svc)
+	chatRouter.Register(grp, queries, svc, pushService)
 	notificationsRouter.Register(grp, pushService, authmw.RequireAuth(api, svc))
 	playsRouter.Register(grp, queries, svc, pushService)
 	venuesRouter.Register(grp, queries, svc, places)

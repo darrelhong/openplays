@@ -73,8 +73,45 @@ func TestNotifyCanStoreFeedWithoutPushDelivery(t *testing.T) {
 	}
 }
 
+func TestNotifyDebouncesChatFeedByTag(t *testing.T) {
+	store := &blockingWebPushStore{
+		listStarted: make(chan struct{}),
+		unblockList: make(chan struct{}),
+	}
+	service := &WebPushService{
+		publicKey:  "public-key",
+		privateKey: "private-key",
+		subscriber: "mailto:dev@openplays.app",
+		store:      store,
+	}
+
+	err := service.Notify(context.Background(), "user-1", Payload{
+		Title: "Alice Tan",
+		Body:  "hello",
+		Kind:  "chat.message",
+		Tag:   "chat:conversation-1",
+	})
+	if err != nil {
+		t.Fatalf("Notify: %v", err)
+	}
+	if store.created {
+		t.Fatal("chat notification used non-debounced create")
+	}
+	if !store.upserted {
+		t.Fatal("chat notification did not use debounced upsert")
+	}
+
+	select {
+	case <-store.listStarted:
+	case <-time.After(time.Second):
+		t.Fatal("push delivery did not start")
+	}
+	close(store.unblockList)
+}
+
 type blockingWebPushStore struct {
 	created     bool
+	upserted    bool
 	listStarted chan struct{}
 	unblockList chan struct{}
 }
@@ -103,6 +140,16 @@ func (s *blockingWebPushStore) DeleteWebPushSubscription(context.Context, db.Del
 
 func (s *blockingWebPushStore) CreateUserNotification(_ context.Context, arg db.CreateUserNotificationParams) (db.UserNotification, error) {
 	s.created = true
+	return db.UserNotification{
+		ID:        arg.ID,
+		UserID:    arg.UserID,
+		Title:     arg.Title,
+		CreatedAt: time.Now().UTC(),
+	}, nil
+}
+
+func (s *blockingWebPushStore) UpsertChatUserNotificationByTag(_ context.Context, arg db.UpsertChatUserNotificationByTagParams) (db.UserNotification, error) {
+	s.upserted = true
 	return db.UserNotification{
 		ID:        arg.ID,
 		UserID:    arg.UserID,

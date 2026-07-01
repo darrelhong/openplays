@@ -12,6 +12,7 @@ import (
 
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
+	"openplays/server/internal/notifications"
 )
 
 const maxMessageBodyLength = 2000
@@ -51,7 +52,7 @@ type DeleteChatMessageInput struct {
 	MessageID int64  `path:"messageID" doc:"Message ID"`
 }
 
-func RegisterMessages(api huma.API, store Store) {
+func RegisterMessages(api huma.API, store Store, notifier notifications.Sender) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-chat-messages",
 		Summary:     "List chat messages",
@@ -100,7 +101,8 @@ func RegisterMessages(api huma.API, store Store) {
 		if user == nil {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
-		if _, err := authorizeConversation(ctx, store, input.ID, user.ID); err != nil {
+		conversation, err := authorizeConversation(ctx, store, input.ID, user.ID)
+		if err != nil {
 			return nil, err
 		}
 		body := strings.TrimSpace(input.Body.Body)
@@ -125,6 +127,7 @@ func RegisterMessages(api huma.API, store Store) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to get message")
 		}
+		_ = notifyChatMessage(ctx, store, notifier, conversation, user.ID, user.DisplayName, body)
 		return &SendChatMessageOutput{Body: mapMessage(row, user.ID)}, nil
 	})
 
@@ -196,6 +199,42 @@ func RegisterMessages(api huma.API, store Store) {
 		}
 		return &struct{}{}, nil
 	})
+}
+
+func notifyChatMessage(ctx context.Context, store Store, notifier notifications.Sender, conversation db.ChatConversation, senderID, senderName, body string) error {
+	if notifier == nil {
+		return nil
+	}
+
+	switch conversation.Kind {
+	case conversationKindDM:
+		peer, err := store.GetDMConversationPeer(ctx, db.GetDMConversationPeerParams{
+			ConversationID: conversation.ID,
+			ViewerID:       senderID,
+		})
+		if err != nil {
+			return err
+		}
+		return notifications.NotifyDMChatMessage(ctx, notifier, conversation.ID, peer.ID, senderID, senderName, body)
+	case conversationKindPlay:
+		if conversation.PlayID == nil {
+			return nil
+		}
+		play, err := store.GetPlayByID(ctx, *conversation.PlayID)
+		if err != nil {
+			return err
+		}
+		recipients, err := store.ListPlayChatRecipientUserIDs(ctx, db.ListPlayChatRecipientUserIDsParams{
+			PlayID:        *conversation.PlayID,
+			ExcludeUserID: senderID,
+		})
+		if err != nil {
+			return err
+		}
+		return notifications.NotifyPlayChatMessage(ctx, notifier, notifications.PlaySnapshotFromDB(play), conversation.ID, recipients, senderID, senderName, body)
+	default:
+		return nil
+	}
 }
 
 func authorizeConversation(ctx context.Context, store Store, conversationID, viewerID string) (db.ChatConversation, error) {

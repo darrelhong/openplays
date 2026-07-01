@@ -64,6 +64,7 @@ type WebPushStore interface {
 	ListWebPushSubscriptionsByUser(ctx context.Context, userID string) ([]db.WebPushSubscription, error)
 	DeleteWebPushSubscription(ctx context.Context, arg db.DeleteWebPushSubscriptionParams) error
 	CreateUserNotification(ctx context.Context, arg db.CreateUserNotificationParams) (db.UserNotification, error)
+	UpsertChatUserNotificationByTag(ctx context.Context, arg db.UpsertChatUserNotificationByTagParams) (db.UserNotification, error)
 	ListUserNotifications(ctx context.Context, arg db.ListUserNotificationsParams) ([]db.UserNotification, error)
 	MarkAllUserNotificationsRead(ctx context.Context, userID string) error
 	MarkUserNotificationsRead(ctx context.Context, arg db.MarkUserNotificationsReadParams) error
@@ -198,7 +199,7 @@ func (s *WebPushService) Notify(ctx context.Context, userID string, payload Payl
 
 	policy := deliveryPolicyForKind(payload.Kind)
 	if policy.Feed {
-		if _, err := s.addNotification(ctx, userID, payload); err != nil {
+		if _, err := s.addNotification(ctx, userID, payload, policy); err != nil {
 			return fmt.Errorf("store notification: %w", err)
 		}
 	}
@@ -294,10 +295,23 @@ func (s *WebPushService) MarkNotificationsRead(ctx context.Context, userID strin
 	})
 }
 
-func (s *WebPushService) addNotification(ctx context.Context, userID string, payload Payload) (db.UserNotification, error) {
+func (s *WebPushService) addNotification(ctx context.Context, userID string, payload Payload, policy DeliveryPolicy) (db.UserNotification, error) {
 	data, err := notificationData(payload.Data)
 	if err != nil {
 		return db.UserNotification{}, err
+	}
+	if policy.DebounceFeed && payload.Tag != "" {
+		return s.store.UpsertChatUserNotificationByTag(ctx, db.UpsertChatUserNotificationByTagParams{
+			ID:     uuid.NewString(),
+			UserID: userID,
+			Title:  payload.Title,
+			Body:   optionalString(payload.Body),
+			Url:    optionalString(payload.URL),
+			Tag:    optionalString(payload.Tag),
+			Kind:   optionalString(payload.Kind),
+			PlayID: optionalString(payload.PlayID),
+			Data:   data,
+		})
 	}
 	return s.store.CreateUserNotification(ctx, db.CreateUserNotificationParams{
 		ID:     uuid.NewString(),

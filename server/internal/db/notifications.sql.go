@@ -257,6 +257,73 @@ func (q *Queries) MarkUserNotificationsRead(ctx context.Context, arg MarkUserNot
 	return err
 }
 
+const upsertChatUserNotificationByTag = `-- name: UpsertChatUserNotificationByTag :one
+INSERT INTO user_notifications (
+    id,
+    user_id,
+    title,
+    body,
+    url,
+    tag,
+    kind,
+    play_id,
+    data
+) VALUES (
+    ?, ?, ?, ?, ?, ?, ?, ?, ?
+)
+ON CONFLICT(user_id, tag) WHERE tag IS NOT NULL AND kind = 'chat.message' DO UPDATE SET
+    title = excluded.title,
+    body = excluded.body,
+    url = excluded.url,
+    kind = excluded.kind,
+    play_id = excluded.play_id,
+    data = excluded.data,
+    read_at = NULL,
+    created_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+RETURNING id, user_id, title, body, url, tag, kind, play_id, data, read_at, created_at
+`
+
+type UpsertChatUserNotificationByTagParams struct {
+	ID     string
+	UserID string
+	Title  string
+	Body   *string
+	Url    *string
+	Tag    *string
+	Kind   *string
+	PlayID *string
+	Data   *string
+}
+
+func (q *Queries) UpsertChatUserNotificationByTag(ctx context.Context, arg UpsertChatUserNotificationByTagParams) (UserNotification, error) {
+	row := q.db.QueryRowContext(ctx, upsertChatUserNotificationByTag,
+		arg.ID,
+		arg.UserID,
+		arg.Title,
+		arg.Body,
+		arg.Url,
+		arg.Tag,
+		arg.Kind,
+		arg.PlayID,
+		arg.Data,
+	)
+	var i UserNotification
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.Body,
+		&i.Url,
+		&i.Tag,
+		&i.Kind,
+		&i.PlayID,
+		&i.Data,
+		&i.ReadAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const upsertWebPushSubscription = `-- name: UpsertWebPushSubscription :exec
 INSERT INTO web_push_subscriptions (
     endpoint,
