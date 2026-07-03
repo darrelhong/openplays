@@ -5,4 +5,4 @@
 	let { data }: { data: PageData } = $props();
 </script>
 
-<ChatPage conversations={data.conversations} user={data.user} />
+<ChatPage conversations={data.conversations} nextCursor={data.nextCursor} user={data.user} />

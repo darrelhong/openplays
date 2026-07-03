@@ -53,6 +53,7 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 
 	return {
 		conversations,
+		nextCursor: conversationResponse.data?.next_cursor,
 		messages,
 		selectedConversationId: params.id,
 		user: locals.user

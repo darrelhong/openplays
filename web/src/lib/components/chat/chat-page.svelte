@@ -7,12 +7,14 @@
 
 	let {
 		conversations,
+		nextCursor,
 		messages = [],
 		selectedConversationId,
 		user,
 		error
 	}: {
 		conversations: Conversation[];
+		nextCursor?: string;
 		messages?: Message[];
 		selectedConversationId?: string;
 		user: Viewer;
@@ -37,7 +39,7 @@
 </script>
 
 <div class="py-4 flex flex-1 gap-4 min-h-0 w-full">
-	<ConversationList {conversations} {selectedConversationId} />
+	<ConversationList {conversations} {selectedConversationId} {nextCursor} />
 
 	{#if selectedConversation}
 		<!-- Header and composer float over the message list, which scrolls behind them.

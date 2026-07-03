@@ -93,6 +93,12 @@ WHERE c.kind = 'dm'
     WHERE (ub.blocker_id = sqlc.arg('viewer_id') AND ub.blocked_id = other.id)
        OR (ub.blocker_id = other.id AND ub.blocked_id = sqlc.arg('viewer_id'))
   )
+  -- Forward-only cursor pagination using composite (activity_at, id) to match
+  -- the sort order. Both cursor params must be provided together.
+  AND (sqlc.narg('cursor_activity_at') IS NULL
+    OR COALESCE(lm.created_at, c.updated_at) < sqlc.narg('cursor_activity_at')
+    OR (COALESCE(lm.created_at, c.updated_at) = sqlc.narg('cursor_activity_at')
+        AND c.id < sqlc.narg('cursor_id')))
 ORDER BY COALESCE(lm.created_at, c.updated_at) DESC, c.id DESC
 LIMIT sqlc.arg('limit');
 
@@ -152,6 +158,12 @@ WHERE c.kind = 'play'
           AND pp.status IN ('confirmed', 'added')
     )
   )
+  -- Forward-only cursor pagination using composite (activity_at, id) to match
+  -- the sort order. Both cursor params must be provided together.
+  AND (sqlc.narg('cursor_activity_at') IS NULL
+    OR COALESCE(lm.created_at, c.updated_at) < sqlc.narg('cursor_activity_at')
+    OR (COALESCE(lm.created_at, c.updated_at) = sqlc.narg('cursor_activity_at')
+        AND c.id < sqlc.narg('cursor_id')))
 ORDER BY COALESCE(lm.created_at, c.updated_at) DESC, c.id DESC
 LIMIT sqlc.arg('limit');
 

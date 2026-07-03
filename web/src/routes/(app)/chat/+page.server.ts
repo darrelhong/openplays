@@ -21,6 +21,7 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
 	// the list until someone actually sends a message
 	return {
 		conversations: (data?.items ?? []).filter((conversation) => conversation.last_message),
+		nextCursor: data?.next_cursor,
 		user: locals.user
 	};
 };

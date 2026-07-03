@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { formatNotificationTime } from '$lib/components/notifications/notification-time';
 	import { cn } from '$lib/utils/cn';
@@ -7,11 +8,77 @@
 
 	let {
 		conversations,
-		selectedConversationId
+		selectedConversationId,
+		nextCursor
 	}: {
 		conversations: Conversation[];
 		selectedConversationId?: string;
+		nextCursor?: string;
 	} = $props();
+
+	let olderConversations = $state<Conversation[]>([]);
+	let loadingOlder = $state(false);
+	// undefined = continue from the first page's cursor; null = no more pages
+	let cursor = $state<string | null | undefined>(undefined);
+
+	const effectiveCursor = $derived(cursor === undefined ? (nextCursor ?? null) : cursor);
+
+	// A conversation with new activity moves onto the refreshed first page, so
+	// dedupe keeps that fresher copy over the paginated one
+	const allConversations = $derived.by(() => {
+		const firstPageIds = new Set(conversations.map((conversation) => conversation.id));
+		return [
+			...conversations,
+			...olderConversations.filter((conversation) => !firstPageIds.has(conversation.id))
+		];
+	});
+
+	let sentinelVisible = false;
+
+	async function loadOlder() {
+		if (loadingOlder) return;
+		loadingOlder = true;
+		try {
+			// The observer only fires on enter/leave, and a filtered page may be too
+			// short to push the sentinel out — keep loading until it leaves view or
+			// pages run out
+			while (sentinelVisible && effectiveCursor) {
+				const response = await fetch(
+					`/chat/conversations?cursor=${encodeURIComponent(effectiveCursor)}`
+				);
+				if (!response.ok) return;
+				const { items, next_cursor }: { items: Conversation[]; next_cursor: string | null } =
+					await response.json();
+				// Conversations with no messages stay hidden, same as the first page
+				olderConversations = [
+					...olderConversations,
+					...items.filter((conversation) => conversation.last_message)
+				];
+				cursor = next_cursor;
+				await tick();
+			}
+		} finally {
+			loadingOlder = false;
+		}
+	}
+
+	let navEl = $state<HTMLElement | null>(null);
+	let sentinelEl = $state<HTMLElement | null>(null);
+
+	$effect(() => {
+		if (!navEl || !sentinelEl) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				sentinelVisible = entries.some((entry) => entry.isIntersecting);
+				if (sentinelVisible) {
+					loadOlder();
+				}
+			},
+			{ root: navEl, rootMargin: '200px' }
+		);
+		observer.observe(sentinelEl);
+		return () => observer.disconnect();
+	});
 
 	function conversationSubtitle(conversation: Conversation) {
 		if (conversation.last_message?.body) {
@@ -34,11 +101,11 @@
 		<h1 class="text-base text-foreground font-semibold">Chat</h1>
 	</div>
 
-	{#if conversations.length === 0}
+	{#if allConversations.length === 0}
 		<p class="text-sm text-muted px-4 py-5">No conversations yet</p>
 	{:else}
-		<nav class="p-2 flex flex-1 flex-col gap-0.5 overflow-y-auto">
-			{#each conversations as conversation (conversation.id)}
+		<nav bind:this={navEl} class="p-2 flex flex-1 flex-col gap-0.5 overflow-y-auto">
+			{#each allConversations as conversation (conversation.id)}
 				<a
 					href={resolve(`/chat/${conversation.id}`)}
 					class={cn(
@@ -63,6 +130,12 @@
 					</span>
 				</a>
 			{/each}
+			{#if loadingOlder}
+				<p class="text-xs text-muted py-2 text-center">Loading more…</p>
+			{/if}
+			{#if effectiveCursor}
+				<div bind:this={sentinelEl} aria-hidden="true"></div>
+			{/if}
 		</nav>
 	{/if}
 </aside>

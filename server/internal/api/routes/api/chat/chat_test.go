@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -116,6 +117,62 @@ func TestDMConversationFlow(t *testing.T) {
 	if bobMessages.Items[0].DeletedAt == nil {
 		t.Fatal("deleted message missing deleted_at")
 	}
+}
+
+func TestListConversationsPagination(t *testing.T) {
+	ts, queries := setupChatTest(t)
+	defer ts.Close()
+	ctx := context.Background()
+
+	alice := createChatTestUser(t, ctx, queries, "page-alice", "Alice Tan", "alice_page", "active")
+	createChatSession(t, ctx, queries, alice.ID, "alice-token")
+
+	conversationIDs := make([]string, 0, 3)
+	for i, peer := range []struct{ id, name, username string }{
+		{"page-bob", "Bob Lee", "bob_page"},
+		{"page-carol", "Carol Ng", "carol_page"},
+		{"page-dave", "Dave Koh", "dave_page"},
+	} {
+		user := createChatTestUser(t, ctx, queries, peer.id, peer.name, peer.username, "active")
+		conversation := doJSON[conversationResponse](t, http.MethodPost, ts.URL+"/api/chat/dms", "alice-token", map[string]string{
+			"recipient_user_id": user.ID,
+		}, http.StatusOK)
+		doJSON[messageResponse](t, http.MethodPost, ts.URL+"/api/chat/conversations/"+conversation.ID+"/messages", "alice-token", map[string]string{
+			"body": "hello " + strconv.Itoa(i),
+		}, http.StatusOK)
+		conversationIDs = append(conversationIDs, conversation.ID)
+	}
+
+	firstPage := doJSON[listConversationsResponse](t, http.MethodGet, ts.URL+"/api/chat/conversations?limit=2", "alice-token", nil, http.StatusOK)
+	if len(firstPage.Items) != 2 {
+		t.Fatalf("first page len = %d, want 2", len(firstPage.Items))
+	}
+	if firstPage.NextCursor == nil {
+		t.Fatal("first page next_cursor is nil, want cursor")
+	}
+
+	secondPage := doJSON[listConversationsResponse](t, http.MethodGet, ts.URL+"/api/chat/conversations?limit=2&cursor="+url.QueryEscape(*firstPage.NextCursor), "alice-token", nil, http.StatusOK)
+	if len(secondPage.Items) != 1 {
+		t.Fatalf("second page len = %d, want 1", len(secondPage.Items))
+	}
+	if secondPage.NextCursor != nil {
+		t.Fatalf("second page next_cursor = %q, want none", *secondPage.NextCursor)
+	}
+
+	seen := map[string]bool{}
+	for _, item := range append(firstPage.Items, secondPage.Items...) {
+		if seen[item.ID] {
+			t.Fatalf("conversation %s returned twice", item.ID)
+		}
+		seen[item.ID] = true
+	}
+	for _, id := range conversationIDs {
+		if !seen[id] {
+			t.Fatalf("conversation %s missing from paginated results", id)
+		}
+	}
+
+	doJSON[map[string]any](t, http.MethodGet, ts.URL+"/api/chat/conversations?cursor=not-a-cursor", "alice-token", nil, http.StatusUnprocessableEntity)
 }
 
 func TestDMAccessGuards(t *testing.T) {
@@ -409,7 +466,8 @@ type conversationResponse struct {
 }
 
 type listConversationsResponse struct {
-	Items []conversationResponse `json:"items"`
+	Items      []conversationResponse `json:"items"`
+	NextCursor *string                `json:"next_cursor"`
 }
 
 type messageResponse struct {

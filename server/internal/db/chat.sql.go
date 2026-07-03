@@ -382,13 +382,21 @@ WHERE c.kind = 'dm'
     WHERE (ub.blocker_id = ?1 AND ub.blocked_id = other.id)
        OR (ub.blocker_id = other.id AND ub.blocked_id = ?1)
   )
+  -- Forward-only cursor pagination using composite (activity_at, id) to match
+  -- the sort order. Both cursor params must be provided together.
+  AND (?2 IS NULL
+    OR COALESCE(lm.created_at, c.updated_at) < ?2
+    OR (COALESCE(lm.created_at, c.updated_at) = ?2
+        AND c.id < ?3))
 ORDER BY COALESCE(lm.created_at, c.updated_at) DESC, c.id DESC
-LIMIT ?2
+LIMIT ?4
 `
 
 type ListDMConversationsByUserParams struct {
-	ViewerID string
-	Limit    int64
+	ViewerID         string
+	CursorActivityAt interface{}
+	CursorID         *string
+	Limit            int64
 }
 
 type ListDMConversationsByUserRow struct {
@@ -413,7 +421,12 @@ type ListDMConversationsByUserRow struct {
 }
 
 func (q *Queries) ListDMConversationsByUser(ctx context.Context, arg ListDMConversationsByUserParams) ([]ListDMConversationsByUserRow, error) {
-	rows, err := q.db.QueryContext(ctx, listDMConversationsByUser, arg.ViewerID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listDMConversationsByUser,
+		arg.ViewerID,
+		arg.CursorActivityAt,
+		arg.CursorID,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -559,13 +572,21 @@ WHERE c.kind = 'play'
           AND pp.status IN ('confirmed', 'added')
     )
   )
+  -- Forward-only cursor pagination using composite (activity_at, id) to match
+  -- the sort order. Both cursor params must be provided together.
+  AND (?2 IS NULL
+    OR COALESCE(lm.created_at, c.updated_at) < ?2
+    OR (COALESCE(lm.created_at, c.updated_at) = ?2
+        AND c.id < ?3))
 ORDER BY COALESCE(lm.created_at, c.updated_at) DESC, c.id DESC
-LIMIT ?2
+LIMIT ?4
 `
 
 type ListPlayConversationsByUserParams struct {
-	ViewerID string
-	Limit    int64
+	ViewerID         string
+	CursorActivityAt interface{}
+	CursorID         *string
+	Limit            int64
 }
 
 type ListPlayConversationsByUserRow struct {
@@ -587,7 +608,12 @@ type ListPlayConversationsByUserRow struct {
 }
 
 func (q *Queries) ListPlayConversationsByUser(ctx context.Context, arg ListPlayConversationsByUserParams) ([]ListPlayConversationsByUserRow, error) {
-	rows, err := q.db.QueryContext(ctx, listPlayConversationsByUser, arg.ViewerID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listPlayConversationsByUser,
+		arg.ViewerID,
+		arg.CursorActivityAt,
+		arg.CursorID,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

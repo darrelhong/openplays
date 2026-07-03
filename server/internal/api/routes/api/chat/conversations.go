@@ -14,16 +14,38 @@ import (
 
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
+	"openplays/server/internal/sqliteutils"
 )
 
 type ListChatConversationsInput struct {
-	Limit int64 `query:"limit" minimum:"1" maximum:"50" default:"50" doc:"Maximum conversations to return"`
+	Limit  int64  `query:"limit" minimum:"1" maximum:"50" default:"50" doc:"Maximum conversations to return"`
+	Cursor string `query:"cursor" doc:"Opaque cursor from previous page"`
 }
 
 type ListChatConversationsOutput struct {
 	Body struct {
-		Items []ChatConversationSummary `json:"items"`
+		Items      []ChatConversationSummary `json:"items"`
+		NextCursor *string                   `json:"next_cursor,omitempty" doc:"Opaque cursor; pass as cursor to get the next page"`
 	}
+}
+
+// encodeConversationCursor encodes an (activity_at, id) pair into an opaque cursor string.
+func encodeConversationCursor(activityAt time.Time, id string) string {
+	return activityAt.UTC().Format(time.RFC3339) + "," + id
+}
+
+// decodeConversationCursor decodes an opaque cursor into the SQLite-formatted
+// activity timestamp and conversation id.
+func decodeConversationCursor(cursor string) (activityAtDB string, id string, ok bool) {
+	parts := strings.SplitN(cursor, ",", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	t, err := time.Parse(time.RFC3339, parts[0])
+	if err != nil {
+		return "", "", false
+	}
+	return t.UTC().Format(sqliteutils.DateTimeFormat), parts[1], true
 }
 
 type CreateDMConversationInput struct {
@@ -63,16 +85,33 @@ func RegisterConversations(api huma.API, store Store) {
 		if limit <= 0 {
 			limit = 50
 		}
+		var cursorActivityAt interface{}
+		var cursorID *string
+		if input.Cursor != "" {
+			activityAt, id, ok := decodeConversationCursor(input.Cursor)
+			if !ok {
+				return nil, huma.Error422UnprocessableEntity("invalid cursor")
+			}
+			cursorActivityAt = activityAt
+			cursorID = &id
+		}
+
+		// Fetch one extra row to detect whether there is a next page
+		fetchLimit := limit + 1
 		dmRows, err := store.ListDMConversationsByUser(ctx, db.ListDMConversationsByUserParams{
-			ViewerID: user.ID,
-			Limit:    limit,
+			ViewerID:         user.ID,
+			CursorActivityAt: cursorActivityAt,
+			CursorID:         cursorID,
+			Limit:            fetchLimit,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list conversations")
 		}
 		playRows, err := store.ListPlayConversationsByUser(ctx, db.ListPlayConversationsByUserParams{
-			ViewerID: user.ID,
-			Limit:    limit,
+			ViewerID:         user.ID,
+			CursorActivityAt: cursorActivityAt,
+			CursorID:         cursorID,
+			Limit:            fetchLimit,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to list conversations")
@@ -91,7 +130,8 @@ func RegisterConversations(api huma.API, store Store) {
 			}
 			return items[i].ActivityAt.After(items[j].ActivityAt)
 		})
-		if int64(len(items)) > limit {
+		hasMore := int64(len(items)) > limit
+		if hasMore {
 			items = items[:limit]
 		}
 
@@ -99,6 +139,11 @@ func RegisterConversations(api huma.API, store Store) {
 		out.Body.Items = make([]ChatConversationSummary, 0, len(items))
 		for _, item := range items {
 			out.Body.Items = append(out.Body.Items, item.Summary)
+		}
+		if hasMore && len(items) > 0 {
+			last := items[len(items)-1]
+			cursor := encodeConversationCursor(last.ActivityAt, last.Summary.ID)
+			out.Body.NextCursor = &cursor
 		}
 		return out, nil
 	})

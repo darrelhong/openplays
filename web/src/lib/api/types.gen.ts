@@ -920,6 +920,8 @@ export interface components {
 			 */
 			readonly $schema?: string;
 			items: components['schemas']['ChatConversationSummary'][] | null;
+			/** @description Opaque cursor; pass as cursor to get the next page */
+			next_cursor?: string;
 		};
 		ListChatMessagesOutputBody: {
 			/**
@@ -1456,6 +1458,8 @@ export interface operations {
 			query?: {
 				/** @description Maximum conversations to return */
 				limit?: number;
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
 			};
 			header?: never;
 			path?: never;

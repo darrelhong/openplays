@@ -7,6 +7,7 @@
 
 <ChatPage
 	conversations={data.conversations}
+	nextCursor={data.nextCursor}
 	messages={data.messages}
 	selectedConversationId={data.selectedConversationId}
 	user={data.user}
