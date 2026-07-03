@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import MessageBubble from './message-bubble.svelte';
 	import type { Message } from './types';
 
@@ -30,6 +30,19 @@
 
 	// A short first page means there's no older history to fetch
 	const exhausted = $derived(reachedEnd || allMessages.length < PAGE_SIZE);
+
+	// When new messages arrive, refreshing the latest page slides its window
+	// forward; carry the messages that fell out into the cached history so
+	// they don't leave a gap above it
+	let previousLatest: Message[] = [];
+	$effect(() => {
+		const latestIds = new Set(messages.map((message) => message.id));
+		const dropped = previousLatest.filter((message) => !latestIds.has(message.id));
+		previousLatest = messages;
+		if (dropped.length) {
+			olderMessages = [...untrack(() => olderMessages), ...dropped];
+		}
+	});
 
 	let sentinelVisible = false;
 
