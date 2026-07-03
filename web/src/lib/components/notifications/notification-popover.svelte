@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import EnableNotificationsPrompt from './enable-notifications-prompt.svelte';
 	import NotificationFeedPopover from './notification-feed-popover.svelte';
 	import { fetchNotifications, markNotificationsRead } from './notification-api';
@@ -11,17 +11,21 @@
 	} from './push-client';
 	import type { PermissionState, UserNotification } from './types';
 
-	// The "notifications are blocked" variant is only shown this many times per week
+	// Floating push prompts are shown sparingly; users can always retry from the bell popover.
+	const ENABLE_PROMPT_STORAGE_KEY = 'openplays:enable-notifications-prompt';
+	const ENABLE_PROMPT_MAX_SHOWS = 1;
 	const BLOCKED_PROMPT_STORAGE_KEY = 'openplays:blocked-notifications-prompt';
 	const BLOCKED_PROMPT_MAX_SHOWS = 2;
-	const BLOCKED_PROMPT_RESET_MS = 7 * 24 * 60 * 60 * 1000;
+	const PROMPT_RESET_MS = 7 * 24 * 60 * 60 * 1000;
 
 	let supported = $state(false);
 	let permission = $state<PermissionState>('default');
 	let pushEnabled = $state(false);
 	let enablingPush = $state(false);
+	let pushError = $state<string | null>(null);
 	let pushPromptReady = $state(false);
 	let enablePromptDismissed = $state(false);
+	let enablePromptExhausted = $state(false);
 	let blockedPromptExhausted = $state(false);
 	let open = $state(false);
 	let notifications = $state<UserNotification[]>([]);
@@ -35,16 +39,16 @@
 		pushPromptReady &&
 			notificationsNotEnabled &&
 			!enablePromptDismissed &&
-			(permission !== 'denied' || !blockedPromptExhausted)
+			(permission === 'denied' ? !blockedPromptExhausted : !enablePromptExhausted)
 	);
 
-	function readBlockedPromptRecord(): { count: number; since: number } {
+	function readPromptRecord(storageKey: string): { count: number; since: number } {
 		try {
-			const parsed = JSON.parse(localStorage.getItem(BLOCKED_PROMPT_STORAGE_KEY) ?? '');
+			const parsed = JSON.parse(localStorage.getItem(storageKey) ?? '');
 			if (
 				typeof parsed?.count === 'number' &&
 				typeof parsed?.since === 'number' &&
-				Date.now() - parsed.since < BLOCKED_PROMPT_RESET_MS
+				Date.now() - parsed.since < PROMPT_RESET_MS
 			) {
 				return parsed;
 			}
@@ -54,12 +58,25 @@
 		return { count: 0, since: Date.now() };
 	}
 
-	// Count each session the blocked variant is shown in, at most once per session
+	// Count each session the enable variant is shown in, at most once per session.
+	let enablePromptCounted = false;
+	$effect(() => {
+		if (showEnablePrompt && permission !== 'denied' && !enablePromptCounted) {
+			enablePromptCounted = true;
+			const record = readPromptRecord(ENABLE_PROMPT_STORAGE_KEY);
+			localStorage.setItem(
+				ENABLE_PROMPT_STORAGE_KEY,
+				JSON.stringify({ count: record.count + 1, since: record.since })
+			);
+		}
+	});
+
+	// Count each session the blocked variant is shown in, at most once per session.
 	let blockedPromptCounted = false;
 	$effect(() => {
 		if (showEnablePrompt && permission === 'denied' && !blockedPromptCounted) {
 			blockedPromptCounted = true;
-			const record = readBlockedPromptRecord();
+			const record = readPromptRecord(BLOCKED_PROMPT_STORAGE_KEY);
 			localStorage.setItem(
 				BLOCKED_PROMPT_STORAGE_KEY,
 				JSON.stringify({ count: record.count + 1, since: record.since })
@@ -69,7 +86,7 @@
 
 	$effect(() => {
 		if (open) {
-			void refreshNotifications().then((items) => {
+			void untrack(refreshNotifications).then((items) => {
 				const ids = items.filter((item) => !item.read_at).map((item) => item.id);
 				openUnreadIds = new Set(ids);
 				return markUnreadRead(ids);
@@ -80,7 +97,10 @@
 	});
 
 	onMount(() => {
-		blockedPromptExhausted = readBlockedPromptRecord().count >= BLOCKED_PROMPT_MAX_SHOWS;
+		enablePromptExhausted =
+			readPromptRecord(ENABLE_PROMPT_STORAGE_KEY).count >= ENABLE_PROMPT_MAX_SHOWS;
+		blockedPromptExhausted =
+			readPromptRecord(BLOCKED_PROMPT_STORAGE_KEY).count >= BLOCKED_PROMPT_MAX_SHOWS;
 		supported = hasPushSupport();
 		if (supported) {
 			void syncPushSubscriptionState().finally(() => {
@@ -112,15 +132,18 @@
 		supported = state.supported;
 		permission = state.permission;
 		pushEnabled = state.pushEnabled;
+		pushError = state.error ?? null;
 	}
 
 	async function enablePushNotifications() {
 		enablingPush = true;
+		pushError = null;
 		try {
 			const state = await requestPushNotifications();
 			supported = state.supported;
 			permission = state.permission;
 			pushEnabled = state.pushEnabled;
+			pushError = state.error ?? null;
 		} finally {
 			enablingPush = false;
 		}
@@ -128,7 +151,7 @@
 
 	async function enablePushFromPrompt() {
 		await enablePushNotifications();
-		enablePromptDismissed = true;
+		enablePromptDismissed = !pushError;
 	}
 
 	function dismissEnablePrompt() {
@@ -168,6 +191,7 @@
 	{unreadCount}
 	{canEnablePush}
 	{enablingPush}
+	{pushError}
 	onEnablePush={enablePushNotifications}
 />
 
@@ -175,6 +199,7 @@
 	open={showEnablePrompt}
 	{permission}
 	enabling={enablingPush}
+	{pushError}
 	onEnable={enablePushFromPrompt}
 	onDismiss={dismissEnablePrompt}
 />

@@ -12,6 +12,7 @@
 		unreadCount,
 		canEnablePush,
 		enablingPush,
+		pushError,
 		onEnablePush
 	}: {
 		open: boolean;
@@ -20,6 +21,7 @@
 		unreadCount: number;
 		canEnablePush: boolean;
 		enablingPush: boolean;
+		pushError?: string | null;
 		onEnablePush: () => void | Promise<void>;
 	} = $props();
 
@@ -65,6 +67,12 @@
 				</Button>
 			{/if}
 		</div>
+
+		{#if pushError}
+			<p class="text-xs text-destructive px-4 py-2 border-b border-border">
+				{pushError}
+			</p>
+		{/if}
 
 		<div class="py-1 max-h-[26rem] overflow-y-auto">
 			{#if notifications.length === 0}

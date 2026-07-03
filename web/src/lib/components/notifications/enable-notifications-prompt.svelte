@@ -8,12 +8,14 @@
 		open,
 		permission,
 		enabling,
+		pushError,
 		onEnable,
 		onDismiss
 	}: {
 		open: boolean;
 		permission: PermissionState;
 		enabling: boolean;
+		pushError?: string | null;
 		onEnable: () => void | Promise<void>;
 		onDismiss: () => void;
 	} = $props();
@@ -45,6 +47,9 @@
 					<p class="text-xs text-muted leading-snug mt-0.5">
 						Get updates when players join, confirm, or leave your games.
 					</p>
+					{#if pushError}
+						<p class="text-xs text-destructive leading-snug mt-1.5">{pushError}</p>
+					{/if}
 					<Button type="button" size="xs" class="mt-2" disabled={enabling} onclick={onEnable}>
 						Enable
 					</Button>

@@ -4,6 +4,7 @@ type PushStatus = {
 	supported: boolean;
 	permission: PermissionState;
 	pushEnabled: boolean;
+	error?: string;
 };
 
 export function hasPushSupport() {
@@ -17,7 +18,7 @@ export async function syncExistingPushSubscription(): Promise<PushStatus> {
 	}
 
 	try {
-		const registration = await navigator.serviceWorker.register('/service-worker.js');
+		const registration = await readyServiceWorkerRegistration();
 		const permission = Notification.permission;
 		if (permission !== 'granted') {
 			return { supported, permission, pushEnabled: false };
@@ -28,10 +29,15 @@ export async function syncExistingPushSubscription(): Promise<PushStatus> {
 			return { supported, permission, pushEnabled: false };
 		}
 
-		await subscribeForPush(registration);
+		await savePushSubscription(existing);
 		return { supported, permission, pushEnabled: true };
-	} catch {
-		return { supported, permission: Notification.permission, pushEnabled: false };
+	} catch (error) {
+		return {
+			supported,
+			permission: Notification.permission,
+			pushEnabled: false,
+			error: pushErrorMessage(error)
+		};
 	}
 }
 
@@ -42,7 +48,7 @@ export async function requestPushNotifications(): Promise<PushStatus> {
 	}
 
 	try {
-		const registration = await navigator.serviceWorker.register('/service-worker.js');
+		const registration = await readyServiceWorkerRegistration();
 		let permission = Notification.permission;
 		if (permission === 'default') {
 			permission = await Notification.requestPermission();
@@ -53,9 +59,19 @@ export async function requestPushNotifications(): Promise<PushStatus> {
 
 		await subscribeForPush(registration);
 		return { supported, permission, pushEnabled: true };
-	} catch {
-		return { supported, permission: Notification.permission, pushEnabled: false };
+	} catch (error) {
+		return {
+			supported,
+			permission: Notification.permission,
+			pushEnabled: false,
+			error: pushErrorMessage(error)
+		};
 	}
+}
+
+async function readyServiceWorkerRegistration() {
+	await navigator.serviceWorker.register('/service-worker.js');
+	return navigator.serviceWorker.ready;
 }
 
 async function subscribeForPush(registration: ServiceWorkerRegistration) {
@@ -66,7 +82,10 @@ async function subscribeForPush(registration: ServiceWorkerRegistration) {
 	const { public_key: publicKey } = (await keyResponse.json()) as { public_key: string };
 
 	const existing = await registration.pushManager.getSubscription();
-	await existing?.unsubscribe();
+	if (existing) {
+		await savePushSubscription(existing);
+		return;
+	}
 
 	const subscription = await registration.pushManager.subscribe({
 		userVisibleOnly: true,
@@ -83,8 +102,22 @@ async function savePushSubscription(subscription: PushSubscription) {
 		body: JSON.stringify(subscription)
 	});
 	if (!saveResponse.ok) {
-		throw new Error('Failed to save push subscription');
+		const body = (await saveResponse.json().catch(() => null)) as { detail?: string } | null;
+		throw new Error(body?.detail ?? `Failed to save push subscription (${saveResponse.status})`);
 	}
+}
+
+function pushErrorMessage(error: unknown) {
+	if (error instanceof DOMException && error.message) {
+		if (error.name === 'AbortError' && error.message.toLowerCase().includes('push service error')) {
+			return 'Browser push service is unavailable. In Brave, enable "Use Google services for push messaging" and try again.';
+		}
+		return `${error.name}: ${error.message}`;
+	}
+	if (error instanceof Error && error.message) {
+		return error.message;
+	}
+	return 'Failed to enable push notifications';
 }
 
 function urlBase64ToUint8Array(value: string) {
