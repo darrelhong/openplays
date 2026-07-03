@@ -65,7 +65,7 @@
 				class="h-20 pointer-events-none inset-x-0 bottom-0 absolute from-background to-transparent bg-gradient-to-t"
 			></div>
 			<div class="inset-x-0 bottom-4 absolute z-10">
-				<MessageComposer {error} />
+				<MessageComposer {error} conversationId={selectedConversation.id} />
 			</div>
 		</section>
 	{/if}

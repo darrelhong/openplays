@@ -12,11 +12,13 @@
 	let {
 		message,
 		mine,
-		conversationKind
+		conversationKind,
+		pending = false
 	}: {
 		message: Message;
 		mine: boolean;
 		conversationKind: 'dm' | 'play';
+		pending?: boolean;
 	} = $props();
 
 	let menuOpen = $state(false);
@@ -74,7 +76,10 @@
 	>
 {/snippet}
 
-<div data-message-id={message.id} class={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+<div
+	data-message-id={message.id}
+	class={cn('flex', mine ? 'justify-end' : 'justify-start', pending && 'opacity-60')}
+>
 	{#if deletable}
 		<DropdownMenu.Root bind:open={menuOpen}>
 			<DropdownMenu.Trigger>

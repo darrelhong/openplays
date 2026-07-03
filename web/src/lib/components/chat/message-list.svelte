@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import MessageBubble from './message-bubble.svelte';
+	import { pendingMessages, type PendingMessage } from './pending-messages.svelte';
 	import type { Message } from './types';
 
 	let {
@@ -30,6 +31,21 @@
 
 	// A short first page means there's no older history to fetch
 	const exhausted = $derived(reachedEnd || allMessages.length < PAGE_SIZE);
+
+	const pendingForConversation = $derived(
+		pendingMessages.filter((pending) => pending.conversationId === conversationId)
+	);
+
+	// Negative ids keep optimistic bubbles clear of real message ids
+	function pendingAsMessage(pending: PendingMessage): Message {
+		return {
+			id: -pending.localId,
+			sender: { id: viewerId, display_name: '' },
+			body: pending.body,
+			created_at: pending.createdAt,
+			can_delete: false
+		};
+	}
 
 	// When new messages arrive, refreshing the latest page slides its window
 	// forward; carry the messages that fell out into the cached history so
@@ -101,7 +117,7 @@
 <div bind:this={scrollEl} class="flex flex-1 flex-col-reverse overflow-y-auto">
 	<!-- Top/bottom padding keeps messages clear of the floating header and composer -->
 	<div class="mx-auto pb-24 pt-24 flex flex-col gap-2 max-w-3xl w-full">
-		{#if allMessages.length === 0}
+		{#if allMessages.length === 0 && pendingForConversation.length === 0}
 			<p class="text-sm text-muted py-10 text-center">No messages yet</p>
 		{:else}
 			{#if !exhausted}
@@ -112,6 +128,9 @@
 			{/if}
 			{#each allMessages as message (message.id)}
 				<MessageBubble {message} mine={message.sender.id === viewerId} {conversationKind} />
+			{/each}
+			{#each pendingForConversation as pending (pending.localId)}
+				<MessageBubble message={pendingAsMessage(pending)} mine {conversationKind} pending />
 			{/each}
 		{/if}
 	</div>
