@@ -36,6 +36,18 @@ SET status = 'failed',
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?;
 
+-- name: MarkDead :exec
+UPDATE raw_messages
+SET status = 'dead',
+    last_error = ?,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE id = ?;
+
+-- name: RequeueProcessingJobs :execrows
+UPDATE raw_messages
+SET status = 'pending', updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE status = 'processing';
+
 -- name: MarkSkipped :exec
 UPDATE raw_messages
 SET status = 'skipped', updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')

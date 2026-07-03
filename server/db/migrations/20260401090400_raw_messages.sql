@@ -16,7 +16,7 @@ CREATE TABLE raw_messages (
     content_hash    TEXT NOT NULL,
 
     -- job processing state
-    status          TEXT NOT NULL DEFAULT 'pending', -- pending, processing, done, failed, skipped
+    status          TEXT NOT NULL DEFAULT 'pending', -- pending, processing, done, failed, skipped, dead
     retry_count     INTEGER NOT NULL DEFAULT 0,
     next_retry_at   TIMESTAMP,
     last_error      TEXT,

@@ -23,6 +23,12 @@ var backoffDurations = []time.Duration{
 // retryInterval is how often the worker checks for failed jobs due for retry.
 const retryInterval = 5 * time.Minute
 
+// maxAttempts is the total number of processing attempts (initial + retries)
+// before a job is marked dead and never retried again. LLM failures are
+// mostly deterministic (unparseable output for a given message), so retrying
+// beyond this only burns paid LLM calls.
+const maxAttempts = 3
+
 // WorkerStore is the subset of db.Queries that the Worker needs.
 type WorkerStore interface {
 	GetPendingJob(ctx context.Context) (db.RawMessage, error)
@@ -30,6 +36,8 @@ type WorkerStore interface {
 	MarkProcessing(ctx context.Context, id int64) error
 	MarkDone(ctx context.Context, arg db.MarkDoneParams) error
 	MarkFailed(ctx context.Context, arg db.MarkFailedParams) error
+	MarkDead(ctx context.Context, arg db.MarkDeadParams) error
+	RequeueProcessingJobs(ctx context.Context) (int64, error)
 }
 
 // Worker processes raw messages from the job queue asynchronously.
@@ -65,6 +73,15 @@ func (w *Worker) Run(ctx context.Context) {
 
 	retryTicker := time.NewTicker(retryInterval)
 	defer retryTicker.Stop()
+
+	// Requeue jobs stuck in 'processing' from a previous run that was killed
+	// mid-job (e.g. a deploy restart during an LLM call) — they would
+	// otherwise never be picked up again.
+	if n, err := w.store.RequeueProcessingJobs(ctx); err != nil {
+		slog.Error("error requeueing stuck processing jobs", "error", err)
+	} else if n > 0 {
+		slog.Info("requeued stuck processing jobs", "count", n)
+	}
 
 	// Process any leftover pending/failed jobs from previous runs
 	w.processPending(ctx)
@@ -164,6 +181,20 @@ func (w *Worker) processJob(ctx context.Context, job db.RawMessage) {
 
 func (w *Worker) handleFailure(ctx context.Context, job db.RawMessage, err error) {
 	errStr := err.Error()
+
+	// Give up after maxAttempts — failures are mostly deterministic, and
+	// unbounded retries burn an LLM call every cycle forever.
+	if job.RetryCount+1 >= maxAttempts {
+		slog.Error("message dead, giving up", "message_id", job.ID, "attempts", job.RetryCount+1, "error", err)
+		if markErr := w.store.MarkDead(ctx, db.MarkDeadParams{
+			LastError: &errStr,
+			ID:        job.ID,
+		}); markErr != nil {
+			slog.Error("error marking dead", "message_id", job.ID, "error", markErr)
+		}
+		return
+	}
+
 	retryIdx := int(job.RetryCount)
 	if retryIdx >= len(backoffDurations) {
 		retryIdx = len(backoffDurations) - 1

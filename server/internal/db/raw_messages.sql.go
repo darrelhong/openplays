@@ -161,6 +161,24 @@ func (q *Queries) InsertRawMessage(ctx context.Context, arg InsertRawMessagePara
 	return i, err
 }
 
+const markDead = `-- name: MarkDead :exec
+UPDATE raw_messages
+SET status = 'dead',
+    last_error = ?,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE id = ?
+`
+
+type MarkDeadParams struct {
+	LastError *string
+	ID        int64
+}
+
+func (q *Queries) MarkDead(ctx context.Context, arg MarkDeadParams) error {
+	_, err := q.db.ExecContext(ctx, markDead, arg.LastError, arg.ID)
+	return err
+}
+
 const markDone = `-- name: MarkDone :exec
 UPDATE raw_messages
 SET status = 'done', llm_response = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
@@ -218,4 +236,18 @@ WHERE id = ?
 func (q *Queries) MarkSkipped(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, markSkipped, id)
 	return err
+}
+
+const requeueProcessingJobs = `-- name: RequeueProcessingJobs :execrows
+UPDATE raw_messages
+SET status = 'pending', updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE status = 'processing'
+`
+
+func (q *Queries) RequeueProcessingJobs(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, requeueProcessingJobs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

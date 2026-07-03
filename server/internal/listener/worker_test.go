@@ -28,11 +28,13 @@ type SpyWorkerStore struct {
 	ProcessingIDs []int64
 	DoneParams    []db.MarkDoneParams
 	FailedParams  []db.MarkFailedParams
+	DeadParams    []db.MarkDeadParams
 
 	// Error injection
 	MarkProcessingErr error
 	MarkDoneErr       error
 	MarkFailedErr     error
+	MarkDeadErr       error
 }
 
 func (s *SpyWorkerStore) GetPendingJob(ctx context.Context) (db.RawMessage, error) {
@@ -71,6 +73,17 @@ func (s *SpyWorkerStore) MarkFailed(ctx context.Context, arg db.MarkFailedParams
 	s.Calls = append(s.Calls, "MarkFailed")
 	s.FailedParams = append(s.FailedParams, arg)
 	return s.MarkFailedErr
+}
+
+func (s *SpyWorkerStore) MarkDead(ctx context.Context, arg db.MarkDeadParams) error {
+	s.Calls = append(s.Calls, "MarkDead")
+	s.DeadParams = append(s.DeadParams, arg)
+	return s.MarkDeadErr
+}
+
+func (s *SpyWorkerStore) RequeueProcessingJobs(ctx context.Context) (int64, error) {
+	s.Calls = append(s.Calls, "RequeueProcessingJobs")
+	return 0, nil
 }
 
 // SpyExtractor is a fake Extractor that returns pre-configured results.
@@ -243,8 +256,9 @@ func TestProcessJob_ParseFailure_MarksFailedWithBackoff(t *testing.T) {
 	}
 }
 
-func TestProcessJob_BackoffCapsAtMaxDuration(t *testing.T) {
-	job := makeJob(10, "bad message", 99) // retry_count well past backoff slice length
+func TestProcessJob_BackoffFollowsSchedule(t *testing.T) {
+	retryCount := int64(maxAttempts - 2) // last retry before the job goes dead
+	job := makeJob(10, "bad message", retryCount)
 	store := &SpyWorkerStore{}
 	extractor := &SpyExtractor{Err: fmt.Errorf("LLM error")}
 	w := NewWorker(store, makePipeline(extractor), "Asia/Singapore")
@@ -253,12 +267,41 @@ func TestProcessJob_BackoffCapsAtMaxDuration(t *testing.T) {
 	w.processJob(context.Background(), job)
 	after := time.Now().UTC()
 
+	// Expect the schedule entry for this retry count, capped at the last entry
+	idx := int(retryCount)
+	if idx >= len(backoffDurations) {
+		idx = len(backoffDurations) - 1
+	}
+	backoff := backoffDurations[idx]
+
 	fp := store.FailedParams[0]
-	// Should cap at 15 minutes (last entry in backoffDurations)
-	earliest := before.Add(15 * time.Minute)
-	latest := after.Add(15*time.Minute + time.Second)
+	earliest := before.Add(backoff)
+	latest := after.Add(backoff + time.Second)
 	if fp.NextRetryAt.Before(earliest) || fp.NextRetryAt.After(latest) {
 		t.Errorf("NextRetryAt = %v, want between %v and %v", fp.NextRetryAt, earliest, latest)
+	}
+}
+
+func TestProcessJob_MarksDeadAfterMaxAttempts(t *testing.T) {
+	job := makeJob(10, "bad message", int64(maxAttempts-1)) // this attempt is the last allowed
+	store := &SpyWorkerStore{}
+	extractor := &SpyExtractor{Err: fmt.Errorf("LLM error")}
+	w := NewWorker(store, makePipeline(extractor), "Asia/Singapore")
+
+	w.processJob(context.Background(), job)
+
+	if len(store.FailedParams) != 0 {
+		t.Errorf("expected no MarkFailed call, got %v", store.FailedParams)
+	}
+	if len(store.DeadParams) != 1 {
+		t.Fatalf("expected 1 MarkDead call, got %d", len(store.DeadParams))
+	}
+	dp := store.DeadParams[0]
+	if dp.ID != 10 {
+		t.Errorf("MarkDead ID = %d, want 10", dp.ID)
+	}
+	if dp.LastError == nil || *dp.LastError != "LLM error" {
+		t.Errorf("MarkDead LastError = %v, want \"LLM error\"", dp.LastError)
 	}
 }
 
