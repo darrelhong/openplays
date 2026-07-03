@@ -18,6 +18,9 @@
 - raw_messages table serves as a job queue (not just a log) — has status, retry_count, next_retry_at, last_error for async processing
 - Go workers orchestrate async message processing; on startup, drain leftover pending/failed jobs from previous runs
 - Retry backoff schedule: 30s, 1m, 2m, 5m, 15m (capped)
+- Retries are capped at 6 total attempts, then the job is marked `dead` (never retried). LLM failures are mostly deterministic (unparseable output for a given message) — before the cap, 7 perma-failing messages retried every 15 min forever and consumed ~50% of all LLM calls ever made (~672 wasted calls/day vs ~250 real messages/day)
+- Jobs stuck in `processing` (service killed mid-LLM-call, e.g. during deploy) are requeued to `pending` on worker startup — they were previously lost forever
+- Numeric LLM output fields (courts, fee_cents, max_players, slots_left, gendered fees) are parsed via FlexFloat/FlexInt, which accept a JSON number or a numeric string ("2", "1200", "3.5 courts") — LLMs sometimes quote numbers despite the schema, and this used to fail the whole message. Non-numeric strings (e.g. "$10") still fail loudly rather than silently misparse. Hand-rolled (~30 lines) rather than a lib: jsoniter fuzzy decoders / spf13-cast don't handle trailing text like "3.5 courts", and minimal-deps preference
 - Resilience preference: if dedup check fails (DB error), prefer potential duplicate over dropping a message
 - Sender identity split: `source_sender_username` for Telegram @username (often null), `source_sender_name` for display name. Telegram supergroup updates typically send "min" user objects without usernames — resolving via API requires access hashes that are session-scoped. This is a Telegram platform limitation.
 - LLM prompt skips coaching/training ads, vague "anywhere" venues, and generic recurring schedules — these are not play sessions
