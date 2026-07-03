@@ -41,10 +41,15 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 		});
 	}
 
-	// The list was fetched before the conversation was marked read
-	const conversations = (conversationResponse.data?.items ?? []).map((conversation) =>
-		conversation.id === params.id ? { ...conversation, unread_count: 0 } : conversation
-	);
+	// Conversations are created as soon as a chat is opened; keep them out of
+	// the list until someone sends a message, except the one being viewed.
+	// The unread count is reset because the list was fetched before the
+	// conversation was marked read
+	const conversations = (conversationResponse.data?.items ?? [])
+		.filter((conversation) => conversation.last_message || conversation.id === params.id)
+		.map((conversation) =>
+			conversation.id === params.id ? { ...conversation, unread_count: 0 } : conversation
+		);
 
 	return {
 		conversations,

@@ -7,18 +7,30 @@
 	import { cn } from '$lib/utils/cn';
 	import type { Message } from './types';
 
-	let { message, mine }: { message: Message; mine: boolean } = $props();
+	let {
+		message,
+		mine,
+		conversationKind
+	}: {
+		message: Message;
+		mine: boolean;
+		conversationKind: 'dm' | 'play';
+	} = $props();
 
 	let menuOpen = $state(false);
 	let deleteFormEl = $state<HTMLFormElement | null>(null);
 
 	const deletable = $derived(Boolean(message.can_delete && message.body));
 
+	// Alignment already identifies the sender in a DM (and for own messages),
+	// so only group chats label incoming bubbles
+	const showSender = $derived(conversationKind === 'play' && !mine);
+
 	const bubbleClass = $derived(
 		cn(
-			'px-3 py-2 rounded-2xl max-w-[82%] shadow-sm',
+			'px-3 pb-1 pt-2 rounded-2xl max-w-[82%] shadow-sm',
 			mine
-				? 'text-primary-foreground rounded-br-md bg-primary min-w-28'
+				? 'text-primary-foreground rounded-br-md bg-primary'
 				: 'text-foreground border border-border rounded-bl-md bg-card'
 		)
 	);
@@ -29,17 +41,16 @@
 </script>
 
 {#snippet body()}
-	<span class="flex gap-2 items-baseline justify-between">
-		<span class="text-xs font-medium">
-			{mine ? 'You' : senderName}
-		</span>
-		<span class={cn('text-[11px]', mine ? 'opacity-70' : 'text-muted')}>
-			{formatNotificationTime(message.created_at)}
-		</span>
-	</span>
-	<span class="text-sm block whitespace-pre-wrap break-words">
-		{message.body ?? 'Message deleted'}
-	</span>
+	{#if showSender}
+		<span class="text-xs font-medium block">{senderName}</span>
+	{/if}
+	<!-- The floated time shares the last line of text when it fits, telegram-style -->
+	<span class="text-sm block whitespace-pre-wrap break-words"
+		>{message.body ?? 'Message deleted'}<span
+			class={cn('text-[11px] ml-2 mt-1.5 float-right', mine ? 'opacity-70' : 'text-muted')}
+			>{formatNotificationTime(message.created_at)}</span
+		></span
+	>
 {/snippet}
 
 <div data-message-id={message.id} class={cn('flex', mine ? 'justify-end' : 'justify-start')}>

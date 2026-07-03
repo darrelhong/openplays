@@ -47,6 +47,27 @@ function participantIDFrom(formData: FormData) {
 export const actions: Actions = {
 	favourite: favouritePlay,
 	unfavourite: unfavouritePlay,
+	chat: async ({ params, cookies }) => {
+		const sessionToken = cookies.get('session');
+		if (!sessionToken) {
+			return fail(401, { error: 'Sign in to open the game chat' });
+		}
+
+		const { data, error: apiError } = await api.POST('/api/chat/play-conversations', {
+			headers: { Cookie: `session=${sessionToken}` },
+			body: { play_id: params.id }
+		});
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to open game chat'
+			});
+		}
+		if (!data) {
+			return fail(500, { error: 'Conversation was not returned' });
+		}
+
+		redirect(303, `/chat/${data.id}?from=play`);
+	},
 	join: async ({ params, cookies }) => {
 		const id = params.id;
 		const sessionToken = cookies.get('session');

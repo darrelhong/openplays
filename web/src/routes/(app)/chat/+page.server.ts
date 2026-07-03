@@ -17,8 +17,10 @@ export const load: PageServerLoad = async ({ cookies, locals }) => {
 		error(apiError.status ?? 500, apiError.detail ?? 'Failed to fetch conversations');
 	}
 
+	// Conversations are created as soon as a chat is opened; keep them out of
+	// the list until someone actually sends a message
 	return {
-		conversations: data?.items ?? [],
+		conversations: (data?.items ?? []).filter((conversation) => conversation.last_message),
 		user: locals.user
 	};
 };

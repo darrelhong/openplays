@@ -34,7 +34,7 @@ func NotifyPlayChatMessage(ctx context.Context, sender Sender, play PlaySnapshot
 	payload := Payload{
 		Title:  playNotificationTitle(play),
 		Body:   body,
-		URL:    "/play/" + play.ID,
+		URL:    "/chat/" + conversationID,
 		Tag:    chatNotificationTag(conversationID),
 		Kind:   ChatMessageKind,
 		PlayID: play.ID,

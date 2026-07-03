@@ -6,11 +6,13 @@
 	let {
 		messages,
 		viewerId,
-		conversationId
+		conversationId,
+		conversationKind
 	}: {
 		messages: Message[];
 		viewerId: string;
 		conversationId: string;
+		conversationKind: 'dm' | 'play';
 	} = $props();
 
 	const PAGE_SIZE = 50;
@@ -96,7 +98,7 @@
 				<p class="text-xs text-muted py-2 text-center">Loading older messages…</p>
 			{/if}
 			{#each allMessages as message (message.id)}
-				<MessageBubble {message} mine={message.sender.id === viewerId} />
+				<MessageBubble {message} mine={message.sender.id === viewerId} {conversationKind} />
 			{/each}
 		{/if}
 	</div>

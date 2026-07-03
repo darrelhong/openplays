@@ -333,7 +333,7 @@ func TestPlayMessageNotifiesCurrentRosterExceptSender(t *testing.T) {
 		if payload.Kind != notifications.ChatMessageKind {
 			t.Fatalf("notification kind for %s = %q, want chat.message", userID, payload.Kind)
 		}
-		if payload.PlayID != play.ID || payload.URL != "/play/"+play.ID {
+		if payload.PlayID != play.ID || payload.URL != "/chat/"+conversation.ID {
 			t.Fatalf("notification play context for %s = play_id %q url %q", userID, payload.PlayID, payload.URL)
 		}
 		if payload.Tag != "chat:"+conversation.ID {

@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import Check from '@lucide/svelte/icons/check';
+	import MessagesSquare from '@lucide/svelte/icons/messages-square';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import ActionConfirmDialog from '$lib/components/ui/dialog/action-confirm-dialog.svelte';
@@ -84,6 +86,10 @@
 	);
 	const joinsWaitlist = $derived(!canDirectJoin(play, user));
 	const joinLabel = $derived(getPlayJoinLabel(play, user));
+	// Mirrors the backend's play chat membership: hosts, the creator, and rostered players
+	const canOpenChat = $derived(
+		user != null && (canManage || ['creator', 'confirmed', 'added'].includes(viewerState))
+	);
 	function participantName(participant: Participant) {
 		return participant.display_name ?? (participant.is_guest ? 'Guest player' : 'Player');
 	}
@@ -485,6 +491,14 @@
 									<Button type="button" size="sm" {...props}>{joinLabel}</Button>
 								{/snippet}
 							</ActionConfirmDialog>
+						{/if}
+						{#if canOpenChat}
+							<form method="POST" action="?/chat" use:enhance>
+								<Button type="submit" size="sm" class="gap-1.5">
+									<MessagesSquare class="size-4" />
+									Go to chat
+								</Button>
+							</form>
 						{/if}
 					</div>
 				</section>

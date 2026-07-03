@@ -51,7 +51,12 @@
 				<ConversationHeader conversation={selectedConversation} />
 			</div>
 			{#key selectedConversation.id}
-				<MessageList {messages} viewerId={user.id} conversationId={selectedConversation.id} />
+				<MessageList
+					{messages}
+					viewerId={user.id}
+					conversationId={selectedConversation.id}
+					conversationKind={selectedConversation.kind}
+				/>
 			{/key}
 			<div
 				class="h-20 pointer-events-none inset-x-0 bottom-0 absolute from-background to-transparent bg-gradient-to-t"
