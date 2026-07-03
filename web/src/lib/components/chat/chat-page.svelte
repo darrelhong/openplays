@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ConversationHeader from './conversation-header.svelte';
 	import ConversationList from './conversation-list.svelte';
+	import LinkConfirmDialog from './link-confirm-dialog.svelte';
 	import MessageComposer from './message-composer.svelte';
 	import MessageList from './message-list.svelte';
 	import type { Conversation, Message, Viewer } from './types';
@@ -69,3 +70,5 @@
 		</section>
 	{/if}
 </div>
+
+<LinkConfirmDialog />

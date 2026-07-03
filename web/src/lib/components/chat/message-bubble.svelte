@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Trash2 } from '@lucide/svelte';
+	import { requestLinkOpen } from './link-confirm.svelte';
+	import { formatMessage } from './message-format';
 	import { refreshSubmit } from './refresh-submit';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index';
 	import { formatNotificationTime } from '$lib/components/notifications/notification-time';
@@ -38,15 +40,34 @@
 	const senderName = $derived(
 		message.sender.display_name || message.sender.username || 'Player'
 	);
+
+	const segments = $derived(message.body ? formatMessage(message.body) : []);
+
+	function openLink(event: Event, href: string) {
+		// Keep the click from reaching the delete-menu trigger around the bubble
+		event.preventDefault();
+		event.stopPropagation();
+		requestLinkOpen(href);
+	}
 </script>
 
 {#snippet body()}
 	{#if showSender}
 		<span class="text-xs font-medium block">{senderName}</span>
 	{/if}
-	<!-- The floated time shares the last line of text when it fits, telegram-style -->
+	<!-- The floated time shares the last line of text when it fits, telegram-style.
+	     Markup stays whitespace-free inside the pre-wrap span -->
 	<span class="text-sm block whitespace-pre-wrap break-words"
-		>{message.body ?? 'Message deleted'}<span
+		>{#if message.body}{#each segments as segment, index (index)}{#if segment.type === 'link'}<span
+					role="link"
+					tabindex="0"
+					class="underline underline-offset-2 cursor-pointer break-all"
+					onpointerdown={(event) => event.stopPropagation()}
+					onclick={(event) => openLink(event, segment.href)}
+					onkeydown={(event) => {
+						if (event.key === 'Enter') openLink(event, segment.href);
+					}}>{segment.value}</span
+				>{:else}{segment.value}{/if}{/each}{:else}Message deleted{/if}<span
 			class={cn('text-[11px] ml-2 mt-1.5 float-right', mine ? 'opacity-70' : 'text-muted')}
 			>{formatNotificationTime(message.created_at)}</span
 		></span
