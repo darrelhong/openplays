@@ -141,7 +141,6 @@ type chatRequest struct {
 	Model       string        `json:"model"`
 	Messages    []chatMessage `json:"messages"`
 	Temperature float64       `json:"temperature"`
-	MaxTokens   int           `json:"max_tokens"`
 }
 
 type chatMessage struct {
@@ -182,7 +181,6 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 			{Role: "user", Content: userPrompt},
 		},
 		Temperature: 0.0,
-		MaxTokens:   25600,
 	}
 
 	bodyBytes, err := json.Marshal(reqBody)
