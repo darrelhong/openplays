@@ -1,13 +1,15 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import Button from '$lib/components/ui/button.svelte';
 	import { SPORTS } from '$lib/consts/index';
-	import type { PageData } from './$types';
+	import type { ActionData, PageData } from './$types';
 
-	let { data }: { data: PageData } = $props();
+	let { data, form }: { data: PageData; form?: ActionData } = $props();
 
 	const profile = $derived(data.profile);
 	const sports = $derived(profile.sports ?? []);
+	const isOwnProfile = $derived(data.user.id === profile.id);
 
 	function sportLabel(value: string) {
 		return SPORTS.find((sport) => sport.value === value)?.label ?? value;
@@ -34,8 +36,16 @@
 					<p class="text-sm text-muted">@{profile.username}</p>
 				</div>
 			</div>
-			<Button type="button" size="sm" disabled title="Messaging is coming soon">Message</Button>
+			{#if !isOwnProfile}
+				<form method="POST" action="?/message" use:enhance>
+					<Button type="submit" size="sm">Message</Button>
+				</form>
+			{/if}
 		</div>
+
+		{#if form?.error}
+			<p class="text-sm text-destructive mt-3">{form.error}</p>
+		{/if}
 
 		<div class="mt-6 py-4 border-y border-border">
 			<p class="text-sm text-muted">Games</p>

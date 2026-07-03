@@ -26,6 +26,10 @@
 		goto(resolve('/my-games'));
 	}
 
+	function goToChat() {
+		goto(resolve('/chat'));
+	}
+
 	function goToFavourites() {
 		goto(resolve('/favourites'));
 	}
@@ -52,6 +56,8 @@
 
 	<DropdownMenu.Portal>
 		<DropdownMenu.Content sideOffset={8}>
+			<DropdownMenu.Item onSelect={goToChat}>Chat</DropdownMenu.Item>
+
 			<DropdownMenu.Item onSelect={goToMyGames}>My Games</DropdownMenu.Item>
 
 			<DropdownMenu.Item onSelect={goToFavourites}>Favourites</DropdownMenu.Item>

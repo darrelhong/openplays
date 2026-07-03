@@ -15,8 +15,15 @@
 	import UserDropdownMenu from '$lib/components/nav/user-dropdown-menu.svelte';
 	import NotificationPopover from '$lib/components/notifications/notification-popover.svelte';
 	import { getTheme, setTheme, type Theme } from '$lib/theme.svelte';
+	import { cn } from '$lib/utils/cn';
 
 	let { children, data }: { children: Snippet; data: LayoutData } = $props();
+
+	// Chat is a full-height app view: the shell is locked to the viewport so only
+	// the message list scrolls, and the footer is omitted
+	const isChatRoute = $derived(
+		page.url.pathname === '/chat' || page.url.pathname.startsWith('/chat/')
+	);
 
 	const themes: { value: Theme; icon: typeof Sun }[] = [
 		{ value: 'light', icon: Sun },
@@ -51,7 +58,10 @@
 </svelte:head>
 
 <div
-	class="text-foreground bg-background flex flex-col min-h-screen transition-colors duration-150"
+	class={cn(
+		'text-foreground bg-background flex flex-col transition-colors duration-150',
+		isChatRoute ? 'h-[100dvh]' : 'min-h-screen'
+	)}
 >
 	<header class="p-4 flex items-center justify-between">
 		<a href={resolve('/')} class="text-2xl text-foreground font-bold">OpenPlays</a>
@@ -76,6 +86,7 @@
 					<UserDropdownMenu user={data.user} />
 				</div>
 				<div class="gap-3 hidden items-center sm:flex sm:order-1">
+					<a href={resolve('/chat')} class="text-sm text-muted hover:text-foreground">Chat</a>
 					<a href={resolve('/my-games')} class="text-sm text-muted hover:text-foreground"
 						>My Games</a
 					>
@@ -107,10 +118,11 @@
 			{/if}
 		</div>
 	</header>
-	<main class="px-4 flex flex-1 flex-col">
+	<main class="px-4 flex flex-1 flex-col min-h-0">
 		{@render children()}
 	</main>
-	<footer class="p-4 flex gap-2 items-center">
+	{#if !isChatRoute}
+		<footer class="p-4 flex gap-2 items-center">
 		<p class="text-sm text-muted-foreground">© {new Date().getFullYear()}</p>
 		<nav class="text-sm flex gap-3 items-center">
 			<a href={resolve('/privacy')} class="text-muted hover:text-foreground hover:underline"
@@ -170,5 +182,6 @@
 				</Dialog.Footer>
 			</Dialog.Content>
 		</Dialog.Root>
-	</footer>
+		</footer>
+	{/if}
 </div>
