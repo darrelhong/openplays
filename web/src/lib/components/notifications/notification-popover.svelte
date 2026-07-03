@@ -11,12 +11,18 @@
 	} from './push-client';
 	import type { PermissionState, UserNotification } from './types';
 
+	// The "notifications are blocked" variant is only shown this many times per week
+	const BLOCKED_PROMPT_STORAGE_KEY = 'openplays:blocked-notifications-prompt';
+	const BLOCKED_PROMPT_MAX_SHOWS = 2;
+	const BLOCKED_PROMPT_RESET_MS = 7 * 24 * 60 * 60 * 1000;
+
 	let supported = $state(false);
 	let permission = $state<PermissionState>('default');
 	let pushEnabled = $state(false);
 	let enablingPush = $state(false);
 	let pushPromptReady = $state(false);
 	let enablePromptDismissed = $state(false);
+	let blockedPromptExhausted = $state(false);
 	let open = $state(false);
 	let notifications = $state<UserNotification[]>([]);
 	let openUnreadIds = $state<Set<string>>(new Set());
@@ -26,8 +32,40 @@
 	const canEnablePush = $derived(supported && permission !== 'denied' && !pushEnabled);
 	const notificationsNotEnabled = $derived(supported && !pushEnabled);
 	const showEnablePrompt = $derived(
-		pushPromptReady && notificationsNotEnabled && !enablePromptDismissed
+		pushPromptReady &&
+			notificationsNotEnabled &&
+			!enablePromptDismissed &&
+			(permission !== 'denied' || !blockedPromptExhausted)
 	);
+
+	function readBlockedPromptRecord(): { count: number; since: number } {
+		try {
+			const parsed = JSON.parse(localStorage.getItem(BLOCKED_PROMPT_STORAGE_KEY) ?? '');
+			if (
+				typeof parsed?.count === 'number' &&
+				typeof parsed?.since === 'number' &&
+				Date.now() - parsed.since < BLOCKED_PROMPT_RESET_MS
+			) {
+				return parsed;
+			}
+		} catch {
+			// Missing or malformed record: start a fresh window
+		}
+		return { count: 0, since: Date.now() };
+	}
+
+	// Count each session the blocked variant is shown in, at most once per session
+	let blockedPromptCounted = false;
+	$effect(() => {
+		if (showEnablePrompt && permission === 'denied' && !blockedPromptCounted) {
+			blockedPromptCounted = true;
+			const record = readBlockedPromptRecord();
+			localStorage.setItem(
+				BLOCKED_PROMPT_STORAGE_KEY,
+				JSON.stringify({ count: record.count + 1, since: record.since })
+			);
+		}
+	});
 
 	$effect(() => {
 		if (open) {
@@ -42,6 +80,7 @@
 	});
 
 	onMount(() => {
+		blockedPromptExhausted = readBlockedPromptRecord().count >= BLOCKED_PROMPT_MAX_SHOWS;
 		supported = hasPushSupport();
 		if (supported) {
 			void syncPushSubscriptionState().finally(() => {
