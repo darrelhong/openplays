@@ -51,11 +51,11 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.Ups
 		LevelMax:             c.LevelMax,
 		LevelMinOrd:          intToInt64(levelToOrd(c.LevelMin)),
 		LevelMaxOrd:          intToInt64(levelToOrd(c.LevelMax)),
-		Fee:                  intToInt64(c.FeeCents),
+		Fee:                  intToInt64((*int)(c.FeeCents)),
 		Currency:             currency,
-		MaxPlayers:           intToInt64(c.MaxPlayers),
-		SlotsLeft:            intToInt64(c.SlotsLeft),
-		Courts:               floatToInt64(c.Courts),
+		MaxPlayers:           intToInt64((*int)(c.MaxPlayers)),
+		SlotsLeft:            intToInt64((*int)(c.SlotsLeft)),
+		Courts:               floatToInt64((*float64)(c.Courts)),
 		Contacts:             model.Contacts(c.Contacts),
 		GenderPref:           toGenderPref(c.GenderPref),
 		Meta:                 buildMeta(c),
@@ -115,10 +115,10 @@ func buildMeta(c *model.ParsedPlayCandidate) model.Meta {
 		meta["details"] = *c.Details
 	}
 	if c.FeeMaleCents != nil {
-		meta["fee_male"] = *c.FeeMaleCents
+		meta["fee_male"] = int(*c.FeeMaleCents)
 	}
 	if c.FeeFemaleCents != nil {
-		meta["fee_female"] = *c.FeeFemaleCents
+		meta["fee_female"] = int(*c.FeeFemaleCents)
 	}
 	if c.LevelMaleMin != nil {
 		meta["level_male_min"] = *c.LevelMaleMin
@@ -132,8 +132,8 @@ func buildMeta(c *model.ParsedPlayCandidate) model.Meta {
 	if c.LevelFemaleMax != nil {
 		meta["level_female_max"] = *c.LevelFemaleMax
 	}
-	if c.Courts != nil && !isWhole(*c.Courts) {
-		courtsNote := fmt.Sprintf("%g courts", *c.Courts)
+	if c.Courts != nil && !isWhole(float64(*c.Courts)) {
+		courtsNote := fmt.Sprintf("%g courts", float64(*c.Courts))
 		if existing, ok := meta["details"].(string); ok && existing != "" {
 			meta["details"] = existing + ", " + courtsNote
 		} else {
