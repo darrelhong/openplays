@@ -50,11 +50,14 @@
 	const addedCount = $derived(play.added_count ?? addedParticipants.length);
 	const rosteredCount = $derived(confirmedCount + addedCount);
 	const isCancelled = $derived(play.cancelled_at != null);
-	const openSlots = $derived(isCancelled ? 0 : Math.max(play.slots_left ?? 0, 0));
+	// The roster freezes once the game ends: no joins, leaves, or host actions
+	const hasEnded = $derived(new Date(play.ends_at) <= new Date());
+	const rosterOpen = $derived(!isCancelled && !hasEnded);
+	const openSlots = $derived(rosterOpen ? Math.max(play.slots_left ?? 0, 0) : 0);
 	const openSlotRows = $derived(
 		Array.from({ length: Math.min(openSlots, 12) }, (_, index) => rosteredCount + index + 1)
 	);
-	const slotsLeftLabel = $derived(isCancelled ? '0' : (play.slots_left ?? '-'));
+	const slotsLeftLabel = $derived(rosterOpen ? (play.slots_left ?? '-') : '0');
 	const hiddenOpenSlotCount = $derived(Math.max(openSlots - openSlotRows.length, 0));
 	const playerCountLabel = $derived(
 		play.max_players == null ? String(rosteredCount) : `${rosteredCount}/${play.max_players}`
@@ -78,7 +81,7 @@
 	const sourceLabel = $derived(isUserCreated ? 'User created' : 'Auto-created from Telegram');
 	const viewerState = $derived(play.viewer_state ?? 'not_joined');
 	const canManage = $derived(play.can_manage ?? false);
-	const canManageActive = $derived(canManage && !isCancelled);
+	const canManageActive = $derived(canManage && rosterOpen);
 	const waitlistCount = $derived(play.waitlist_count ?? waitlist.length);
 	const requests = $derived(play.requests ?? []);
 	const requestedCount = $derived(play.requested_count ?? requests.length);
@@ -393,6 +396,8 @@
 				{/if}
 				{#if isCancelled}
 					<Badge variant="warning">Cancelled</Badge>
+				{:else if hasEnded}
+					<Badge variant="muted">Ended</Badge>
 				{/if}
 			</div>
 			<div class="flex gap-3 items-start justify-between">
@@ -530,6 +535,19 @@
 					<div class="mt-4 flex flex-wrap gap-2 items-center justify-start">
 						{#if isCancelled}
 							<Badge variant="warning" size="sm">Cancelled</Badge>
+						{:else if hasEnded}
+							<!-- The roster is frozen: show the viewer's final state without actions -->
+							{#if viewerState === 'creator'}
+								<Badge variant="info" size="sm">Hosting</Badge>
+							{:else if viewerState === 'confirmed'}
+								{@render confirmedBadge()}
+							{:else if viewerState === 'added'}
+								{@render addedBadge()}
+							{:else if viewerState === 'waitlisted' && requiresWaitlist}
+								{@render waitlistBadge()}
+							{:else if viewerState === 'requested' || viewerState === 'waitlisted'}
+								{@render requestedBadge()}
+							{/if}
 						{:else if !user}
 							<Button href="/login" size="sm">Sign in to join</Button>
 						{:else if viewerState === 'creator'}

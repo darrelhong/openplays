@@ -245,6 +245,9 @@ func loadHostRosterTarget(ctx context.Context, store HostRosterStore, playID str
 	if play.CancelledAt != nil {
 		return db.GetPlayByIDRow{}, db.PlayParticipant{}, huma.Error409Conflict("play is cancelled")
 	}
+	if err := requireRosterOpen(play); err != nil {
+		return db.GetPlayByIDRow{}, db.PlayParticipant{}, err
+	}
 	if err := requirePlayHost(ctx, store, playID, user.ID); err != nil {
 		return db.GetPlayByIDRow{}, db.PlayParticipant{}, err
 	}

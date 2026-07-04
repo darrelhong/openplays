@@ -52,6 +52,9 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 		if play.CancelledAt != nil {
 			return nil, huma.Error409Conflict("play is cancelled")
 		}
+		if err := requireRosterOpen(play); err != nil {
+			return nil, err
+		}
 
 		participant, err := store.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
 			PlayID: input.ID,

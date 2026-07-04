@@ -119,10 +119,15 @@ export function participantFor(user: SeedUser, overrides: Partial<Participant> =
 	};
 }
 
+/** Upcoming play window: tomorrow, so `hasEnded` gating never trips by default. */
+const PLAY_STARTS_AT = new Date(Date.now() + 24 * 60 * 60 * 1000);
+const PLAY_ENDS_AT = new Date(PLAY_STARTS_AT.getTime() + 2 * 60 * 60 * 1000);
+
 /**
  * A user-created play. Defaults: hosted by Seed Host, LB–A, open slots, viewer
- * not joined. Counts are derived from the roster arrays so callers only set the
- * arrays. Override anything (e.g. `viewer_state`, `can_manage`, `waitlist`).
+ * not joined, starting tomorrow. Counts are derived from the roster arrays so
+ * callers only set the arrays. Override anything (e.g. `viewer_state`,
+ * `can_manage`, `waitlist`, or `ends_at` in the past for an ended play).
  */
 export function makePlay(overrides: Partial<Play> = {}): Play {
 	const play: Play = {
@@ -131,8 +136,8 @@ export function makePlay(overrides: Partial<Play> = {}): Play {
 		sport: 'badminton',
 		game_type: 'doubles',
 		host_name: 'Seed Host',
-		starts_at: '2026-07-01T04:00:00Z',
-		ends_at: '2026-07-01T06:00:00Z',
+		starts_at: PLAY_STARTS_AT.toISOString(),
+		ends_at: PLAY_ENDS_AT.toISOString(),
 		timezone: 'Asia/Singapore',
 		venue: 'Test Hall',
 		venue_name: 'Test Hall',

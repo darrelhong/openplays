@@ -419,3 +419,55 @@ test('host cancels the game from the edit page', async ({ page, context }) => {
 	await expect(page.getByText('Cancelled').first()).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Join game' })).toHaveCount(0);
 });
+
+/** A play whose window has already passed: the roster is frozen. */
+function makeEndedPlay(overrides: Parameters<typeof makePlay>[0] = {}) {
+	const endsAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
+	const startsAt = new Date(endsAt.getTime() - 2 * 60 * 60 * 1000);
+	return makePlay({
+		starts_at: startsAt.toISOString(),
+		ends_at: endsAt.toISOString(),
+		...overrides
+	});
+}
+
+test('ended play shows no join or leave actions to players', async ({ page, context }) => {
+	await signIn(context, 'seed-advanced');
+	mock.setPlay(
+		makeEndedPlay({
+			viewer_state: 'confirmed',
+			confirmed_participants: [HOST, participantFor(advanced, { is_viewer: true })]
+		})
+	);
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await expect(page.getByText('Ended')).toBeVisible();
+	await expect(page.getByText('Confirmed').first()).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Leave game' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Join game' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Request to join' })).toHaveCount(0);
+});
+
+test('ended play shows no roster management actions to the host', async ({ page, context }) => {
+	await signIn(context, 'seed-host');
+	mock.setPlay(
+		makeEndedPlay({
+			can_manage: true,
+			viewer_state: 'creator',
+			confirmed_participants: [HOST, participantFor(advanced)],
+			requests: [participantFor(li)]
+		})
+	);
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await expect(page.getByText('Ended')).toBeVisible();
+	// Pending rows fall back to their status badge instead of host CTAs
+	await expect(page.getByText('Requested').first()).toBeVisible();
+	await expect(page.getByRole('button', { name: /^Add / })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
+	await expect(page.getByRole('link', { name: 'Edit' })).toHaveCount(0);
+});

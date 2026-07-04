@@ -62,6 +62,9 @@ func RegisterConfirmParticipant(api huma.API, store ConfirmParticipantStore, aut
 		if play.CancelledAt != nil {
 			return nil, huma.Error409Conflict("play is cancelled")
 		}
+		if err := requireRosterOpen(play); err != nil {
+			return nil, err
+		}
 		if play.MaxPlayers == nil {
 			return nil, huma.Error500InternalServerError("play is missing max_players")
 		}
