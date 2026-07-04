@@ -79,6 +79,7 @@ type Play struct {
 	Name                 *string
 	Description          *string
 	Visibility           model.PlayVisibility
+	RequireWaitlist      bool
 }
 
 type PlayEvent struct {

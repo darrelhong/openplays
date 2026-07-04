@@ -35,6 +35,7 @@ type CreateInput struct {
 		Courts          *int64                `json:"courts,omitempty" doc:"Number of courts"`
 		Contacts        model.Contacts        `json:"contacts,omitempty" doc:"Contact methods"`
 		GenderPref      *model.GenderPref     `json:"gender_pref,omitempty" doc:"Gender preference" enum:"all,male_only,female_only,"`
+		RequireWaitlist *bool                 `json:"require_waitlist,omitempty" doc:"When true, joiners request a spot and a host adds each player to the game or waitlist"`
 	}
 }
 
@@ -97,6 +98,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		if err != nil {
 			return nil, err
 		}
+		requireWaitlist := input.Body.RequireWaitlist != nil && *input.Body.RequireWaitlist
 
 		// Compute level ordinals if provided
 		var levelMinOrd, levelMaxOrd *int64
@@ -132,31 +134,32 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		}
 
 		play, err := store.CreatePlay(ctx, db.CreatePlayParams{
-			ID:          uuid.NewString(),
-			ListingType: model.ListingPlay,
-			Sport:       input.Body.Sport,
-			GameType:    input.Body.GameType,
-			HostName:    user.DisplayName,
-			Name:        name,
-			Description: description,
-			Visibility:  visibility,
-			StartsAt:    startsAt,
-			EndsAt:      endsAt,
-			Timezone:    input.Body.Timezone,
-			Venue:       venueName,
-			VenueID:     resolvedVenueID,
-			LevelMin:    input.Body.LevelMin,
-			LevelMax:    input.Body.LevelMax,
-			LevelMinOrd: levelMinOrd,
-			LevelMaxOrd: levelMaxOrd,
-			Fee:         input.Body.Fee,
-			Currency:    input.Body.Currency,
-			MaxPlayers:  input.Body.MaxPlayers,
-			SlotsLeft:   &slotsLeft,
-			Courts:      input.Body.Courts,
-			Contacts:    input.Body.Contacts,
-			GenderPref:  input.Body.GenderPref,
-			CreatedBy:   &user.ID,
+			ID:              uuid.NewString(),
+			ListingType:     model.ListingPlay,
+			Sport:           input.Body.Sport,
+			GameType:        input.Body.GameType,
+			HostName:        user.DisplayName,
+			Name:            name,
+			Description:     description,
+			Visibility:      visibility,
+			StartsAt:        startsAt,
+			EndsAt:          endsAt,
+			Timezone:        input.Body.Timezone,
+			Venue:           venueName,
+			VenueID:         resolvedVenueID,
+			LevelMin:        input.Body.LevelMin,
+			LevelMax:        input.Body.LevelMax,
+			LevelMinOrd:     levelMinOrd,
+			LevelMaxOrd:     levelMaxOrd,
+			Fee:             input.Body.Fee,
+			Currency:        input.Body.Currency,
+			MaxPlayers:      input.Body.MaxPlayers,
+			SlotsLeft:       &slotsLeft,
+			Courts:          input.Body.Courts,
+			Contacts:        input.Body.Contacts,
+			GenderPref:      input.Body.GenderPref,
+			CreatedBy:       &user.ID,
+			RequireWaitlist: requireWaitlist,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to create play")
@@ -214,6 +217,7 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 				Name:               play.Name,
 				Description:        play.Description,
 				Visibility:         play.Visibility,
+				RequireWaitlist:    play.RequireWaitlist,
 				StartsAt:           play.StartsAt.Format(time.RFC3339),
 				EndsAt:             play.EndsAt.Format(time.RFC3339),
 				Timezone:           play.Timezone,

@@ -57,7 +57,12 @@
 							<td><PlayFavouriteButton {play} /></td>
 						{/if}
 						{#if hasViewerStateBadge}
-							<td><PlayViewerStateBadge state={play.viewer_state} /></td>
+							<td
+								><PlayViewerStateBadge
+									state={play.viewer_state}
+									requireWaitlist={play.require_waitlist}
+								/></td
+							>
 						{/if}
 						<td>
 							<div class="max-w-56">

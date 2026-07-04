@@ -152,6 +152,33 @@ export const actions: Actions = {
 
 		redirect(303, `/play/${id}`);
 	},
+	waitlistParticipant: async ({ params, request, cookies }) => {
+		const id = params.id;
+		const sessionToken = cookies.get('session');
+		if (!sessionToken) {
+			return fail(401, { error: 'Sign in to manage this roster' });
+		}
+
+		const participantID = participantIDFrom(await request.formData());
+		if (participantID == null) {
+			return fail(400, { error: 'Invalid participant' });
+		}
+
+		const { error: apiError } = await api.POST(
+			'/api/plays/{id}/participants/{participantID}/waitlist',
+			{
+				headers: { Cookie: `session=${sessionToken}` },
+				params: { path: { id, participantID } }
+			}
+		);
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to move player to the waitlist'
+			});
+		}
+
+		redirect(303, `/play/${id}`);
+	},
 	removeParticipant: async ({ params, request, cookies }) => {
 		const id = params.id;
 		const sessionToken = cookies.get('session');

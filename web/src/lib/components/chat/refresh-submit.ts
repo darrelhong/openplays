@@ -10,8 +10,7 @@ export async function applyResultInPlace(
 	update: (options?: { reset?: boolean; invalidateAll?: boolean }) => Promise<void>
 ) {
 	const samePageRedirect =
-		result.type === 'redirect' &&
-		new URL(result.location, page.url).pathname === page.url.pathname;
+		result.type === 'redirect' && new URL(result.location, page.url).pathname === page.url.pathname;
 
 	if (samePageRedirect) {
 		await invalidateAll();

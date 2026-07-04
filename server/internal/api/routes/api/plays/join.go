@@ -39,7 +39,7 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 	huma.Register(api, huma.Operation{
 		OperationID: "join-play",
 		Summary:     "Join a play",
-		Description: "Join a user-created play. Auto-confirms if rating matches and slots exist; otherwise waitlists.",
+		Description: "Join a user-created play. With a matching rating and an open slot the player is added pending their own confirmation; otherwise they join the pending queue. On require-waitlist plays every join becomes a request for a host to review.",
 		Method:      http.MethodPost,
 		Path:        "/{id}/join",
 		Tags:        []string{"Plays"},
@@ -124,15 +124,16 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 		}
 		if hostUserIDs, err := store.ListPlayHostUserIDsByPlay(ctx, input.ID); err == nil {
 			playSnapshot := notifications.PlaySnapshotFromDB(play)
-			if status == model.ParticipantWaitlisted {
-				_ = notifications.NotifyHostWaitlistJoined(ctx, notifier, playSnapshot, hostUserIDs, user.DisplayName)
-			} else if status == model.ParticipantConfirmed {
+			if status == model.ParticipantAdded {
 				_ = notifications.NotifyHostsPlayerJoined(ctx, notifier, playSnapshot, hostUserIDs, user.ID, user.DisplayName)
+			} else {
+				// Pending joins are requests on classic and require-waitlist plays alike
+				_ = notifications.NotifyHostsJoinRequested(ctx, notifier, playSnapshot, hostUserIDs, user.ID, user.DisplayName)
 			}
 		}
 
 		finalReservedCount := reservedCount
-		if status == model.ParticipantConfirmed {
+		if status == model.ParticipantAdded {
 			finalReservedCount++
 		}
 		slots := deriveSlotsLeft(*play.MaxPlayers, finalReservedCount)
@@ -145,10 +146,18 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 
 func resolveJoinStatus(play db.GetPlayByIDRow, user *auth.User, reservedCount int64) (model.PlayParticipantStatus, *string, *int64) {
 	ratingCode, ratingOrd := userRating(play.Sport, user)
+	// Require-waitlist plays never grant a spot on join: every join is a
+	// request that a host adds to the game or parks on the waitlist. Rating is
+	// still recorded so hosts see the requester's level.
+	if play.RequireWaitlist {
+		return model.ParticipantRequested, ratingCode, ratingOrd
+	}
 	if reservedCount >= *play.MaxPlayers || ratingOrd == nil || !ratingMatches(play, *ratingOrd) {
 		return model.ParticipantWaitlisted, ratingCode, ratingOrd
 	}
-	return model.ParticipantConfirmed, ratingCode, ratingOrd
+	// A direct join reserves the spot but the player still confirms their
+	// participation: "confirmed" always means the player explicitly confirmed
+	return model.ParticipantAdded, ratingCode, ratingOrd
 }
 
 func userRating(sport model.Sport, user *auth.User) (*string, *int64) {

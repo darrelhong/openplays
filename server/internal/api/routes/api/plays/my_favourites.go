@@ -112,6 +112,7 @@ func mapFavouriteTimeRow(r db.ListFavouriteUpcomingPlaysRow) PlayPublic {
 		Name:               r.Name,
 		Description:        r.Description,
 		Visibility:         r.Visibility,
+		RequireWaitlist:    r.RequireWaitlist,
 		StartsAt:           r.StartsAt.Format(time.RFC3339),
 		EndsAt:             r.EndsAt.Format(time.RFC3339),
 		Timezone:           r.Timezone,

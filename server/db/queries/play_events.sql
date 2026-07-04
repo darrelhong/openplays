@@ -18,8 +18,10 @@ SELECT * FROM (
     SELECT *
     FROM play_events
     WHERE play_id = ?
+      -- Roster events only: pending-queue events (requests, waitlist moves,
+      -- withdrawals) carry identities that are host-only, like the queue itself
       AND event_type IN (
-        'participant.joined_confirmed',
+        'participant.joined',
         'participant.added',
         'participant.confirmed',
         'participant.left_confirmed',

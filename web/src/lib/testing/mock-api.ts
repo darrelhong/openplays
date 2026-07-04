@@ -25,6 +25,7 @@ export type Participant = {
 	rating_code: string | null;
 	is_guest: boolean;
 	is_host: boolean;
+	is_viewer?: boolean;
 };
 
 export type Play = {
@@ -32,11 +33,14 @@ export type Play = {
 	created_by: string | null;
 	can_manage: boolean;
 	viewer_state: string;
+	require_waitlist: boolean;
 	confirmed_participants: Participant[];
 	added_participants: Participant[];
+	requests: Participant[];
 	waitlist: Participant[];
 	confirmed_count: number;
 	added_count: number;
+	requested_count: number;
 	waitlist_count: number;
 	slots_left: number;
 	[key: string]: unknown;
@@ -148,16 +152,20 @@ export function makePlay(overrides: Partial<Play> = {}): Play {
 		creator_username: 'seedhost',
 		can_manage: false,
 		viewer_state: 'not_joined',
+		require_waitlist: false,
 		confirmed_participants: [HOST],
 		added_participants: [],
+		requests: [],
 		waitlist: [],
 		confirmed_count: 0,
 		added_count: 0,
+		requested_count: 0,
 		waitlist_count: 0,
 		...overrides
 	};
 	play.confirmed_count = play.confirmed_participants.length;
 	play.added_count = play.added_participants.length;
+	play.requested_count = play.requests.length;
 	play.waitlist_count = play.waitlist.length;
 	return play;
 }

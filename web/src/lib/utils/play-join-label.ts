@@ -4,14 +4,20 @@ type PlayPublic = components['schemas']['PlayPublic'];
 type User = components['schemas']['User'];
 type SportsProfile = components['schemas']['SportsProfile'];
 
-type PlayJoinLabelInput = Pick<PlayPublic, 'sport' | 'level_min' | 'level_max' | 'slots_left'>;
+type PlayJoinLabelInput = Pick<PlayPublic, 'sport' | 'level_min' | 'level_max' | 'slots_left'> &
+	Partial<Pick<PlayPublic, 'require_waitlist'>>;
 type UserJoinLabelInput = Pick<User, 'sports_profile'> | null | undefined;
 
 export function getPlayJoinLabel(play: PlayJoinLabelInput, user: UserJoinLabelInput) {
-	return canDirectJoin(play, user) ? 'Join game' : 'Join waitlist';
+	// Any join that needs host review reads as a request
+	return canDirectJoin(play, user) ? 'Join game' : 'Request to join';
 }
 
 export function canDirectJoin(play: PlayJoinLabelInput, user: UserJoinLabelInput) {
+	// Require-waitlist plays never auto-confirm; every join is a request
+	if (play.require_waitlist) {
+		return false;
+	}
 	if ((play.slots_left ?? 0) <= 0) {
 		return false;
 	}

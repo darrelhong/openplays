@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
-	import Check from '@lucide/svelte/icons/check';
 	import MessagesSquare from '@lucide/svelte/icons/messages-square';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import * as Dialog from '$lib/components/ui/dialog/index';
@@ -81,8 +80,21 @@
 	const canManage = $derived(play.can_manage ?? false);
 	const canManageActive = $derived(canManage && !isCancelled);
 	const waitlistCount = $derived(play.waitlist_count ?? waitlist.length);
+	const requests = $derived(play.requests ?? []);
+	const requestedCount = $derived(play.requested_count ?? requests.length);
+	const requiresWaitlist = $derived(play.require_waitlist ?? false);
+	// Classic plays present their pending queue as requests; only
+	// require-waitlist plays have a separate host-parked waitlist
 	const rosterSummary = $derived(
-		`${confirmedCount} confirmed${addedCount > 0 ? ` • ${addedCount} added` : ''} • ${waitlistCount} waitlisted`
+		[
+			`${confirmedCount} confirmed`,
+			addedCount > 0 ? `${addedCount} added` : null,
+			requiresWaitlist
+				? `${waitlistCount} waitlisted • ${requestedCount} requested`
+				: `${requestedCount + waitlistCount} requested`
+		]
+			.filter(Boolean)
+			.join(' • ')
 	);
 	const joinsWaitlist = $derived(!canDirectJoin(play, user));
 	const joinLabel = $derived(getPlayJoinLabel(play, user));
@@ -107,10 +119,14 @@
 	<Badge variant="info">Added</Badge>
 {/snippet}
 
+{#snippet requestedBadge()}
+	<Badge variant="warning">Requested</Badge>
+{/snippet}
+
 {#snippet addParticipantDialog(participant: Participant)}
 	<ActionConfirmDialog
 		title={`Add ${participantName(participant)}?`}
-		description="They will be added to the game and can confirm or decline their spot."
+		description="They will be added to the game and can confirm their spot."
 		action="?/acceptParticipant"
 		confirmLabel="Add player"
 	>
@@ -118,15 +134,38 @@
 			<Button
 				type="button"
 				size="xs"
-				variant="secondary"
+				variant="default"
 				disabled={openSlots <= 0}
 				aria-label={`Add ${participantName(participant)}`}
 				title={openSlots > 0 ? 'Add player' : 'No open slots'}
-				class="gap-1.5"
 				{...props}
 			>
-				<Check class="h-3.5 w-3.5" aria-hidden="true" />
-				Add
+				Add to game
+			</Button>
+		{/snippet}
+		{#snippet fields()}
+			<input type="hidden" name="participant_id" value={participant.id} />
+		{/snippet}
+	</ActionConfirmDialog>
+{/snippet}
+
+{#snippet moveToWaitlistDialog(participant: Participant)}
+	<ActionConfirmDialog
+		title={`Add ${participantName(participant)} to the waitlist?`}
+		description="You can add them to the game later."
+		action="?/waitlistParticipant"
+		confirmLabel="Add to waitlist"
+	>
+		{#snippet trigger({ props })}
+			<Button
+				type="button"
+				size="xs"
+				variant="outline"
+				aria-label={`Add ${participantName(participant)} to the waitlist`}
+				title="Add to waitlist"
+				{...props}
+			>
+				Add to waitlist
 			</Button>
 		{/snippet}
 		{#snippet fields()}
@@ -182,9 +221,16 @@
 {#snippet addedPlayer(participant: Participant)}
 	<li class="py-2">
 		<div class="flex gap-3 items-center justify-between">
+			<!-- The pending-confirmation detail only concerns the host and the added player -->
 			<PlayParticipantIdentity
 				{participant}
-				secondary={participant.is_guest ? 'Guest' : 'Awaiting player confirmation'}
+				secondary={participant.is_guest
+					? 'Guest'
+					: participant.is_viewer
+						? 'Awaiting your confirmation'
+						: canManageActive
+							? 'Awaiting player confirmation'
+							: undefined}
 			/>
 			<div class="shrink-0">
 				{@render addedBadge()}
@@ -195,11 +241,11 @@
 			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
 				{@render removeParticipantDialog(participant)}
 			</div>
-		{:else if viewerState === 'added'}
+		{:else if participant.is_viewer}
 			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
 				<ActionConfirmDialog
 					title="Confirm spot?"
-					description="You will join the roster for this game."
+					description="Let the host know you will be attending this game"
 					action="?/confirmParticipant"
 					confirmLabel="Confirm spot"
 				>
@@ -224,16 +270,49 @@
 {/snippet}
 
 {#snippet waitlistPlayer(participant: Participant)}
-	<li class="py-2 flex gap-3 items-center justify-between">
-		<PlayParticipantIdentity {participant} />
+	<li class="py-2">
+		<div class="flex gap-3 items-center justify-between">
+			<PlayParticipantIdentity {participant} />
+			{#if canManageActive}
+				<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
+					{@render addParticipantDialog(participant)}
+				</div>
+			{:else}
+				<div class="shrink-0">
+					{@render waitlistBadge()}
+				</div>
+			{/if}
+		</div>
+
 		{#if canManageActive}
-			<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
-				{@render addParticipantDialog(participant)}
+			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
 				{@render removeParticipantDialog(participant)}
 			</div>
-		{:else}
-			<div class="shrink-0">
-				{@render waitlistBadge()}
+		{/if}
+	</li>
+{/snippet}
+
+{#snippet requestedPlayer(participant: Participant)}
+	<li class="py-2">
+		<div class="flex gap-3 items-center justify-between">
+			<PlayParticipantIdentity {participant} />
+			{#if canManageActive}
+				<div class="flex shrink-0 flex-wrap gap-2 items-center justify-end">
+					{@render addParticipantDialog(participant)}
+					{#if requiresWaitlist}
+						{@render moveToWaitlistDialog(participant)}
+					{/if}
+				</div>
+			{:else}
+				<div class="shrink-0">
+					{@render requestedBadge()}
+				</div>
+			{/if}
+		</div>
+
+		{#if canManageActive}
+			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
+				{@render removeParticipantDialog(participant)}
 			</div>
 		{/if}
 	</li>
@@ -248,24 +327,31 @@
 	</li>
 {/snippet}
 
-{#snippet rosterSection(title: string, participants: Participant[])}
-	<section>
-		<div class="mb-2 flex gap-3 items-center justify-between">
-			<h2 class="text-sm text-foreground font-semibold">{title}</h2>
-			<span class="text-xs text-muted">{participants.length}</span>
-		</div>
-		{#if participants.length > 0}
-			<ul class="px-3 border border-border rounded-md divide-border divide-y">
-				{#each participants as participant (participant.id)}
-					{@render waitlistPlayer(participant)}
-				{/each}
-			</ul>
-		{:else}
-			<p class="text-sm text-muted px-3 py-3 border border-border rounded-md border-dashed">
-				None yet
-			</p>
-		{/if}
-	</section>
+{#snippet rosterSection(title: string, participants: Participant[], kind: string = 'waitlist')}
+	<!-- Non-hosts only ever see sections containing their own row -->
+	{#if canManageActive || participants.length > 0}
+		<section>
+			<div class="mb-2 flex gap-3 items-center justify-between">
+				<h2 class="text-sm text-foreground font-semibold">{title}</h2>
+				<span class="text-xs text-muted">{participants.length}</span>
+			</div>
+			{#if participants.length > 0}
+				<ul class="px-3 border border-border rounded-md divide-border divide-y">
+					{#each participants as participant (participant.id)}
+						{#if kind === 'requests'}
+							{@render requestedPlayer(participant)}
+						{:else}
+							{@render waitlistPlayer(participant)}
+						{/if}
+					{/each}
+				</ul>
+			{:else}
+				<p class="text-sm text-muted px-3 py-3 border border-border rounded-md border-dashed">
+					None yet
+				</p>
+			{/if}
+		</section>
+	{/if}
 {/snippet}
 
 {#snippet activitySection()}
@@ -429,9 +515,15 @@
 						{/if}
 					</ul>
 
-					{#if canManageActive || waitlist.length > 0}
+					{#if canManageActive || requests.length > 0 || waitlist.length > 0}
 						<div class="mt-4 space-y-4">
-							{@render rosterSection('Waitlist', waitlist)}
+							{#if requiresWaitlist}
+								{@render rosterSection('Waitlist', waitlist)}
+								{@render rosterSection('Requests', requests, 'requests')}
+							{:else}
+								<!-- Classic plays: the pending queue is presented as requests -->
+								{@render rosterSection('Requests', [...requests, ...waitlist], 'requests')}
+							{/if}
 						</div>
 					{/if}
 
@@ -454,7 +546,8 @@
 									<Button type="button" size="sm" variant="outline" {...props}>Leave game</Button>
 								{/snippet}
 							</ActionConfirmDialog>
-						{:else if viewerState === 'waitlisted'}
+						{:else if viewerState === 'waitlisted' && requiresWaitlist}
+							{@render waitlistBadge()}
 							<ActionConfirmDialog
 								title="Leave waitlist?"
 								action="?/leave"
@@ -469,12 +562,27 @@
 							</ActionConfirmDialog>
 						{:else if viewerState === 'added'}
 							{@render addedBadge()}
+						{:else if viewerState === 'requested' || viewerState === 'waitlisted'}
+							{@render requestedBadge()}
+							<ActionConfirmDialog
+								title="Withdraw request?"
+								description="You will leave the request queue for this game."
+								action="?/leave"
+								confirmLabel="Withdraw request"
+								confirmVariant="destructive"
+							>
+								{#snippet trigger({ props })}
+									<Button type="button" size="sm" variant="outline" {...props}
+										>Withdraw request</Button
+									>
+								{/snippet}
+							</ActionConfirmDialog>
 						{:else if joinsWaitlist}
 							<ActionConfirmDialog
-								title="Join waitlist?"
-								description="Please double-check your availability before joining. Hosts can then add you into the game."
+								title="Request to join?"
+								description="A host reviews each request and adds players to the game. Check the game details for any instructions before requesting."
 								action="?/join"
-								confirmLabel="Join waitlist"
+								confirmLabel="Request to join"
 							>
 								{#snippet trigger({ props })}
 									<Button type="button" size="sm" {...props}>{joinLabel}</Button>

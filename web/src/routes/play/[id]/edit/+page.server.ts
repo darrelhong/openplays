@@ -25,6 +25,7 @@ type UpdatePlayValues = {
 	fee: string;
 	max_players: string;
 	courts: string;
+	require_waitlist: string;
 };
 
 export const load: PageServerLoad = async ({ params, cookies, locals }) => {
@@ -82,7 +83,8 @@ function updatePlayValues(formData: FormData): UpdatePlayValues {
 		level_max: stringValue(formData, 'level_max'),
 		fee: stringValue(formData, 'fee'),
 		max_players: stringValue(formData, 'max_players'),
-		courts: stringValue(formData, 'courts')
+		courts: stringValue(formData, 'courts'),
+		require_waitlist: stringValue(formData, 'require_waitlist')
 	};
 }
 
@@ -168,7 +170,8 @@ export const actions: Actions = {
 			fee_clear: feeWasCleared,
 			max_players: maxPlayers,
 			courts: courtsWasCleared ? undefined : courts,
-			courts_clear: courtsWasCleared
+			courts_clear: courtsWasCleared,
+			require_waitlist: values.require_waitlist === 'true'
 		};
 
 		const { error: apiError } = await api.PATCH('/api/plays/{id}', {

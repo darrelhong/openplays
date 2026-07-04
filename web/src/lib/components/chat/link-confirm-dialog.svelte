@@ -41,9 +41,7 @@
 					</Button>
 				{/snippet}
 			</Dialog.Close>
-			<Button type="button" size="sm" class="w-full sm:w-auto" onclick={openLink}>
-				Open link
-			</Button>
+			<Button type="button" size="sm" class="w-full sm:w-auto" onclick={openLink}>Open link</Button>
 		</div>
 	</Dialog.Content>
 </Dialog.Root>

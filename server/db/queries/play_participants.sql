@@ -21,8 +21,9 @@ ORDER BY
     CASE status
         WHEN 'confirmed' THEN 1
         WHEN 'added' THEN 2
-        WHEN 'waitlisted' THEN 3
-        ELSE 4
+        WHEN 'requested' THEN 3
+        WHEN 'waitlisted' THEN 4
+        ELSE 5
     END,
     created_at ASC,
     id ASC;
@@ -32,23 +33,26 @@ SELECT * FROM play_participants
 WHERE play_id = ? AND status = ?
 ORDER BY created_at ASC, id ASC;
 
--- name: ListConfirmedParticipantPreviewsByPlay :many
+-- name: ListParticipantPreviewsByPlay :many
+-- The full roster for the play detail page, partitioned by status in Go.
 SELECT
     pp.id,
     pp.play_id,
     pp.user_id,
     pp.guest_name,
     pp.rating_code,
+    pp.status,
     u.display_name,
     u.username,
     u.photo_url,
     u.sports_profile
 FROM play_participants pp
 LEFT JOIN users u ON u.id = pp.user_id
-WHERE pp.play_id = ? AND pp.status = 'confirmed'
+WHERE pp.play_id = ?
 ORDER BY pp.created_at ASC, pp.id ASC;
 
--- name: ListConfirmedParticipantPreviewsByPlays :many
+-- name: ListRosteredParticipantPreviewsByPlays :many
+-- Card previews cover the slot-reserving roster: confirmed and added players.
 SELECT
     pp.id,
     pp.play_id,
@@ -61,24 +65,12 @@ SELECT
     u.sports_profile
 FROM play_participants pp
 LEFT JOIN users u ON u.id = pp.user_id
-WHERE pp.play_id IN (sqlc.slice('play_ids')) AND pp.status = 'confirmed'
-ORDER BY pp.play_id ASC, pp.created_at ASC, pp.id ASC;
-
--- name: ListParticipantPreviewsByPlayAndStatus :many
-SELECT
-    pp.id,
-    pp.play_id,
-    pp.user_id,
-    pp.guest_name,
-    pp.rating_code,
-    u.display_name,
-    u.username,
-    u.photo_url,
-    u.sports_profile
-FROM play_participants pp
-LEFT JOIN users u ON u.id = pp.user_id
-WHERE pp.play_id = ? AND pp.status = ?
-ORDER BY pp.created_at ASC, pp.id ASC;
+WHERE pp.play_id IN (sqlc.slice('play_ids')) AND pp.status IN ('confirmed', 'added')
+ORDER BY
+    pp.play_id ASC,
+    CASE pp.status WHEN 'confirmed' THEN 1 ELSE 2 END,
+    pp.created_at ASC,
+    pp.id ASC;
 
 -- name: ListPlayParticipantsByUser :many
 SELECT * FROM play_participants

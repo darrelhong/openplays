@@ -55,10 +55,6 @@ export function getPlayRosterPreview(
 	const requestedVisibleSlots = Math.max(1, Math.floor(maxVisibleSlots));
 	const participantSlots = getParticipantSlots(play);
 	const hasParticipantPreview = participantSlots.length > 0;
-	const openSlots = hasParticipantPreview
-		? clampSlotCount(maxPlayers - participantSlots.length, 0, maxPlayers)
-		: clampSlotCount(play.slots_left ?? maxPlayers - 1, 0, maxPlayers - 1);
-	const occupiedSlots = maxPlayers - openSlots;
 	const allSlots: RosterPreviewSlot[] = hasParticipantPreview
 		? participantSlots.slice(0, maxPlayers)
 		: [
@@ -69,13 +65,18 @@ export function getPlayRosterPreview(
 				}
 			];
 
-	if (!hasParticipantPreview) {
-		for (let index = 1; index < occupiedSlots; index += 1) {
-			allSlots.push({
-				kind: 'occupied',
-				label: `Confirmed participant ${index + 1}`
-			});
-		}
+	// slots_left is the server's slot accounting (confirmed and added players
+	// both reserve slots); prefer it over inferring from the preview, which
+	// can omit reserved players
+	const inferredOpenSlots = maxPlayers - allSlots.length;
+	const openSlots = clampSlotCount(play.slots_left ?? inferredOpenSlots, 0, inferredOpenSlots);
+	const occupiedSlots = maxPlayers - openSlots;
+
+	for (let index = allSlots.length; index < occupiedSlots; index += 1) {
+		allSlots.push({
+			kind: 'occupied',
+			label: `Reserved spot ${index + 1}`
+		});
 	}
 
 	for (let index = 0; index < openSlots; index += 1) {

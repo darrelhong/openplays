@@ -16,7 +16,7 @@ type CreatePlayStore interface {
 
 // ParticipantPreviewBatchStore is the DB boundary for hydrating roster previews on play lists.
 type ParticipantPreviewBatchStore interface {
-	ListConfirmedParticipantPreviewsByPlays(ctx context.Context, playIds []string) ([]db.ListConfirmedParticipantPreviewsByPlaysRow, error)
+	ListRosteredParticipantPreviewsByPlays(ctx context.Context, playIds []string) ([]db.ListRosteredParticipantPreviewsByPlaysRow, error)
 	ListPlayHostUserIDsByPlays(ctx context.Context, playIds []string) ([]db.ListPlayHostUserIDsByPlaysRow, error)
 	GetUserByID(ctx context.Context, id string) (db.User, error)
 }

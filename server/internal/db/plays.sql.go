@@ -20,7 +20,7 @@ SET
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?2
   AND created_by IS NOT NULL
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility, require_waitlist
 `
 
 type CancelUserCreatedPlayParams struct {
@@ -69,6 +69,7 @@ func (q *Queries) CancelUserCreatedPlay(ctx context.Context, arg CancelUserCreat
 		&i.Name,
 		&i.Description,
 		&i.Visibility,
+		&i.RequireWaitlist,
 	)
 	return i, err
 }
@@ -186,7 +187,7 @@ INSERT INTO plays (
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
-    source, created_by, visibility
+    source, created_by, visibility, require_waitlist
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?,
@@ -194,38 +195,39 @@ INSERT INTO plays (
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
-    'user', ?, COALESCE(NULLIF(?26, ''), 'public')
+    'user', ?, COALESCE(NULLIF(?26, ''), 'public'), ?27
 )
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility, require_waitlist
 `
 
 type CreatePlayParams struct {
-	ID          string
-	ListingType model.ListingType
-	Sport       model.Sport
-	GameType    *model.GameType
-	HostName    string
-	Name        *string
-	Description *string
-	StartsAt    time.Time
-	EndsAt      time.Time
-	Timezone    string
-	Venue       string
-	VenueID     *int64
-	LevelMin    *string
-	LevelMax    *string
-	LevelMinOrd *int64
-	LevelMaxOrd *int64
-	Fee         *int64
-	Currency    string
-	MaxPlayers  *int64
-	SlotsLeft   *int64
-	Courts      *int64
-	Contacts    model.Contacts
-	GenderPref  *model.GenderPref
-	Meta        model.Meta
-	CreatedBy   *string
-	Visibility  interface{}
+	ID              string
+	ListingType     model.ListingType
+	Sport           model.Sport
+	GameType        *model.GameType
+	HostName        string
+	Name            *string
+	Description     *string
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Timezone        string
+	Venue           string
+	VenueID         *int64
+	LevelMin        *string
+	LevelMax        *string
+	LevelMinOrd     *int64
+	LevelMaxOrd     *int64
+	Fee             *int64
+	Currency        string
+	MaxPlayers      *int64
+	SlotsLeft       *int64
+	Courts          *int64
+	Contacts        model.Contacts
+	GenderPref      *model.GenderPref
+	Meta            model.Meta
+	CreatedBy       *string
+	Visibility      interface{}
+	RequireWaitlist bool
 }
 
 func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, error) {
@@ -256,6 +258,7 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 		arg.Meta,
 		arg.CreatedBy,
 		arg.Visibility,
+		arg.RequireWaitlist,
 	)
 	var i Play
 	err := row.Scan(
@@ -296,6 +299,7 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 		&i.Name,
 		&i.Description,
 		&i.Visibility,
+		&i.RequireWaitlist,
 	)
 	return i, err
 }
@@ -303,7 +307,7 @@ func (q *Queries) CreatePlay(ctx context.Context, arg CreatePlayParams) (Play, e
 const getPlayByID = `-- name: GetPlayByID :one
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at, p.cancelled_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -330,6 +334,7 @@ type GetPlayByIDRow struct {
 	Name                 *string
 	Description          *string
 	Visibility           model.PlayVisibility
+	RequireWaitlist      bool
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -378,6 +383,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id string) (GetPlayByIDRow, e
 		&i.Name,
 		&i.Description,
 		&i.Visibility,
+		&i.RequireWaitlist,
 		&i.StartsAt,
 		&i.EndsAt,
 		&i.Timezone,
@@ -415,7 +421,7 @@ func (q *Queries) GetPlayByID(ctx context.Context, id string) (GetPlayByIDRow, e
 }
 
 const getUpcomingPlays = `-- name: GetUpcomingPlays :many
-SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility FROM plays
+SELECT id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility, require_waitlist FROM plays
 WHERE ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND cancelled_at IS NULL
   AND visibility = 'public'
@@ -470,6 +476,7 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.Name,
 			&i.Description,
 			&i.Visibility,
+			&i.RequireWaitlist,
 		); err != nil {
 			return nil, err
 		}
@@ -487,7 +494,7 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 const listMyUpcomingPlays = `-- name: ListMyUpcomingPlays :many
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -548,6 +555,7 @@ type ListMyUpcomingPlaysRow struct {
 	Name                 *string
 	Description          *string
 	Visibility           model.PlayVisibility
+	RequireWaitlist      bool
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -610,6 +618,7 @@ func (q *Queries) ListMyUpcomingPlays(ctx context.Context, arg ListMyUpcomingPla
 			&i.Name,
 			&i.Description,
 			&i.Visibility,
+			&i.RequireWaitlist,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Timezone,
@@ -659,7 +668,7 @@ func (q *Queries) ListMyUpcomingPlays(ctx context.Context, arg ListMyUpcomingPla
 const listUpcomingPlays = `-- name: ListUpcomingPlays :many
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -713,6 +722,7 @@ type ListUpcomingPlaysRow struct {
 	Name                 *string
 	Description          *string
 	Visibility           model.PlayVisibility
+	RequireWaitlist      bool
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -781,6 +791,7 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 			&i.Name,
 			&i.Description,
 			&i.Visibility,
+			&i.RequireWaitlist,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Timezone,
@@ -829,7 +840,7 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 const listUpcomingPlaysByDistance = `-- name: ListUpcomingPlaysByDistance :many
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -898,6 +909,7 @@ type ListUpcomingPlaysByDistanceRow struct {
 	Name                 *string
 	Description          *string
 	Visibility           model.PlayVisibility
+	RequireWaitlist      bool
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -968,6 +980,7 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 			&i.Name,
 			&i.Description,
 			&i.Visibility,
+			&i.RequireWaitlist,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Timezone,
@@ -1041,48 +1054,50 @@ SET
     name = ?1,
     description = ?2,
     visibility = COALESCE(NULLIF(?3, ''), visibility),
-    game_type = ?4,
-    starts_at = ?5,
-    ends_at = ?6,
-    timezone = ?7,
-    level_min = ?8,
-    level_max = ?9,
-    level_min_ord = ?10,
-    level_max_ord = ?11,
-    fee = ?12,
-    max_players = ?13,
+    require_waitlist = ?4,
+    game_type = ?5,
+    starts_at = ?6,
+    ends_at = ?7,
+    timezone = ?8,
+    level_min = ?9,
+    level_max = ?10,
+    level_min_ord = ?11,
+    level_max_ord = ?12,
+    fee = ?13,
+    max_players = ?14,
     slots_left = CASE
-        WHEN ?13 IS NULL THEN NULL
-        ELSE max(?13 - (
+        WHEN ?14 IS NULL THEN NULL
+        ELSE max(?14 - (
             SELECT COUNT(*)
             FROM play_participants pp
             WHERE pp.play_id = plays.id
               AND pp.status IN ('confirmed', 'added')
         ), 0)
     END,
-    courts = ?14,
+    courts = ?15,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-WHERE plays.id = ?15
+WHERE plays.id = ?16
   AND plays.created_by IS NOT NULL
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility, require_waitlist
 `
 
 type UpdateUserCreatedPlayParams struct {
-	Name        *string
-	Description *string
-	Visibility  interface{}
-	GameType    *model.GameType
-	StartsAt    time.Time
-	EndsAt      time.Time
-	Timezone    string
-	LevelMin    *string
-	LevelMax    *string
-	LevelMinOrd *int64
-	LevelMaxOrd *int64
-	Fee         *int64
-	MaxPlayers  *int64
-	Courts      *int64
-	ID          string
+	Name            *string
+	Description     *string
+	Visibility      interface{}
+	RequireWaitlist bool
+	GameType        *model.GameType
+	StartsAt        time.Time
+	EndsAt          time.Time
+	Timezone        string
+	LevelMin        *string
+	LevelMax        *string
+	LevelMinOrd     *int64
+	LevelMaxOrd     *int64
+	Fee             *int64
+	MaxPlayers      *int64
+	Courts          *int64
+	ID              string
 }
 
 func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreatedPlayParams) (Play, error) {
@@ -1090,6 +1105,7 @@ func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreat
 		arg.Name,
 		arg.Description,
 		arg.Visibility,
+		arg.RequireWaitlist,
 		arg.GameType,
 		arg.StartsAt,
 		arg.EndsAt,
@@ -1142,6 +1158,7 @@ func (q *Queries) UpdateUserCreatedPlay(ctx context.Context, arg UpdateUserCreat
 		&i.Name,
 		&i.Description,
 		&i.Visibility,
+		&i.RequireWaitlist,
 	)
 	return i, err
 }
@@ -1190,7 +1207,7 @@ ON CONFLICT(host_name, starts_at, sport, COALESCE(venue_id, 0)) DO UPDATE SET
     source_message_id     = excluded.source_message_id,
     source_group          = excluded.source_group,
     updated_at            = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility
+RETURNING id, created_at, updated_at, listing_type, sport, game_type, host_name, starts_at, ends_at, timezone, venue, level_min, level_max, level_min_ord, level_max_ord, fee, currency, max_players, slots_left, courts, contacts, gender_pref, meta, source, source_sender_username, source_raw_message, source_message_time, venue_id, source_message_id, source_group, source_sender_name, created_by, cancelled_at, cancelled_by, name, description, visibility, require_waitlist
 `
 
 type UpsertPlayParams struct {
@@ -1296,6 +1313,7 @@ func (q *Queries) UpsertPlay(ctx context.Context, arg UpsertPlayParams) (Play, e
 		&i.Name,
 		&i.Description,
 		&i.Visibility,
+		&i.RequireWaitlist,
 	)
 	return i, err
 }

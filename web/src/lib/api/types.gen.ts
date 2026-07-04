@@ -433,7 +433,7 @@ export interface paths {
 		put?: never;
 		/**
 		 * Join a play
-		 * @description Join a user-created play. Auto-confirms if rating matches and slots exist; otherwise waitlists.
+		 * @description Join a user-created play. With a matching rating and an open slot the player is added pending their own confirmation; otherwise they join the pending queue. On require-waitlist plays every join becomes a request for a host to review.
 		 */
 		post: operations['join-play'];
 		delete?: never;
@@ -512,10 +512,30 @@ export interface paths {
 		get?: never;
 		put?: never;
 		/**
-		 * Add a waitlisted participant
-		 * @description Move a waitlisted participant into an added state pending player confirmation. Requires the play host and an open slot.
+		 * Add a waitlisted or requested participant
+		 * @description Move a waitlisted or requested participant into an added state pending player confirmation. Requires the play host and an open slot.
 		 */
 		post: operations['accept-play-participant'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/participants/{participantID}/waitlist': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Move a requested participant to the waitlist
+		 * @description Park a join request on the waitlist without granting a spot. Requires the play host.
+		 */
+		post: operations['waitlist-play-participant'];
 		delete?: never;
 		options?: never;
 		head?: never;
@@ -684,7 +704,7 @@ export interface components {
 			/** Format: int64 */
 			slots_left?: number;
 			/** @enum {string} */
-			status: 'confirmed' | 'waitlisted' | 'added';
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested';
 		};
 		ContactMethod: {
 			type: string;
@@ -751,6 +771,8 @@ export interface components {
 			max_players?: number;
 			/** @description Optional custom game name */
 			name?: string;
+			/** @description When true, joiners request a spot and a host adds each player to the game or waitlist */
+			require_waitlist?: boolean;
 			/**
 			 * Format: int64
 			 * @description Available slots
@@ -889,7 +911,7 @@ export interface components {
 			/** Format: int64 */
 			slots_left?: number;
 			/** @enum {string} */
-			status: 'confirmed' | 'waitlisted' | 'added';
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested';
 		};
 		JoinOutputBody: {
 			/**
@@ -901,7 +923,7 @@ export interface components {
 			/** Format: int64 */
 			slots_left?: number;
 			/** @enum {string} */
-			status: 'confirmed' | 'waitlisted' | 'added';
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested';
 		};
 		ListBody: {
 			/**
@@ -1006,13 +1028,15 @@ export interface components {
 			event_type:
 				| 'play.created'
 				| 'play.updated'
-				| 'participant.joined_confirmed'
-				| 'participant.joined_waitlist'
+				| 'participant.joined'
+				| 'participant.join_requested'
 				| 'participant.added'
 				| 'participant.confirmed'
+				| 'participant.moved_to_waitlist'
 				| 'participant.left_confirmed'
 				| 'participant.left_added'
 				| 'participant.left_waitlist'
+				| 'participant.request_withdrawn'
 				| 'participant.removed'
 				| 'play.cancelled';
 			/** Format: int64 */
@@ -1030,6 +1054,8 @@ export interface components {
 			id: number;
 			is_guest: boolean;
 			is_host: boolean;
+			/** @description True when this row is the authenticated viewer */
+			is_viewer?: boolean;
 			photo_url?: string;
 			rating_code?: string;
 			username?: string;
@@ -1084,6 +1110,11 @@ export interface components {
 			name?: string;
 			participant_preview?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
 			/** Format: int64 */
+			requested_count?: number;
+			requests?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
+			/** @description When true, joiners request a spot and a host adds each player to the game or waitlist */
+			require_waitlist: boolean;
+			/** Format: int64 */
 			slots_left?: number;
 			source?: string;
 			source_group?: string;
@@ -1110,7 +1141,7 @@ export interface components {
 			venue_name: string;
 			venue_postal_code?: string;
 			/** @enum {string} */
-			viewer_state?: 'not_joined' | 'confirmed' | 'waitlisted' | 'added' | 'creator';
+			viewer_state?: 'not_joined' | 'confirmed' | 'waitlisted' | 'added' | 'requested' | 'creator';
 			/**
 			 * @description Public games appear in discovery. Unlisted games are viewable by link only.
 			 * @enum {string}
@@ -1262,6 +1293,8 @@ export interface components {
 			max_players?: number;
 			/** @description Optional custom game name */
 			name?: string;
+			/** @description When true, joiners request a spot and a host adds each player to the game or waitlist */
+			require_waitlist?: boolean;
 			/** @description Start time in RFC3339 format */
 			starts_at?: string;
 			/** @description IANA timezone, e.g. Asia/Singapore */
@@ -2351,6 +2384,40 @@ export interface operations {
 		};
 	};
 	'accept-play-participant': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+				/** @description Participant ID */
+				participantID: number;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['HostRosterOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'waitlist-play-participant': {
 		parameters: {
 			query?: never;
 			header?: never;

@@ -31,6 +31,7 @@ type UpdatePlayInput struct {
 		MaxPlayers      *int64                `json:"max_players,omitempty" doc:"Maximum number of players" minimum:"1"`
 		Courts          *int64                `json:"courts,omitempty" doc:"Number of courts" minimum:"1"`
 		CourtsClear     bool                  `json:"courts_clear,omitempty" doc:"Clear the court count"`
+		RequireWaitlist *bool                 `json:"require_waitlist,omitempty" doc:"When true, joiners request a spot and a host adds each player to the game or waitlist"`
 	}
 }
 
@@ -165,22 +166,28 @@ func RegisterUpdate(api huma.API, store UpdatePlayStore, authMiddleware func(hum
 			courts = input.Body.Courts
 		}
 
+		requireWaitlist := play.RequireWaitlist
+		if input.Body.RequireWaitlist != nil {
+			requireWaitlist = *input.Body.RequireWaitlist
+		}
+
 		updated, err := store.UpdateUserCreatedPlay(ctx, db.UpdateUserCreatedPlayParams{
-			ID:          input.ID,
-			Name:        name,
-			Description: description,
-			Visibility:  visibility,
-			GameType:    gameType,
-			StartsAt:    startsAt,
-			EndsAt:      endsAt,
-			Timezone:    timezone,
-			LevelMin:    levelMin,
-			LevelMax:    levelMax,
-			LevelMinOrd: levelMinOrd,
-			LevelMaxOrd: levelMaxOrd,
-			Fee:         fee,
-			MaxPlayers:  maxPlayers,
-			Courts:      courts,
+			ID:              input.ID,
+			Name:            name,
+			Description:     description,
+			Visibility:      visibility,
+			GameType:        gameType,
+			StartsAt:        startsAt,
+			EndsAt:          endsAt,
+			Timezone:        timezone,
+			LevelMin:        levelMin,
+			LevelMax:        levelMax,
+			LevelMinOrd:     levelMinOrd,
+			LevelMaxOrd:     levelMaxOrd,
+			Fee:             fee,
+			MaxPlayers:      maxPlayers,
+			Courts:          courts,
+			RequireWaitlist: requireWaitlist,
 		})
 		if err == sql.ErrNoRows {
 			return nil, huma.Error404NotFound("play not found")
@@ -248,6 +255,9 @@ func updatePlayChangedFields(input *UpdatePlayInput) []string {
 	}
 	if input.Body.Courts != nil || input.Body.CourtsClear {
 		fields = append(fields, "courts")
+	}
+	if input.Body.RequireWaitlist != nil {
+		fields = append(fields, "require_waitlist")
 	}
 	return fields
 }
@@ -343,34 +353,35 @@ func levelOrdForUpdate(sport model.Sport, field string, value *string) (*int64, 
 func publicPlayFromDB(play db.Play) PlayPublic {
 	createdAt, updatedAt := publicPlayTimestamps(play.CreatedBy, play.CreatedAt, play.UpdatedAt)
 	return PlayPublic{
-		ID:          play.ID,
-		CreatedAt:   createdAt,
-		UpdatedAt:   updatedAt,
-		ListingType: play.ListingType,
-		Sport:       play.Sport,
-		GameType:    play.GameType,
-		HostName:    play.HostName,
-		Name:        play.Name,
-		Description: play.Description,
-		Visibility:  play.Visibility,
-		StartsAt:    play.StartsAt.Format(time.RFC3339),
-		EndsAt:      play.EndsAt.Format(time.RFC3339),
-		Timezone:    play.Timezone,
-		CancelledAt: publicOptionalTimestamp(play.CancelledAt),
-		Venue:       play.Venue,
-		VenueName:   play.Venue,
-		VenueID:     play.VenueID,
-		LevelMin:    play.LevelMin,
-		LevelMax:    play.LevelMax,
-		Fee:         play.Fee,
-		Currency:    play.Currency,
-		MaxPlayers:  play.MaxPlayers,
-		SlotsLeft:   play.SlotsLeft,
-		Courts:      play.Courts,
-		Contacts:    play.Contacts,
-		GenderPref:  play.GenderPref,
-		Meta:        play.Meta,
-		Source:      play.Source,
-		CreatedBy:   play.CreatedBy,
+		ID:              play.ID,
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
+		ListingType:     play.ListingType,
+		Sport:           play.Sport,
+		GameType:        play.GameType,
+		HostName:        play.HostName,
+		Name:            play.Name,
+		Description:     play.Description,
+		Visibility:      play.Visibility,
+		RequireWaitlist: play.RequireWaitlist,
+		StartsAt:        play.StartsAt.Format(time.RFC3339),
+		EndsAt:          play.EndsAt.Format(time.RFC3339),
+		Timezone:        play.Timezone,
+		CancelledAt:     publicOptionalTimestamp(play.CancelledAt),
+		Venue:           play.Venue,
+		VenueName:       play.Venue,
+		VenueID:         play.VenueID,
+		LevelMin:        play.LevelMin,
+		LevelMax:        play.LevelMax,
+		Fee:             play.Fee,
+		Currency:        play.Currency,
+		MaxPlayers:      play.MaxPlayers,
+		SlotsLeft:       play.SlotsLeft,
+		Courts:          play.Courts,
+		Contacts:        play.Contacts,
+		GenderPref:      play.GenderPref,
+		Meta:            play.Meta,
+		Source:          play.Source,
+		CreatedBy:       play.CreatedBy,
 	}
 }

@@ -7,12 +7,13 @@ type DeliveryPolicy struct {
 }
 
 var deliveryPoliciesByKind = map[string]DeliveryPolicy{
-	"play.waitlist_joined":  {Feed: true, Push: true},
-	"play.player_added":     {Feed: true, Push: true},
-	"play.player_joined":    {Feed: true, Push: true},
-	"play.player_confirmed": {Feed: true, Push: true},
-	"play.player_left":      {Feed: true, Push: true},
-	"chat.message":          {Feed: true, Push: true, DebounceFeed: true},
+	"play.join_requested":    {Feed: true, Push: true},
+	"play.player_added":      {Feed: true, Push: true},
+	"play.moved_to_waitlist": {Feed: true, Push: true},
+	"play.player_joined":     {Feed: true, Push: true},
+	"play.player_confirmed":  {Feed: true, Push: true},
+	"play.player_left":       {Feed: true, Push: true},
+	"chat.message":           {Feed: true, Push: true, DebounceFeed: true},
 }
 
 var defaultDeliveryPolicy = DeliveryPolicy{Feed: true, Push: true}

@@ -20,12 +20,14 @@
 	const linkedPlayID = $derived(urlPlayID ?? item.play_id);
 
 	// Navigating to the current URL doesn't re-run loads, so refresh explicitly
-	// to pick up new messages when the conversation is already open
-	function handleChatSelect() {
-		onSelect?.();
-		if (page.url.pathname === `/chat/${chatID}`) {
-			invalidateAll();
-		}
+	// so the page reflects whatever the notification announced
+	function handleSelect(href: string) {
+		return () => {
+			onSelect?.();
+			if (page.url.pathname === href) {
+				invalidateAll();
+			}
+		};
 	}
 </script>
 
@@ -48,17 +50,19 @@
 {/snippet}
 
 {#if chatID}
+	{@const href = resolve(`/chat/${chatID}`)}
 	<a
-		href={resolve(`/chat/${chatID}`)}
-		onclick={handleChatSelect}
+		{href}
+		onclick={handleSelect(href)}
 		class="text-sm px-4 py-3 gap-3 grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_1fr] transition-colors items-start hover:bg-accent"
 	>
 		{@render content()}
 	</a>
 {:else if linkedPlayID}
+	{@const href = resolve(`/play/${linkedPlayID}`)}
 	<a
-		href={resolve(`/play/${linkedPlayID}`)}
-		onclick={onSelect}
+		{href}
+		onclick={handleSelect(href)}
 		class="text-sm px-4 py-3 gap-3 grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_1fr] transition-colors items-start hover:bg-accent"
 	>
 		{@render content()}

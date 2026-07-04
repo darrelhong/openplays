@@ -9,23 +9,24 @@ import (
 
 // PlayPublic is the API response schema for a play.
 type PlayPublic struct {
-	ID          string               `json:"id"`
-	CreatedAt   *string              `json:"created_at,omitempty"`
-	UpdatedAt   *string              `json:"updated_at,omitempty"`
-	ListingType model.ListingType    `json:"listing_type"`
-	Sport       model.Sport          `json:"sport"`
-	GameType    *model.GameType      `json:"game_type,omitempty"`
-	HostName    string               `json:"host_name"`
-	Name        *string              `json:"name,omitempty" doc:"Optional custom display name for user-created games"`
-	Description *string              `json:"description,omitempty" doc:"Optional description for user-created games"`
-	Visibility  model.PlayVisibility `json:"visibility" doc:"Public games appear in discovery. Unlisted games are viewable by link only." enum:"public,unlisted"`
-	StartsAt    string               `json:"starts_at"`
-	EndsAt      string               `json:"ends_at"`
-	Timezone    string               `json:"timezone"`
-	CancelledAt *string              `json:"cancelled_at,omitempty"`
-	Venue       string               `json:"venue" doc:"Raw venue name as extracted from the message"`
-	VenueName   string               `json:"venue_name" doc:"Display name: resolved venue name, or raw venue name, or 'No venue'"`
-	VenueID     *int64               `json:"venue_id,omitempty"`
+	ID              string               `json:"id"`
+	CreatedAt       *string              `json:"created_at,omitempty"`
+	UpdatedAt       *string              `json:"updated_at,omitempty"`
+	ListingType     model.ListingType    `json:"listing_type"`
+	Sport           model.Sport          `json:"sport"`
+	GameType        *model.GameType      `json:"game_type,omitempty"`
+	HostName        string               `json:"host_name"`
+	Name            *string              `json:"name,omitempty" doc:"Optional custom display name for user-created games"`
+	Description     *string              `json:"description,omitempty" doc:"Optional description for user-created games"`
+	Visibility      model.PlayVisibility `json:"visibility" doc:"Public games appear in discovery. Unlisted games are viewable by link only." enum:"public,unlisted"`
+	RequireWaitlist bool                 `json:"require_waitlist" doc:"When true, joiners request a spot and a host adds each player to the game or waitlist"`
+	StartsAt        string               `json:"starts_at"`
+	EndsAt          string               `json:"ends_at"`
+	Timezone        string               `json:"timezone"`
+	CancelledAt     *string              `json:"cancelled_at,omitempty"`
+	Venue           string               `json:"venue" doc:"Raw venue name as extracted from the message"`
+	VenueName       string               `json:"venue_name" doc:"Display name: resolved venue name, or raw venue name, or 'No venue'"`
+	VenueID         *int64               `json:"venue_id,omitempty"`
 
 	VenuePostalCode    *string  `json:"venue_postal_code,omitempty"`
 	VenueLatitude      *float64 `json:"venue_latitude,omitempty"`
@@ -61,12 +62,14 @@ type PlayPublic struct {
 
 	ConfirmedParticipants []PlayParticipantPreviewPublic `json:"confirmed_participants,omitempty"`
 	AddedParticipants     []PlayParticipantPreviewPublic `json:"added_participants,omitempty"`
+	Requests              []PlayParticipantPreviewPublic `json:"requests,omitempty"`
 	Waitlist              []PlayParticipantPreviewPublic `json:"waitlist,omitempty"`
-	ViewerState           *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,added,creator"`
+	ViewerState           *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,added,requested,creator"`
 	IsFavourited          *bool                          `json:"is_favourited,omitempty"`
 	CanManage             *bool                          `json:"can_manage,omitempty"`
 	ConfirmedCount        *int64                         `json:"confirmed_count,omitempty"`
 	AddedCount            *int64                         `json:"added_count,omitempty"`
+	RequestedCount        *int64                         `json:"requested_count,omitempty"`
 	WaitlistCount         *int64                         `json:"waitlist_count,omitempty"`
 	HistoryEvents         []PlayHistoryEventPublic       `json:"history_events,omitempty"`
 
@@ -100,6 +103,7 @@ type PlayParticipantPreviewPublic struct {
 	RatingCode  *string `json:"rating_code,omitempty"`
 	IsGuest     bool    `json:"is_guest"`
 	IsHost      bool    `json:"is_host"`
+	IsViewer    bool    `json:"is_viewer,omitempty" doc:"True when this row is the authenticated viewer"`
 }
 
 // PlayHistoryEventPublic is a feed item for current players and hosts.

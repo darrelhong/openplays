@@ -52,7 +52,7 @@ INSERT INTO plays (
     level_min, level_max, level_min_ord, level_max_ord,
     fee, currency, max_players, slots_left, courts,
     contacts, gender_pref, meta,
-    source, created_by, visibility
+    source, created_by, visibility, require_waitlist
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?,
@@ -60,7 +60,7 @@ INSERT INTO plays (
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
-    'user', ?, COALESCE(NULLIF(sqlc.arg('visibility'), ''), 'public')
+    'user', ?, COALESCE(NULLIF(sqlc.arg('visibility'), ''), 'public'), sqlc.arg('require_waitlist')
 )
 RETURNING *;
 
@@ -79,7 +79,7 @@ ORDER BY starts_at ASC;
 -- to match the sort order. Both cursor params must be provided together.
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -128,7 +128,7 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 -- TODO: Audit remaining created_by usage and drop plays.created_by if play_hosts fully replaces it.
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -192,7 +192,7 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 -- Forward-only cursor pagination using composite (distance_km, id).
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -252,7 +252,7 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 -- name: GetPlayByID :one
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at, p.cancelled_by,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -273,6 +273,7 @@ SET
     name = sqlc.arg('name'),
     description = sqlc.arg('description'),
     visibility = COALESCE(NULLIF(sqlc.arg('visibility'), ''), visibility),
+    require_waitlist = sqlc.arg('require_waitlist'),
     game_type = sqlc.arg('game_type'),
     starts_at = sqlc.arg('starts_at'),
     ends_at = sqlc.arg('ends_at'),

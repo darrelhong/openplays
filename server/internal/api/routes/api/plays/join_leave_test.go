@@ -41,7 +41,7 @@ func setupJoinLeaveTest(authStore *fakeAuthStore, store *db.Queries, notifiers .
 	return httptest.NewServer(r)
 }
 
-func TestJoinPlay_WaitlistNotifiesHost(t *testing.T) {
+func TestJoinPlay_PendingJoinNotifiesHostsAsRequest(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
@@ -81,15 +81,19 @@ func TestJoinPlay_WaitlistNotifiesHost(t *testing.T) {
 	if call.userID != creatorID {
 		t.Fatalf("notification user = %q, want host %q", call.userID, creatorID)
 	}
-	if call.payload.Kind != "play.waitlist_joined" {
-		t.Fatalf("notification kind = %q, want play.waitlist_joined", call.payload.Kind)
+	if call.payload.Kind != "play.join_requested" {
+		t.Fatalf("notification kind = %q, want play.join_requested", call.payload.Kind)
 	}
 	if call.payload.URL != "/play/"+playID {
 		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
 	}
+	// Classic pending joins record the same request event as require-waitlist joins
+	if got := latestPlayEventType(t, ctx, queries, playID); got != model.PlayEventParticipantJoinRequested {
+		t.Fatalf("event type = %q, want participant.join_requested", got)
+	}
 }
 
-func TestJoinPlay_AutoConfirmWhenRatingMatchesAndSpaceExists(t *testing.T) {
+func TestJoinPlay_AddsPendingSelfConfirmWhenRatingMatchesAndSpaceExists(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
@@ -128,8 +132,9 @@ func TestJoinPlay_AutoConfirmWhenRatingMatchesAndSpaceExists(t *testing.T) {
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if out.Status != string(model.ParticipantConfirmed) {
-		t.Fatalf("status = %q, want confirmed", out.Status)
+	// Direct joins reserve the spot as "added"; the player still confirms
+	if out.Status != string(model.ParticipantAdded) {
+		t.Fatalf("status = %q, want added", out.Status)
 	}
 	if out.SlotsLeft == nil || *out.SlotsLeft != 1 {
 		t.Fatalf("slots_left = %v, want 1", out.SlotsLeft)

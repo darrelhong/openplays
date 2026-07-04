@@ -204,23 +204,23 @@ func TestGetPlayDetail_HistoryEventsVisibleToCurrentParticipantsOnly(t *testing.
 	}
 	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
 		PlayID:             playID,
-		EventType:          model.PlayEventParticipantJoinedWaitlist,
+		EventType:          model.PlayEventParticipantJoinRequested,
 		ActorUserID:        &waitlistedID,
 		ActorDisplayName:   &waitlistedName,
 		SubjectUserID:      &waitlistedID,
 		SubjectDisplayName: &waitlistedName,
 	}); err != nil {
-		t.Fatalf("CreatePlayEvent waitlist: %v", err)
+		t.Fatalf("CreatePlayEvent join requested: %v", err)
 	}
 	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
 		PlayID:             playID,
-		EventType:          model.PlayEventParticipantJoinedConfirmed,
+		EventType:          model.PlayEventParticipantJoined,
 		ActorUserID:        &playerID,
 		ActorDisplayName:   &playerName,
 		SubjectUserID:      &playerID,
 		SubjectDisplayName: &playerName,
 	}); err != nil {
-		t.Fatalf("CreatePlayEvent joined confirmed: %v", err)
+		t.Fatalf("CreatePlayEvent joined: %v", err)
 	}
 	if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
 		PlayID:             playID,
@@ -253,8 +253,9 @@ func TestGetPlayDetail_HistoryEventsVisibleToCurrentParticipantsOnly(t *testing.
 
 	playerEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(playerID, nil), queries), playID)
 	playerEventTypes := historyEventTypes(playerEvents)
+	// Pending-queue events (the join request) stay host-only
 	wantPlayerEvents := []string{
-		string(model.PlayEventParticipantJoinedConfirmed),
+		string(model.PlayEventParticipantJoined),
 		string(model.PlayEventParticipantAdded),
 		string(model.PlayEventUpdated),
 	}
@@ -271,8 +272,8 @@ func TestGetPlayDetail_HistoryEventsVisibleToCurrentParticipantsOnly(t *testing.
 	hostEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(creatorID, nil), queries), playID)
 	hostEventTypes := historyEventTypes(hostEvents)
 	wantHostEvents := []string{
-		string(model.PlayEventParticipantJoinedWaitlist),
-		string(model.PlayEventParticipantJoinedConfirmed),
+		string(model.PlayEventParticipantJoinRequested),
+		string(model.PlayEventParticipantJoined),
 		string(model.PlayEventParticipantAdded),
 		string(model.PlayEventParticipantRemoved),
 		string(model.PlayEventUpdated),
@@ -633,7 +634,7 @@ func TestGetPlayDetail_HostCanSeeAddedParticipantsAndReservedSlots(t *testing.T)
 	}
 }
 
-func TestGetPlayDetail_AddedViewerSeesOnlyOwnAddedParticipant(t *testing.T) {
+func TestGetPlayDetail_AddedParticipantsVisibleToEveryoneWithViewerFlag(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
@@ -665,6 +666,7 @@ func TestGetPlayDetail_AddedViewerSeesOnlyOwnAddedParticipant(t *testing.T) {
 	var out struct {
 		AddedParticipants []struct {
 			DisplayName *string `json:"display_name"`
+			IsViewer    bool    `json:"is_viewer"`
 		} `json:"added_participants"`
 		ViewerState *string `json:"viewer_state"`
 		CanManage   *bool   `json:"can_manage"`
@@ -680,11 +682,21 @@ func TestGetPlayDetail_AddedViewerSeesOnlyOwnAddedParticipant(t *testing.T) {
 	if out.CanManage == nil || *out.CanManage {
 		t.Fatalf("can_manage = %v, want false", out.CanManage)
 	}
-	if len(out.AddedParticipants) != 1 {
-		t.Fatalf("added_participants len = %d, want own row only", len(out.AddedParticipants))
+	// Added players hold reserved spots, so the full list is public
+	if len(out.AddedParticipants) != 2 {
+		t.Fatalf("added_participants len = %d, want all added rows", len(out.AddedParticipants))
 	}
-	if out.AddedParticipants[0].DisplayName == nil || *out.AddedParticipants[0].DisplayName != "Test "+viewerID {
-		t.Fatalf("added participant display_name = %v, want viewer", out.AddedParticipants[0].DisplayName)
+	viewerRows := 0
+	for _, participant := range out.AddedParticipants {
+		if participant.IsViewer {
+			viewerRows++
+			if participant.DisplayName == nil || *participant.DisplayName != "Test "+viewerID {
+				t.Fatalf("is_viewer row display_name = %v, want viewer", participant.DisplayName)
+			}
+		}
+	}
+	if viewerRows != 1 {
+		t.Fatalf("is_viewer rows = %d, want exactly 1", viewerRows)
 	}
 	if out.AddedCount == nil || *out.AddedCount != 2 {
 		t.Fatalf("added_count = %v, want 2", out.AddedCount)
@@ -726,6 +738,7 @@ func TestGetPlayDetail_WaitlistedViewerSeesOnlyOwnWaitlistParticipant(t *testing
 	var out struct {
 		Waitlist []struct {
 			DisplayName *string `json:"display_name"`
+			IsViewer    bool    `json:"is_viewer"`
 		} `json:"waitlist"`
 		ViewerState   *string `json:"viewer_state"`
 		CanManage     *bool   `json:"can_manage"`
@@ -746,8 +759,68 @@ func TestGetPlayDetail_WaitlistedViewerSeesOnlyOwnWaitlistParticipant(t *testing
 	if out.Waitlist[0].DisplayName == nil || *out.Waitlist[0].DisplayName != "Test "+viewerID {
 		t.Fatalf("waitlist display_name = %v, want viewer", out.Waitlist[0].DisplayName)
 	}
+	if !out.Waitlist[0].IsViewer {
+		t.Fatal("waitlist own row is_viewer = false, want true")
+	}
 	if out.WaitlistCount == nil || *out.WaitlistCount != 2 {
 		t.Fatalf("waitlist_count = %v, want 2", out.WaitlistCount)
+	}
+}
+
+func TestGetPlayDetail_RequestedViewerSeesOwnRequestWithViewerFlag(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "detail-own-request-host")
+	viewerID := createRouteTestUser(t, ctx, queries, "detail-own-request-viewer")
+	otherRequesterID := createRouteTestUser(t, ctx, queries, "detail-own-request-other")
+	playID := createRequireWaitlistPlay(t, ctx, queries, creatorID, 4)
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	seedRequestedParticipant(t, ctx, queries, playID, viewerID)
+	seedRequestedParticipant(t, ctx, queries, playID, otherRequesterID)
+
+	authStore := sessionWithProfile(viewerID, nil)
+	ts := setupGetDetailTest(authStore, queries)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out struct {
+		Requests []struct {
+			DisplayName *string `json:"display_name"`
+			IsViewer    bool    `json:"is_viewer"`
+		} `json:"requests"`
+		ViewerState    *string `json:"viewer_state"`
+		RequestedCount *int64  `json:"requested_count"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ViewerState == nil || *out.ViewerState != "requested" {
+		t.Fatalf("viewer_state = %v, want requested", out.ViewerState)
+	}
+	if len(out.Requests) != 1 {
+		t.Fatalf("requests len = %d, want own row only", len(out.Requests))
+	}
+	if out.Requests[0].DisplayName == nil || *out.Requests[0].DisplayName != "Test "+viewerID {
+		t.Fatalf("request display_name = %v, want viewer", out.Requests[0].DisplayName)
+	}
+	if !out.Requests[0].IsViewer {
+		t.Fatal("request own row is_viewer = false, want true")
+	}
+	if out.RequestedCount == nil || *out.RequestedCount != 2 {
+		t.Fatalf("requested_count = %v, want 2", out.RequestedCount)
 	}
 }
 

@@ -116,7 +116,8 @@ func visibleHistoryEvents(ctx context.Context, store playEventReader, playID, vi
 
 func currentParticipantState(viewerState string) bool {
 	switch viewerState {
-	case string(model.ParticipantConfirmed), string(model.ParticipantAdded), string(model.ParticipantWaitlisted):
+	case string(model.ParticipantConfirmed), string(model.ParticipantAdded),
+		string(model.ParticipantWaitlisted), string(model.ParticipantRequested):
 		return true
 	default:
 		return false
@@ -152,7 +153,8 @@ func mapPlayHistoryEvents(rows []db.PlayEvent, now time.Time) ([]PlayHistoryEven
 
 func redactPlayHistoryActor(eventType model.PlayEventType) bool {
 	switch eventType {
-	case model.PlayEventParticipantAdded, model.PlayEventParticipantRemoved:
+	case model.PlayEventParticipantAdded, model.PlayEventParticipantRemoved,
+		model.PlayEventParticipantMovedToWaitlist:
 		return true
 	default:
 		return false
@@ -164,18 +166,22 @@ func playHistoryEventMessage(eventType model.PlayEventType, actorDisplayName, su
 	actor := historyDisplayName(actorDisplayName, "Host")
 
 	switch eventType {
-	case model.PlayEventParticipantJoinedConfirmed:
+	case model.PlayEventParticipantJoined:
 		return fmt.Sprintf("%s joined the game", subject)
-	case model.PlayEventParticipantJoinedWaitlist:
-		return fmt.Sprintf("%s joined the waitlist", subject)
+	case model.PlayEventParticipantJoinRequested:
+		return fmt.Sprintf("%s requested to join", subject)
 	case model.PlayEventParticipantAdded:
 		return fmt.Sprintf("%s was added to the game", subject)
 	case model.PlayEventParticipantConfirmed:
 		return fmt.Sprintf("%s confirmed their spot", subject)
+	case model.PlayEventParticipantMovedToWaitlist:
+		return fmt.Sprintf("%s was moved to the waitlist", subject)
 	case model.PlayEventParticipantLeftConfirmed, model.PlayEventParticipantLeftAdded:
 		return fmt.Sprintf("%s left the game", subject)
 	case model.PlayEventParticipantLeftWaitlist:
 		return fmt.Sprintf("%s left the waitlist", subject)
+	case model.PlayEventParticipantRequestWithdrawn:
+		return fmt.Sprintf("%s withdrew their request", subject)
 	case model.PlayEventParticipantRemoved:
 		return fmt.Sprintf("%s was removed from the game", subject)
 	case model.PlayEventCancelled:
@@ -198,18 +204,29 @@ func historyDisplayName(value *string, fallback string) string {
 }
 
 func eventTypeForJoinStatus(status model.PlayParticipantStatus) model.PlayEventType {
-	if status == model.ParticipantConfirmed {
-		return model.PlayEventParticipantJoinedConfirmed
+	// A direct join reserves a spot as "added"; every other join lands in the
+	// pending queue and is a request, on classic and require-waitlist plays alike
+	if status == model.ParticipantAdded {
+		return model.PlayEventParticipantJoined
 	}
-	return model.PlayEventParticipantJoinedWaitlist
+	return model.PlayEventParticipantJoinRequested
 }
 
-func eventTypeForLeaveStatus(status model.PlayParticipantStatus) model.PlayEventType {
+func eventTypeForLeaveStatus(status model.PlayParticipantStatus, requireWaitlist bool) model.PlayEventType {
 	switch status {
 	case model.ParticipantConfirmed:
 		return model.PlayEventParticipantLeftConfirmed
 	case model.ParticipantAdded:
 		return model.PlayEventParticipantLeftAdded
+	case model.ParticipantRequested:
+		return model.PlayEventParticipantRequestWithdrawn
+	case model.ParticipantWaitlisted:
+		// Classic plays present their pending queue as requests; only
+		// require-waitlist plays have a real (host-parked) waitlist
+		if requireWaitlist {
+			return model.PlayEventParticipantLeftWaitlist
+		}
+		return model.PlayEventParticipantRequestWithdrawn
 	default:
 		return model.PlayEventParticipantLeftWaitlist
 	}

@@ -16,7 +16,7 @@ describe('getPlayJoinLabel', () => {
 		).toBe('Join game');
 	});
 
-	it('shows Join waitlist when the play is full', () => {
+	it('shows Request to join when the play is full', () => {
 		expect(
 			getPlayJoinLabel(
 				{
@@ -27,10 +27,10 @@ describe('getPlayJoinLabel', () => {
 				},
 				{ sports_profile: { badminton: { level: 'LI' } } }
 			)
-		).toBe('Join waitlist');
+		).toBe('Request to join');
 	});
 
-	it('shows Join waitlist when the user level is outside the play range', () => {
+	it('shows Request to join when the user level is outside the play range', () => {
 		expect(
 			getPlayJoinLabel(
 				{
@@ -41,7 +41,7 @@ describe('getPlayJoinLabel', () => {
 				},
 				{ sports_profile: { badminton: { level: 'LB' } } }
 			)
-		).toBe('Join waitlist');
+		).toBe('Request to join');
 
 		expect(
 			getPlayJoinLabel(
@@ -53,10 +53,10 @@ describe('getPlayJoinLabel', () => {
 				},
 				{ sports_profile: { badminton: { level: 'A' } } }
 			)
-		).toBe('Join waitlist');
+		).toBe('Request to join');
 	});
 
-	it('shows Join waitlist when the user does not have a known level for the sport', () => {
+	it('shows Request to join when the user does not have a known level for the sport', () => {
 		expect(
 			getPlayJoinLabel(
 				{
@@ -67,7 +67,21 @@ describe('getPlayJoinLabel', () => {
 				},
 				{ sports_profile: { tennis: { level: '3.0' } } }
 			)
-		).toBe('Join waitlist');
+		).toBe('Request to join');
+	});
+
+	it('shows Request to join on require-waitlist plays even with a matching level and open slot', () => {
+		const play = {
+			sport: 'badminton',
+			level_min: 'MB',
+			level_max: 'HI',
+			slots_left: 3,
+			require_waitlist: true
+		} as const;
+		const user = { sports_profile: { badminton: { level: 'LI' } } };
+
+		expect(getPlayJoinLabel(play, user)).toBe('Request to join');
+		expect(canDirectJoin(play, user)).toBe(false);
 	});
 });
 
@@ -97,7 +111,7 @@ describe('canDirectJoin', () => {
 				},
 				{ sports_profile: { tennis: { level: '3.5' } } }
 			)
-		).toBe('Join waitlist');
+		).toBe('Request to join');
 
 		expect(
 			canDirectJoin(
@@ -112,7 +126,7 @@ describe('canDirectJoin', () => {
 		).toBe(true);
 	});
 
-	it('treats unsupported sport profiles as waitlist-only', () => {
+	it('treats unsupported sport profiles as request-only', () => {
 		expect(
 			canDirectJoin(
 				{

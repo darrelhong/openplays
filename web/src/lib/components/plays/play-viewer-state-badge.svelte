@@ -4,23 +4,36 @@
 
 	type ViewerState = Play['viewer_state'];
 
-	let { state }: { state: ViewerState } = $props();
+	let {
+		state,
+		requireWaitlist = false
+	}: {
+		state: ViewerState;
+		requireWaitlist?: boolean;
+	} = $props();
 
-	const labels = {
+	// On classic plays the pending queue is presented as requests, so a
+	// waitlisted row reads "Requested"; only require-waitlist plays have a
+	// real (host-parked) waitlist
+	const labels = $derived({
 		creator: 'Hosting',
 		confirmed: 'Going',
 		added: 'Pending',
-		waitlisted: 'Waitlisted',
+		requested: 'Requested',
+		waitlisted: requireWaitlist ? 'Waitlisted' : 'Requested',
 		not_joined: undefined
-	} as const;
+	} as const);
 
-	const variants = {
+	// Anything presented as "Requested" uses the warning variant, matching the
+	// roster badges on the play detail page
+	const variants = $derived({
 		creator: 'info',
 		confirmed: 'success',
 		added: 'warning',
-		waitlisted: 'outline',
+		requested: 'warning',
+		waitlisted: requireWaitlist ? 'outline' : 'warning',
 		not_joined: 'muted'
-	} as const;
+	} as const);
 
 	const label = $derived(state ? labels[state] : undefined);
 	const variant = $derived(state ? variants[state] : 'muted');

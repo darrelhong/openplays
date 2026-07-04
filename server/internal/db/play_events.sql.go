@@ -121,8 +121,10 @@ SELECT id, play_id, event_type, actor_user_id, actor_display_name, subject_user_
     SELECT id, play_id, event_type, actor_user_id, actor_display_name, subject_user_id, subject_display_name, participant_id, metadata, created_at
     FROM play_events
     WHERE play_id = ?
+      -- Roster events only: pending-queue events (requests, waitlist moves,
+      -- withdrawals) carry identities that are host-only, like the queue itself
       AND event_type IN (
-        'participant.joined_confirmed',
+        'participant.joined',
         'participant.added',
         'participant.confirmed',
         'participant.left_confirmed',

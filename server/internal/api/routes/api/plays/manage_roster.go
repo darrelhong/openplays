@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"slices"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -45,78 +46,40 @@ type HostRosterStore interface {
 func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
 	huma.Register(api, huma.Operation{
 		OperationID: "accept-play-participant",
-		Summary:     "Add a waitlisted participant",
-		Description: "Move a waitlisted participant into an added state pending player confirmation. Requires the play host and an open slot.",
+		Summary:     "Add a waitlisted or requested participant",
+		Description: "Move a waitlisted or requested participant into an added state pending player confirmation. Requires the play host and an open slot.",
 		Method:      http.MethodPost,
 		Path:        "/{id}/participants/{participantID}/accept",
 		Tags:        []string{"Plays"},
 		Middlewares: huma.Middlewares{authMiddleware},
 	}, func(ctx context.Context, input *AcceptParticipantInput) (*HostRosterOutput, error) {
-		play, participant, err := loadHostRosterTarget(ctx, store, input.ID, input.ParticipantID)
-		if err != nil {
-			return nil, err
-		}
-
-		if participant.Status != model.ParticipantWaitlisted {
-			return nil, huma.Error409Conflict("participant is not waitlisted")
-		}
-		if play.MaxPlayers == nil {
-			return nil, huma.Error500InternalServerError("play is missing max_players")
-		}
-
-		reservedCount, err := store.CountReservedPlayParticipants(ctx, input.ID)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to count participants")
-		}
-		if reservedCount >= *play.MaxPlayers {
-			return nil, huma.Error409Conflict("play roster is full")
-		}
-
-		subject, err := subjectFromParticipant(ctx, store, participant)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to get participant user")
-		}
-
-		updated, err := store.UpdatePlayParticipantStatus(ctx, db.UpdatePlayParticipantStatusParams{
-			ID:     participant.ID,
-			Status: model.ParticipantAdded,
+		return applyRosterTransition(ctx, store, notifier, input.ID, input.ParticipantID, rosterTransitionSpec{
+			allowedFrom:     []model.PlayParticipantStatus{model.ParticipantWaitlisted, model.ParticipantRequested},
+			conflictMessage: "participant is not waitlisted or requested",
+			toStatus:        model.ParticipantAdded,
+			eventType:       model.PlayEventParticipantAdded,
+			reservesSlot:    true,
+			notify:          notifications.NotifyPlayerAdded,
 		})
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to add participant")
-		}
+	})
 
-		if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {
-			return nil, huma.Error500InternalServerError("failed to update slots_left")
-		}
-		actorUserID, actorDisplayName := playEventActor(authmw.UserFromContext(ctx))
-		metadata, err := metadataJSON(playEventMetadata{
-			"from_status": string(model.ParticipantWaitlisted),
-			"to_status":   string(model.ParticipantAdded),
+	huma.Register(api, huma.Operation{
+		OperationID: "waitlist-play-participant",
+		Summary:     "Move a requested participant to the waitlist",
+		Description: "Park a join request on the waitlist without granting a spot. Requires the play host.",
+		Method:      http.MethodPost,
+		Path:        "/{id}/participants/{participantID}/waitlist",
+		Tags:        []string{"Plays"},
+		Middlewares: huma.Middlewares{authMiddleware},
+	}, func(ctx context.Context, input *AcceptParticipantInput) (*HostRosterOutput, error) {
+		return applyRosterTransition(ctx, store, notifier, input.ID, input.ParticipantID, rosterTransitionSpec{
+			allowedFrom:     []model.PlayParticipantStatus{model.ParticipantRequested},
+			conflictMessage: "participant is not requested",
+			toStatus:        model.ParticipantWaitlisted,
+			eventType:       model.PlayEventParticipantMovedToWaitlist,
+			reservesSlot:    false,
+			notify:          notifications.NotifyPlayerMovedToWaitlist,
 		})
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to record play event")
-		}
-		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
-			PlayID:             input.ID,
-			EventType:          model.PlayEventParticipantAdded,
-			ActorUserID:        actorUserID,
-			ActorDisplayName:   actorDisplayName,
-			SubjectUserID:      subject.UserID,
-			SubjectDisplayName: subject.DisplayName,
-			ParticipantID:      subject.ParticipantID,
-			Metadata:           metadata,
-		}); err != nil {
-			return nil, huma.Error500InternalServerError("failed to record play event")
-		}
-		if subject.UserID != nil {
-			_ = notifications.NotifyPlayerAdded(ctx, notifier, notifications.PlaySnapshotFromDB(play), *subject.UserID)
-		}
-
-		slots := deriveSlotsLeft(*play.MaxPlayers, reservedCount+1)
-		out := &HostRosterOutput{}
-		out.Body.Status = updated.Status
-		out.Body.SlotsLeft = &slots
-		return out, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -176,6 +139,91 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 
 		return &struct{}{}, nil
 	})
+}
+
+// rosterTransitionSpec describes a host-driven participant status change.
+type rosterTransitionSpec struct {
+	allowedFrom     []model.PlayParticipantStatus
+	conflictMessage string
+	toStatus        model.PlayParticipantStatus
+	eventType       model.PlayEventType
+	// reservesSlot transitions consume roster capacity: they require an open
+	// slot and refresh the play's stored slots_left
+	reservesSlot bool
+	notify       func(ctx context.Context, notifier notifications.Sender, play notifications.PlaySnapshot, playerUserID string) error
+}
+
+func applyRosterTransition(ctx context.Context, store HostRosterStore, notifier notifications.Sender, playID string, participantID int64, spec rosterTransitionSpec) (*HostRosterOutput, error) {
+	play, participant, err := loadHostRosterTarget(ctx, store, playID, participantID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !slices.Contains(spec.allowedFrom, participant.Status) {
+		return nil, huma.Error409Conflict(spec.conflictMessage)
+	}
+	if play.MaxPlayers == nil {
+		return nil, huma.Error500InternalServerError("play is missing max_players")
+	}
+
+	// Derive slots from a live count; the stored slots_left can lag
+	reservedCount, err := store.CountReservedPlayParticipants(ctx, playID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to count participants")
+	}
+	if spec.reservesSlot && reservedCount >= *play.MaxPlayers {
+		return nil, huma.Error409Conflict("play roster is full")
+	}
+
+	subject, err := subjectFromParticipant(ctx, store, participant)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to get participant user")
+	}
+
+	updated, err := store.UpdatePlayParticipantStatus(ctx, db.UpdatePlayParticipantStatusParams{
+		ID:     participant.ID,
+		Status: spec.toStatus,
+	})
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to update participant")
+	}
+
+	if spec.reservesSlot {
+		if err := store.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+			return nil, huma.Error500InternalServerError("failed to update slots_left")
+		}
+		reservedCount++
+	}
+
+	actorUserID, actorDisplayName := playEventActor(authmw.UserFromContext(ctx))
+	metadata, err := metadataJSON(playEventMetadata{
+		"from_status": string(participant.Status),
+		"to_status":   string(spec.toStatus),
+	})
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to record play event")
+	}
+	if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+		PlayID:             playID,
+		EventType:          spec.eventType,
+		ActorUserID:        actorUserID,
+		ActorDisplayName:   actorDisplayName,
+		SubjectUserID:      subject.UserID,
+		SubjectDisplayName: subject.DisplayName,
+		ParticipantID:      subject.ParticipantID,
+		Metadata:           metadata,
+	}); err != nil {
+		return nil, huma.Error500InternalServerError("failed to record play event")
+	}
+	if subject.UserID != nil {
+		_ = spec.notify(ctx, notifier, notifications.PlaySnapshotFromDB(play), *subject.UserID)
+	}
+
+	slots := deriveSlotsLeft(*play.MaxPlayers, reservedCount)
+	out := &HostRosterOutput{}
+	out.Body.Status = updated.Status
+	out.Body.SlotsLeft = &slots
+	return out, nil
 }
 
 func loadHostRosterTarget(ctx context.Context, store HostRosterStore, playID string, participantID int64) (db.GetPlayByIDRow, db.PlayParticipant, error) {

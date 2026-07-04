@@ -19,7 +19,7 @@ func hydrateParticipantPreviews(ctx context.Context, queries ParticipantPreviewB
 		playIDs = append(playIDs, items[i].ID)
 	}
 
-	rows, err := queries.ListConfirmedParticipantPreviewsByPlays(ctx, playIDs)
+	rows, err := queries.ListRosteredParticipantPreviewsByPlays(ctx, playIDs)
 	if err != nil {
 		return fmt.Errorf("list participant previews: %w", err)
 	}
@@ -47,46 +47,52 @@ func hydrateParticipantPreviews(ctx context.Context, queries ParticipantPreviewB
 	return nil
 }
 
-func participantPreviewsForPlay(ctx context.Context, queries *db.Queries, playID string, sport model.Sport, includeNames bool) ([]PlayParticipantPreviewPublic, error) {
-	rows, err := queries.ListConfirmedParticipantPreviewsByPlay(ctx, playID)
-	if err != nil {
-		return nil, err
-	}
-	previews := mapParticipantPreviewRows(sport, singleParticipantPreviewRows(rows), includeNames)
-	hostIDs, err := queries.ListPlayHostUserIDsByPlay(ctx, playID)
-	if err != nil {
-		return nil, err
-	}
-	markHostParticipants(previews, userIDSet(hostIDs))
-	previews, err = appendMissingHostPreviews(ctx, queries, playID, sport, includeNames, previews, hostIDs)
-	if err != nil {
-		return nil, err
-	}
-	return orderHostPreviewsFirst(previews, hostIDs), nil
+// playRosterPreviews is the play's full roster partitioned by participant
+// status, with host and viewer rows marked.
+type playRosterPreviews struct {
+	Confirmed  []PlayParticipantPreviewPublic
+	Added      []PlayParticipantPreviewPublic
+	Requested  []PlayParticipantPreviewPublic
+	Waitlisted []PlayParticipantPreviewPublic
 }
 
-func participantPreviewsForPlayByStatus(ctx context.Context, queries *db.Queries, playID string, sport model.Sport, status model.PlayParticipantStatus, includeNames bool) ([]PlayParticipantPreviewPublic, error) {
-	rows, err := queries.ListParticipantPreviewsByPlayAndStatus(ctx, db.ListParticipantPreviewsByPlayAndStatusParams{
-		PlayID: playID,
-		Status: status,
-	})
+// rosterPreviewsForPlay fetches every participant of a play in one query and
+// partitions the previews by status. Hosts without a roster row are appended
+// to the confirmed list (and listed first), matching the roster the UI shows.
+func rosterPreviewsForPlay(ctx context.Context, queries *db.Queries, playID string, sport model.Sport, includeNames bool, hostIDs []string, viewerID *string) (playRosterPreviews, error) {
+	rows, err := queries.ListParticipantPreviewsByPlay(ctx, playID)
 	if err != nil {
-		return nil, err
+		return playRosterPreviews{}, err
 	}
-	previews := mapParticipantPreviewRows(sport, statusParticipantPreviewRows(rows), includeNames)
-	hostIDs, err := queries.ListPlayHostUserIDsByPlay(ctx, playID)
+
+	rowsByStatus := make(map[model.PlayParticipantStatus][]participantPreviewRow, 4)
+	for _, row := range rows {
+		rowsByStatus[row.Status] = append(rowsByStatus[row.Status], playParticipantPreviewRow(row))
+	}
+
+	hostIDSet := userIDSet(hostIDs)
+	partition := func(status model.PlayParticipantStatus) []PlayParticipantPreviewPublic {
+		previews := mapParticipantPreviewRows(sport, rowsByStatus[status], includeNames)
+		markHostParticipants(previews, hostIDSet)
+		if viewerID != nil {
+			markViewerParticipant(previews, *viewerID)
+		}
+		return previews
+	}
+
+	roster := playRosterPreviews{
+		Confirmed:  partition(model.ParticipantConfirmed),
+		Added:      partition(model.ParticipantAdded),
+		Requested:  partition(model.ParticipantRequested),
+		Waitlisted: partition(model.ParticipantWaitlisted),
+	}
+
+	confirmed, err := appendMissingHostPreviews(ctx, queries, playID, sport, includeNames, roster.Confirmed, hostIDs)
 	if err != nil {
-		return nil, err
+		return playRosterPreviews{}, err
 	}
-	markHostParticipants(previews, userIDSet(hostIDs))
-	if status != model.ParticipantConfirmed {
-		return orderHostPreviewsFirst(previews, hostIDs), nil
-	}
-	previews, err = appendMissingHostPreviews(ctx, queries, playID, sport, includeNames, previews, hostIDs)
-	if err != nil {
-		return nil, err
-	}
-	return orderHostPreviewsFirst(previews, hostIDs), nil
+	roster.Confirmed = orderHostPreviewsFirst(confirmed, hostIDs)
+	return roster, nil
 }
 
 type participantPreviewRow struct {
@@ -101,25 +107,7 @@ type participantPreviewRow struct {
 	SportsProfile *string
 }
 
-func singleParticipantPreviewRows(rows []db.ListConfirmedParticipantPreviewsByPlayRow) []participantPreviewRow {
-	out := make([]participantPreviewRow, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, participantPreviewRow{
-			ID:            row.ID,
-			PlayID:        row.PlayID,
-			UserID:        row.UserID,
-			GuestName:     row.GuestName,
-			RatingCode:    row.RatingCode,
-			DisplayName:   row.DisplayName,
-			Username:      row.Username,
-			PhotoUrl:      row.PhotoUrl,
-			SportsProfile: row.SportsProfile,
-		})
-	}
-	return out
-}
-
-func batchParticipantPreviewRow(row db.ListConfirmedParticipantPreviewsByPlaysRow) participantPreviewRow {
+func playParticipantPreviewRow(row db.ListParticipantPreviewsByPlayRow) participantPreviewRow {
 	return participantPreviewRow{
 		ID:            row.ID,
 		PlayID:        row.PlayID,
@@ -133,22 +121,18 @@ func batchParticipantPreviewRow(row db.ListConfirmedParticipantPreviewsByPlaysRo
 	}
 }
 
-func statusParticipantPreviewRows(rows []db.ListParticipantPreviewsByPlayAndStatusRow) []participantPreviewRow {
-	out := make([]participantPreviewRow, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, participantPreviewRow{
-			ID:            row.ID,
-			PlayID:        row.PlayID,
-			UserID:        row.UserID,
-			GuestName:     row.GuestName,
-			RatingCode:    row.RatingCode,
-			DisplayName:   row.DisplayName,
-			Username:      row.Username,
-			PhotoUrl:      row.PhotoUrl,
-			SportsProfile: row.SportsProfile,
-		})
+func batchParticipantPreviewRow(row db.ListRosteredParticipantPreviewsByPlaysRow) participantPreviewRow {
+	return participantPreviewRow{
+		ID:            row.ID,
+		PlayID:        row.PlayID,
+		UserID:        row.UserID,
+		GuestName:     row.GuestName,
+		RatingCode:    row.RatingCode,
+		DisplayName:   row.DisplayName,
+		Username:      row.Username,
+		PhotoUrl:      row.PhotoUrl,
+		SportsProfile: row.SportsProfile,
 	}
-	return out
 }
 
 func mapParticipantPreviewRows(sport model.Sport, rows []participantPreviewRow, includeNames bool) []PlayParticipantPreviewPublic {

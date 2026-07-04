@@ -9,7 +9,7 @@ import (
 	"openplays/server/internal/testdb"
 )
 
-func TestListConfirmedParticipantPreviewsByPlay(t *testing.T) {
+func TestParticipantPreviewQueries(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
 	ctx := context.Background()
@@ -57,6 +57,15 @@ func TestListConfirmedParticipantPreviewsByPlay(t *testing.T) {
 		t.Fatalf("create waitlisted participant: %v", err)
 	}
 
+	addedGuestName := "Added Guest"
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID:    play.ID,
+		GuestName: &addedGuestName,
+		Status:    model.ParticipantAdded,
+	}); err != nil {
+		t.Fatalf("create added participant: %v", err)
+	}
+
 	otherPlay := createParticipantTestPlay(t, ctx, queries, "Other Host", "Hougang CC")
 	otherGuestName := "Other Guest"
 	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
@@ -67,12 +76,17 @@ func TestListConfirmedParticipantPreviewsByPlay(t *testing.T) {
 		t.Fatalf("create other confirmed participant: %v", err)
 	}
 
-	rows, err := queries.ListConfirmedParticipantPreviewsByPlay(ctx, play.ID)
+	// The play-detail roster query returns every participant with their
+	// status; callers partition in Go
+	rows, err := queries.ListParticipantPreviewsByPlay(ctx, play.ID)
 	if err != nil {
-		t.Fatalf("ListConfirmedParticipantPreviewsByPlay: %v", err)
+		t.Fatalf("ListParticipantPreviewsByPlay: %v", err)
 	}
-	if len(rows) != 2 {
-		t.Fatalf("preview rows = %d, want 2", len(rows))
+	if len(rows) != 4 {
+		t.Fatalf("preview rows = %d, want all participants", len(rows))
+	}
+	if rows[0].Status != model.ParticipantConfirmed {
+		t.Fatalf("first row status = %q, want confirmed", rows[0].Status)
 	}
 	if rows[0].UserID == nil || *rows[0].UserID != userID {
 		t.Fatalf("first row user_id = %v, want %q", rows[0].UserID, userID)
@@ -93,21 +107,33 @@ func TestListConfirmedParticipantPreviewsByPlay(t *testing.T) {
 		t.Fatalf("second row rating_code = %v, want %q", rows[1].RatingCode, guestRating)
 	}
 
-	batchRows, err := queries.ListConfirmedParticipantPreviewsByPlays(ctx, []string{play.ID, otherPlay.ID})
+	// The card preview covers the slot-reserving roster: confirmed first,
+	// then added; waitlisted is excluded
+	batchRows, err := queries.ListRosteredParticipantPreviewsByPlays(ctx, []string{play.ID, otherPlay.ID})
 	if err != nil {
-		t.Fatalf("ListConfirmedParticipantPreviewsByPlays: %v", err)
+		t.Fatalf("ListRosteredParticipantPreviewsByPlays: %v", err)
 	}
-	if len(batchRows) != 3 {
-		t.Fatalf("batch preview rows = %d, want 3", len(batchRows))
+	if len(batchRows) != 4 {
+		t.Fatalf("batch preview rows = %d, want 4", len(batchRows))
 	}
 	countsByPlayID := map[string]int{}
 	for _, row := range batchRows {
 		countsByPlayID[row.PlayID]++
 	}
-	if countsByPlayID[play.ID] != 2 {
-		t.Fatalf("batch rows for first play = %d, want 2", countsByPlayID[play.ID])
+	if countsByPlayID[play.ID] != 3 {
+		t.Fatalf("batch rows for first play = %d, want 3 (confirmed + added)", countsByPlayID[play.ID])
 	}
 	if countsByPlayID[otherPlay.ID] != 1 {
 		t.Fatalf("batch rows for other play = %d, want 1", countsByPlayID[otherPlay.ID])
+	}
+	var firstPlayRows []db.ListRosteredParticipantPreviewsByPlaysRow
+	for _, row := range batchRows {
+		if row.PlayID == play.ID {
+			firstPlayRows = append(firstPlayRows, row)
+		}
+	}
+	last := firstPlayRows[len(firstPlayRows)-1]
+	if last.GuestName == nil || *last.GuestName != addedGuestName {
+		t.Fatalf("last preview row = %v, want the added participant sorted after confirmed", last.GuestName)
 	}
 }

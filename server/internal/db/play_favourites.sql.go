@@ -62,7 +62,7 @@ func (q *Queries) GetFavouriteablePlayID(ctx context.Context, id string) (string
 const listFavouriteUpcomingPlays = `-- name: ListFavouriteUpcomingPlays :many
 SELECT
     p.id, p.created_at, p.updated_at,
-    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
     p.starts_at, p.ends_at, p.timezone,
     p.venue, p.venue_id, p.created_by, p.cancelled_at,
     p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
@@ -104,6 +104,7 @@ type ListFavouriteUpcomingPlaysRow struct {
 	Name                 *string
 	Description          *string
 	Visibility           model.PlayVisibility
+	RequireWaitlist      bool
 	StartsAt             time.Time
 	EndsAt               time.Time
 	Timezone             string
@@ -163,6 +164,7 @@ func (q *Queries) ListFavouriteUpcomingPlays(ctx context.Context, arg ListFavour
 			&i.Name,
 			&i.Description,
 			&i.Visibility,
+			&i.RequireWaitlist,
 			&i.StartsAt,
 			&i.EndsAt,
 			&i.Timezone,

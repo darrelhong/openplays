@@ -100,6 +100,10 @@ const (
 	ParticipantConfirmed  PlayParticipantStatus = "confirmed"
 	ParticipantWaitlisted PlayParticipantStatus = "waitlisted"
 	ParticipantAdded      PlayParticipantStatus = "added"
+	// ParticipantRequested is the join state on require-waitlist plays: the
+	// player asked to join and a host decides whether to add them to the game
+	// or park them on the waitlist. Does not reserve a slot.
+	ParticipantRequested PlayParticipantStatus = "requested"
 )
 
 // Schema implements huma.SchemaProvider.
@@ -109,6 +113,7 @@ func (s PlayParticipantStatus) Schema(r huma.Registry) *huma.Schema {
 		string(ParticipantConfirmed),
 		string(ParticipantWaitlisted),
 		string(ParticipantAdded),
+		string(ParticipantRequested),
 	}
 	return schema
 }
@@ -120,14 +125,20 @@ const (
 	PlayEventCreated PlayEventType = "play.created"
 	PlayEventUpdated PlayEventType = "play.updated"
 
-	PlayEventParticipantJoinedConfirmed PlayEventType = "participant.joined_confirmed"
-	PlayEventParticipantJoinedWaitlist  PlayEventType = "participant.joined_waitlist"
-	PlayEventParticipantAdded           PlayEventType = "participant.added"
-	PlayEventParticipantConfirmed       PlayEventType = "participant.confirmed"
-	PlayEventParticipantLeftConfirmed   PlayEventType = "participant.left_confirmed"
-	PlayEventParticipantLeftAdded       PlayEventType = "participant.left_added"
-	PlayEventParticipantLeftWaitlist    PlayEventType = "participant.left_waitlist"
-	PlayEventParticipantRemoved         PlayEventType = "participant.removed"
+	// PlayEventParticipantJoined is a direct join: the player reserved a spot
+	// as "added" and still confirms their participation.
+	PlayEventParticipantJoined PlayEventType = "participant.joined"
+	// PlayEventParticipantJoinRequested is any join into the pending queue,
+	// on both classic and require-waitlist plays.
+	PlayEventParticipantJoinRequested    PlayEventType = "participant.join_requested"
+	PlayEventParticipantAdded            PlayEventType = "participant.added"
+	PlayEventParticipantConfirmed        PlayEventType = "participant.confirmed"
+	PlayEventParticipantMovedToWaitlist  PlayEventType = "participant.moved_to_waitlist"
+	PlayEventParticipantLeftConfirmed    PlayEventType = "participant.left_confirmed"
+	PlayEventParticipantLeftAdded        PlayEventType = "participant.left_added"
+	PlayEventParticipantLeftWaitlist     PlayEventType = "participant.left_waitlist"
+	PlayEventParticipantRequestWithdrawn PlayEventType = "participant.request_withdrawn"
+	PlayEventParticipantRemoved          PlayEventType = "participant.removed"
 
 	PlayEventCancelled PlayEventType = "play.cancelled"
 )
@@ -138,13 +149,15 @@ func (e PlayEventType) Schema(r huma.Registry) *huma.Schema {
 	schema.Enum = []any{
 		string(PlayEventCreated),
 		string(PlayEventUpdated),
-		string(PlayEventParticipantJoinedConfirmed),
-		string(PlayEventParticipantJoinedWaitlist),
+		string(PlayEventParticipantJoined),
+		string(PlayEventParticipantJoinRequested),
 		string(PlayEventParticipantAdded),
 		string(PlayEventParticipantConfirmed),
+		string(PlayEventParticipantMovedToWaitlist),
 		string(PlayEventParticipantLeftConfirmed),
 		string(PlayEventParticipantLeftAdded),
 		string(PlayEventParticipantLeftWaitlist),
+		string(PlayEventParticipantRequestWithdrawn),
 		string(PlayEventParticipantRemoved),
 		string(PlayEventCancelled),
 	}

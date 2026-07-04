@@ -22,35 +22,33 @@ func PlaySnapshotFromDB(play db.GetPlayByIDRow) PlaySnapshot {
 	}
 }
 
-func NotifyHostWaitlistJoined(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerName string) error {
-	if sender == nil {
-		return nil
-	}
-	body := fmt.Sprintf("%s joined the waitlist", notificationName(playerName, "Someone"))
+// NotifyHostsJoinRequested fires for every join that lands in the pending
+// queue, on classic and require-waitlist plays alike.
+func NotifyHostsJoinRequested(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
+	body := fmt.Sprintf("%s requested to join", notificationName(playerName, "Someone"))
 	payload := Payload{
 		Title:  playNotificationTitle(play),
 		Body:   body,
 		URL:    "/play/" + play.ID,
-		Tag:    "play:" + play.ID + ":waitlist",
-		Kind:   "play.waitlist_joined",
+		Tag:    "play:" + play.ID + ":request:" + playerUserID,
+		Kind:   "play.join_requested",
 		PlayID: play.ID,
 	}
+	return notifyHosts(ctx, sender, payload, hostUserIDs, playerUserID)
+}
 
-	seen := make(map[string]struct{}, len(hostUserIDs))
-	var errs []error
-	for _, userID := range hostUserIDs {
-		if userID == "" {
-			continue
-		}
-		if _, ok := seen[userID]; ok {
-			continue
-		}
-		seen[userID] = struct{}{}
-		if err := sender.Notify(ctx, userID, payload); err != nil {
-			errs = append(errs, err)
-		}
+func NotifyPlayerMovedToWaitlist(ctx context.Context, sender Sender, play PlaySnapshot, playerUserID string) error {
+	if sender == nil || playerUserID == "" {
+		return nil
 	}
-	return errors.Join(errs...)
+	return sender.Notify(ctx, playerUserID, Payload{
+		Title:  playNotificationTitle(play),
+		Body:   "You were added to the waitlist",
+		URL:    "/play/" + play.ID,
+		Tag:    "play:" + play.ID + ":waitlisted:" + playerUserID,
+		Kind:   "play.moved_to_waitlist",
+		PlayID: play.ID,
+	})
 }
 
 func NotifyPlayerAdded(ctx context.Context, sender Sender, play PlaySnapshot, playerUserID string) error {

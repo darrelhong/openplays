@@ -3,15 +3,14 @@ package plays
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
-	"openplays/server/internal/model"
 )
 
 type GetInput struct {
@@ -51,6 +50,7 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			Name:               r.Name,
 			Description:        r.Description,
 			Visibility:         r.Visibility,
+			RequireWaitlist:    r.RequireWaitlist,
 			StartsAt:           r.StartsAt.Format(time.RFC3339),
 			EndsAt:             r.EndsAt.Format(time.RFC3339),
 			Timezone:           r.Timezone,
@@ -82,34 +82,30 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			CreatorUsername:    r.CreatorUsername,
 			CreatorPhotoURL:    r.CreatorPhotoUrl,
 		}
-		viewerState := "not_joined"
+		// One host lookup and one roster query cover viewer state, all counts,
+		// and every preview list
+		hostIDs, err := queries.ListPlayHostUserIDsByPlay(ctx, item.ID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get play hosts", err)
+		}
+
 		canManage := false
 		var viewerID *string
 		if viewer := authmw.UserFromContext(ctx); viewer != nil {
 			viewerID = &viewer.ID
-			if ok, err := isPlayHost(ctx, queries, item.ID, viewer.ID); err != nil {
-				return nil, err
-			} else if ok {
-				viewerState = "creator"
-				canManage = true
-			} else {
-				participant, perr := queries.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
-					PlayID: item.ID,
-					UserID: &viewer.ID,
-				})
-				if perr == nil {
-					switch participant.Status {
-					case model.ParticipantConfirmed:
-						viewerState = "confirmed"
-					case model.ParticipantWaitlisted:
-						viewerState = "waitlisted"
-					case model.ParticipantAdded:
-						viewerState = "added"
-					}
-				} else if !errors.Is(perr, sql.ErrNoRows) {
-					return nil, huma.Error500InternalServerError("failed to get viewer participation", perr)
-				}
-			}
+			canManage = slices.Contains(hostIDs, viewer.ID)
+		}
+
+		roster, err := rosterPreviewsForPlay(ctx, queries, item.ID, item.Sport, true, hostIDs, viewerID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get participants", err)
+		}
+
+		viewerState := "not_joined"
+		if canManage {
+			viewerState = "creator"
+		} else if viewerID != nil {
+			viewerState = viewerRosterState(roster)
 		}
 		item.ViewerState = &viewerState
 		item.CanManage = &canManage
@@ -121,55 +117,32 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 			item = items[0]
 		}
 
-		confirmed, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantConfirmed, true)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to get confirmed participants", err)
-		}
-		item.ParticipantPreview = confirmed
-		item.ConfirmedParticipants = confirmed
-
-		confirmedCount := int64(len(confirmed))
+		item.ParticipantPreview = roster.Confirmed
+		item.ConfirmedParticipants = roster.Confirmed
+		confirmedCount := int64(len(roster.Confirmed))
 		item.ConfirmedCount = &confirmedCount
-
-		addedCount, err := queries.CountPlayParticipantsByStatus(ctx, db.CountPlayParticipantsByStatusParams{
-			PlayID: item.ID,
-			Status: model.ParticipantAdded,
-		})
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to count added participants", err)
-		}
+		addedCount := int64(len(roster.Added))
 		item.AddedCount = &addedCount
-
-		waitlistCount, err := queries.CountPlayParticipantsByStatus(ctx, db.CountPlayParticipantsByStatusParams{
-			PlayID: item.ID,
-			Status: model.ParticipantWaitlisted,
-		})
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to count waitlisted participants", err)
-		}
+		waitlistCount := int64(len(roster.Waitlisted))
 		item.WaitlistCount = &waitlistCount
+		requestedCount := int64(len(roster.Requested))
+		item.RequestedCount = &requestedCount
 
-		if canManage || viewerState == "added" {
-			added, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantAdded, true)
-			if err != nil {
-				return nil, huma.Error500InternalServerError("failed to get added participants", err)
-			}
-			if canManage {
-				item.AddedParticipants = added
-			} else if viewerID != nil {
-				item.AddedParticipants = participantPreviewsForUser(added, *viewerID)
-			}
-		}
+		// Added players hold reserved spots, so like confirmed players they are
+		// visible to everyone; is_viewer lets the UI scope self-serve actions
+		item.AddedParticipants = roster.Added
 
-		if canManage || viewerState == "waitlisted" {
-			waitlist, err := participantPreviewsForPlayByStatus(ctx, queries, item.ID, item.Sport, model.ParticipantWaitlisted, true)
-			if err != nil {
-				return nil, huma.Error500InternalServerError("failed to get waitlisted participants", err)
+		// Pending-queue identities are host-only; a pending viewer sees only
+		// their own row
+		if canManage {
+			item.Waitlist = roster.Waitlisted
+			item.Requests = roster.Requested
+		} else if viewerID != nil {
+			if viewerState == "waitlisted" {
+				item.Waitlist = participantPreviewsForUser(roster.Waitlisted, *viewerID)
 			}
-			if canManage {
-				item.Waitlist = waitlist
-			} else if viewerID != nil {
-				item.Waitlist = participantPreviewsForUser(waitlist, *viewerID)
+			if viewerState == "requested" {
+				item.Requests = participantPreviewsForUser(roster.Requested, *viewerID)
 			}
 		}
 
@@ -188,6 +161,35 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 
 		return &GetOutput{Body: item}, nil
 	})
+}
+
+// viewerRosterState maps the viewer's marked roster row to their viewer_state.
+func viewerRosterState(roster playRosterPreviews) string {
+	groups := []struct {
+		state    string
+		previews []PlayParticipantPreviewPublic
+	}{
+		{"confirmed", roster.Confirmed},
+		{"added", roster.Added},
+		{"requested", roster.Requested},
+		{"waitlisted", roster.Waitlisted},
+	}
+	for _, group := range groups {
+		for _, preview := range group.previews {
+			if preview.IsViewer {
+				return group.state
+			}
+		}
+	}
+	return "not_joined"
+}
+
+func markViewerParticipant(participants []PlayParticipantPreviewPublic, userID string) {
+	for i := range participants {
+		if participants[i].UserID != nil && *participants[i].UserID == userID {
+			participants[i].IsViewer = true
+		}
+	}
 }
 
 func participantPreviewsForUser(participants []PlayParticipantPreviewPublic, userID string) []PlayParticipantPreviewPublic {

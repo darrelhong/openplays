@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-05-27
+- Amended by: [0007 - Require-waitlist join mode](0007-require-waitlist-join-mode.md) (join
+  placement on require-waitlist plays)
 
 ## Context
 

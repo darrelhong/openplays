@@ -68,6 +68,31 @@ describe('getPlayRosterPreview', () => {
 		]);
 	});
 
+	it('trusts slots_left over a preview that omits reserved players', () => {
+		// Direct joins reserve slots as 'added'; a stale preview may only carry
+		// the confirmed host while the game is actually full
+		const preview = getPlayRosterPreview({
+			listing_type: 'play',
+			created_by: 'user-1',
+			host_name: 'Host',
+			max_players: 4,
+			slots_left: 0,
+			participant_preview: [{ id: 1, display_name: 'Host', is_guest: false }]
+		});
+
+		expect(preview).toMatchObject({
+			occupiedSlots: 4,
+			openSlots: 0,
+			label: '4/4 joined'
+		});
+		expect(preview?.slots.map((slot) => slot.kind)).toEqual([
+			'known',
+			'occupied',
+			'occupied',
+			'occupied'
+		]);
+	});
+
 	it('caps visible slots and reports hidden slots', () => {
 		const preview = getPlayRosterPreview(
 			{

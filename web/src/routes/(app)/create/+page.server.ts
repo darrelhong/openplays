@@ -27,6 +27,7 @@ type CreateFormValues = {
 	fee: string;
 	max_players: string;
 	courts: string;
+	require_waitlist: string;
 };
 
 function stringValue(formData: FormData, key: keyof CreateFormValues) {
@@ -53,7 +54,8 @@ function createFormValues(formData: FormData): CreateFormValues {
 		level_max: stringValue(formData, 'level_max'),
 		fee: stringValue(formData, 'fee'),
 		max_players: stringValue(formData, 'max_players'),
-		courts: stringValue(formData, 'courts')
+		courts: stringValue(formData, 'courts'),
+		require_waitlist: stringValue(formData, 'require_waitlist')
 	};
 }
 
@@ -133,7 +135,8 @@ export const actions: Actions = {
 			fee,
 			max_players: maxPlayers,
 			slots_left: slotsLeft,
-			courts
+			courts,
+			require_waitlist: values.require_waitlist === 'true'
 		};
 
 		const { data, error } = await api.POST('/api/plays/', {

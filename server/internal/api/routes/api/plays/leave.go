@@ -81,7 +81,7 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 		participantID := participant.ID
 		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
 			PlayID:             input.ID,
-			EventType:          eventTypeForLeaveStatus(participant.Status),
+			EventType:          eventTypeForLeaveStatus(participant.Status, play.RequireWaitlist),
 			ActorUserID:        actorUserID,
 			ActorDisplayName:   actorDisplayName,
 			SubjectUserID:      actorUserID,

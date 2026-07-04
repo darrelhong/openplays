@@ -41,7 +41,10 @@
 				</a>
 				<div class="flex shrink-0 gap-1.5 items-center">
 					{#if hasViewerStateBadge}
-						<PlayViewerStateBadge state={play.viewer_state} />
+						<PlayViewerStateBadge
+							state={play.viewer_state}
+							requireWaitlist={play.require_waitlist}
+						/>
 					{/if}
 					<Badge variant={play.created_by != null ? 'info' : 'muted'}>
 						{capitalize(play.sport)}
