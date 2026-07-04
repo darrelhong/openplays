@@ -30,4 +30,5 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier not
 	RegisterLeave(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterConfirmParticipant(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterHostRosterManagement(grp, queries, authmw.RequireAuth(api, svc), notifier)
+	RegisterPlayReviews(grp, queries, authmw.RequireAuth(api, svc))
 }

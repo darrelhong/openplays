@@ -120,6 +120,24 @@ type PlayParticipant struct {
 	UpdatedAt  time.Time
 }
 
+type PlayReview struct {
+	ID             int64
+	PlayID         string
+	ReviewerUserID string
+	RevieweeUserID string
+	Rating         *int64
+	Props          string
+	Shoutout       *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type PlayReviewPrompt struct {
+	PlayID string
+	UserID string
+	SentAt time.Time
+}
+
 type RawMessage struct {
 	ID              int64
 	CreatedAt       time.Time
