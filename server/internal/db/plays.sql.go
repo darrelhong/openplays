@@ -74,6 +74,30 @@ func (q *Queries) CancelUserCreatedPlay(ctx context.Context, arg CancelUserCreat
 	return i, err
 }
 
+const countMyPastPlays = `-- name: CountMyPastPlays :one
+SELECT COUNT(*) FROM plays p
+LEFT JOIN play_participants pp ON pp.play_id = p.id AND pp.user_id = ?1
+WHERE (p.ends_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now') OR p.cancelled_at IS NOT NULL)
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = ?1
+    )
+    OR p.created_by = ?1
+    OR pp.id IS NOT NULL
+  )
+`
+
+// Total count of past listings (ended or cancelled) where the current user is
+// a host or participant.
+func (q *Queries) CountMyPastPlays(ctx context.Context, userID *string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countMyPastPlays, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMyUpcomingPlays = `-- name: CountMyUpcomingPlays :one
 SELECT COUNT(*) FROM plays p
 LEFT JOIN play_participants pp ON pp.play_id = p.id AND pp.user_id = ?1
@@ -477,6 +501,178 @@ func (q *Queries) GetUpcomingPlays(ctx context.Context) ([]Play, error) {
 			&i.Description,
 			&i.Visibility,
 			&i.RequireWaitlist,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyPastPlays = `-- name: ListMyPastPlays :many
+SELECT
+    p.id, p.created_at, p.updated_at,
+    p.listing_type, p.sport, p.game_type, p.host_name, p.name, p.description, p.visibility, p.require_waitlist,
+    p.starts_at, p.ends_at, p.timezone,
+    p.venue, p.venue_id, p.created_by, p.cancelled_at,
+    p.level_min, p.level_max, p.level_min_ord, p.level_max_ord,
+    p.fee, p.currency, p.max_players, p.slots_left, p.courts,
+    p.contacts, p.gender_pref, p.meta,
+    p.source, p.source_sender_username, p.source_message_id, p.source_group,
+    COALESCE(v.name, NULLIF(p.venue, ''), 'No venue') AS venue_name, v.postal_code AS venue_postal_code,
+    v.latitude AS venue_latitude, v.longitude AS venue_longitude, v.google_place_id AS venue_google_place_id,
+    u.display_name AS creator_display_name, u.username AS creator_username, u.photo_url AS creator_photo_url,
+    CAST(CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM play_hosts ph
+            WHERE ph.play_id = p.id AND ph.user_id = ?1
+        ) OR p.created_by = ?1 THEN 'creator'
+        WHEN pp.status = 'confirmed' THEN 'confirmed'
+        WHEN pp.status = 'added' THEN 'added'
+        WHEN pp.status = 'waitlisted' THEN 'waitlisted'
+        ELSE pp.status
+    END AS TEXT) AS viewer_state
+FROM plays p
+LEFT JOIN play_participants pp ON pp.play_id = p.id AND pp.user_id = ?1
+LEFT JOIN venues v ON v.id = p.venue_id
+LEFT JOIN users u ON u.id = p.created_by
+WHERE (p.ends_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now') OR p.cancelled_at IS NOT NULL)
+  AND (
+    EXISTS (
+        SELECT 1
+        FROM play_hosts ph
+        WHERE ph.play_id = p.id AND ph.user_id = ?1
+    )
+    OR p.created_by = ?1
+    OR pp.id IS NOT NULL
+  )
+  AND (?2 IS NULL
+    OR p.starts_at < ?2
+    OR (p.starts_at = ?2 AND p.id < ?3))
+ORDER BY p.starts_at DESC, p.id DESC
+LIMIT ?4
+`
+
+type ListMyPastPlaysParams struct {
+	UserID         string
+	CursorStartsAt interface{}
+	CursorID       *string
+	PageSize       int64
+}
+
+type ListMyPastPlaysRow struct {
+	ID                   string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	ListingType          model.ListingType
+	Sport                model.Sport
+	GameType             *model.GameType
+	HostName             string
+	Name                 *string
+	Description          *string
+	Visibility           model.PlayVisibility
+	RequireWaitlist      bool
+	StartsAt             time.Time
+	EndsAt               time.Time
+	Timezone             string
+	Venue                string
+	VenueID              *int64
+	CreatedBy            *string
+	CancelledAt          *time.Time
+	LevelMin             *string
+	LevelMax             *string
+	LevelMinOrd          *int64
+	LevelMaxOrd          *int64
+	Fee                  *int64
+	Currency             string
+	MaxPlayers           *int64
+	SlotsLeft            *int64
+	Courts               *int64
+	Contacts             model.Contacts
+	GenderPref           *model.GenderPref
+	Meta                 model.Meta
+	Source               *string
+	SourceSenderUsername *string
+	SourceMessageID      *string
+	SourceGroup          *string
+	VenueName            string
+	VenuePostalCode      *string
+	VenueLatitude        *float64
+	VenueLongitude       *float64
+	VenueGooglePlaceID   *string
+	CreatorDisplayName   *string
+	CreatorUsername      *string
+	CreatorPhotoUrl      *string
+	ViewerState          string
+}
+
+// Paginated past listings (ended plays, cancelled included) where the current
+// user is a host or participant. Newest first.
+func (q *Queries) ListMyPastPlays(ctx context.Context, arg ListMyPastPlaysParams) ([]ListMyPastPlaysRow, error) {
+	rows, err := q.db.QueryContext(ctx, listMyPastPlays,
+		arg.UserID,
+		arg.CursorStartsAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMyPastPlaysRow
+	for rows.Next() {
+		var i ListMyPastPlaysRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ListingType,
+			&i.Sport,
+			&i.GameType,
+			&i.HostName,
+			&i.Name,
+			&i.Description,
+			&i.Visibility,
+			&i.RequireWaitlist,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Timezone,
+			&i.Venue,
+			&i.VenueID,
+			&i.CreatedBy,
+			&i.CancelledAt,
+			&i.LevelMin,
+			&i.LevelMax,
+			&i.LevelMinOrd,
+			&i.LevelMaxOrd,
+			&i.Fee,
+			&i.Currency,
+			&i.MaxPlayers,
+			&i.SlotsLeft,
+			&i.Courts,
+			&i.Contacts,
+			&i.GenderPref,
+			&i.Meta,
+			&i.Source,
+			&i.SourceSenderUsername,
+			&i.SourceMessageID,
+			&i.SourceGroup,
+			&i.VenueName,
+			&i.VenuePostalCode,
+			&i.VenueLatitude,
+			&i.VenueLongitude,
+			&i.VenueGooglePlaceID,
+			&i.CreatorDisplayName,
+			&i.CreatorUsername,
+			&i.CreatorPhotoUrl,
+			&i.ViewerState,
 		); err != nil {
 			return nil, err
 		}

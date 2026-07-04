@@ -272,6 +272,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/me/plays/past': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List current user's past plays
+		 * @description Returns ended plays, cancelled ones included, where the current user was hosting or on the roster. Newest first.
+		 */
+		get: operations['list-my-past-plays'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/notifications/': {
 		parameters: {
 			query?: never;
@@ -536,6 +556,46 @@ export interface paths {
 		 * @description Park a join request on the waitlist without granting a spot. Requires the play host.
 		 */
 		post: operations['waitlist-play-participant'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/reviews': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Get the viewer's review sheet for a play
+		 * @description List the co-players the authenticated user can review after the play ends, with any reviews they already wrote and the review window state. Only participants of the play can see it.
+		 */
+		get: operations['get-play-reviews'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/reviews/{revieweeUserID}': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/**
+		 * Write or edit a review of a co-player
+		 * @description Save the authenticated user's review of a co-player from the same play: an anonymous star rating, prop tags, and an attributed shoutout, each optional but never all empty. Allowed from the play's end until the review window closes; reviews can be edited in that window but never deleted.
+		 */
+		put: operations['put-play-review'];
+		post?: never;
 		delete?: never;
 		options?: never;
 		head?: never;
@@ -881,6 +941,20 @@ export interface components {
 			session_token: string;
 			user: components['schemas']['User'];
 		};
+		GetPlayReviewsOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/GetPlayReviewsOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Extra prop slugs available when the reviewee hosted */
+			host_props: string[] | null;
+			/** @description Prop slugs available for every reviewee */
+			peer_props: string[] | null;
+			reviewees: components['schemas']['PlayRevieweePublic'][] | null;
+			window: components['schemas']['PlayReviewWindow'];
+		};
 		GoogleInputBody: {
 			/**
 			 * Format: uri
@@ -1151,6 +1225,35 @@ export interface components {
 			/** Format: int64 */
 			waitlist_count?: number;
 		};
+		PlayReviewMine: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PlayReviewMine.json
+			 */
+			readonly $schema?: string;
+			props: string[] | null;
+			/** Format: int64 */
+			rating?: number;
+			shoutout?: string;
+		};
+		PlayReviewWindow: {
+			/** @description When the review window closes (RFC 3339) */
+			closes_at: string;
+			/**
+			 * @description Whether reviews can currently be written
+			 * @enum {string}
+			 */
+			state: 'not_open' | 'open' | 'closed';
+		};
+		PlayRevieweePublic: {
+			display_name: string;
+			is_host: boolean;
+			my_review?: components['schemas']['PlayReviewMine'];
+			photo_url?: string;
+			user_id: string;
+			username?: string;
+		};
 		PublicUserProfile: {
 			/**
 			 * Format: uri
@@ -1161,8 +1264,11 @@ export interface components {
 			display_name: string;
 			id: string;
 			photo_url?: string;
+			props: components['schemas']['PublicUserPropCount'][] | null;
+			rating?: components['schemas']['PublicUserRating'];
 			/** Format: int64 */
 			rostered_play_count: number;
+			shoutouts: components['schemas']['PublicUserShoutout'][] | null;
 			sports: components['schemas']['PublicUserProfileSport'][] | null;
 			sports_profile?: components['schemas']['SportsProfile'];
 			username: string;
@@ -1171,6 +1277,31 @@ export interface components {
 			rating_code?: string;
 			/** Format: int64 */
 			rostered_play_count: number;
+			/** @enum {string} */
+			sport: 'badminton' | 'tennis' | 'football' | 'pickleball';
+		};
+		PublicUserPropCount: {
+			/** Format: int64 */
+			count: number;
+			prop: string;
+			/** @enum {string} */
+			sport: 'badminton' | 'tennis' | 'football' | 'pickleball';
+		};
+		PublicUserRating: {
+			/** Format: double */
+			average: number;
+			/** Format: int64 */
+			count: number;
+		};
+		PublicUserShoutout: {
+			created_at: string;
+			play_id: string;
+			play_name?: string;
+			play_starts_at: string;
+			reviewer_display_name: string;
+			reviewer_photo_url?: string;
+			reviewer_username?: string;
+			shoutout: string;
 			/** @enum {string} */
 			sport: 'badminton' | 'tennis' | 'football' | 'pickleball';
 		};
@@ -1189,6 +1320,18 @@ export interface components {
 		PushSubscriptionKeys: {
 			auth: string;
 			p256dh: string;
+		};
+		PutPlayReviewInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PutPlayReviewInputBody.json
+			 */
+			readonly $schema?: string;
+			props?: string[] | null;
+			/** Format: int64 */
+			rating?: number;
+			shoutout?: string;
 		};
 		ResolveInputBody: {
 			/**
@@ -1889,6 +2032,40 @@ export interface operations {
 			};
 		};
 	};
+	'list-my-past-plays': {
+		parameters: {
+			query?: {
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of results per page */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PagePlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
 	'list-notifications': {
 		parameters: {
 			query?: {
@@ -2438,6 +2615,76 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['HostRosterOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'get-play-reviews': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['GetPlayReviewsOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'put-play-review': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+				/** @description User ID of the co-player being reviewed */
+				revieweeUserID: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['PutPlayReviewInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PlayReviewMine'];
 				};
 			};
 			/** @description Error */

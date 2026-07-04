@@ -15,6 +15,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier not
 	grp := huma.NewGroup(api, "/plays")
 
 	RegisterMyList(api, queries, authmw.RequireAuth(api, svc))
+	RegisterMyPastList(api, queries, authmw.RequireAuth(api, svc))
 	RegisterMyFavourites(api, queries, authmw.RequireAuth(api, svc))
 
 	// Public
