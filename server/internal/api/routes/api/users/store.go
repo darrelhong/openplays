@@ -16,4 +16,7 @@ type ProfileStore interface {
 	GetActiveUserProfileByUsername(ctx context.Context, username *string) (db.GetActiveUserProfileByUsernameRow, error)
 	CountRosteredPlaysByUser(ctx context.Context, userID string) (int64, error)
 	CountRosteredPlaysByUserAndSport(ctx context.Context, userID string) ([]db.CountRosteredPlaysByUserAndSportRow, error)
+	GetUserRatingAggregate(ctx context.Context, revieweeUserID string) (db.GetUserRatingAggregateRow, error)
+	ListUserPropCounts(ctx context.Context, revieweeUserID string) ([]db.ListUserPropCountsRow, error)
+	ListUserShoutouts(ctx context.Context, arg db.ListUserShoutoutsParams) ([]db.ListUserShoutoutsRow, error)
 }

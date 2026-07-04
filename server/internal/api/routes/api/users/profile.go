@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -24,6 +25,12 @@ type PublicUserProfile struct {
 	SportsProfile     *model.SportsProfile     `json:"sports_profile,omitempty"`
 	Sports            []PublicUserProfileSport `json:"sports"`
 	RosteredPlayCount int64                    `json:"rostered_play_count"`
+	// Review reputation. The rating is an anonymous aggregate; props count
+	// under the sport they were earned in; shoutouts are attributed and are
+	// the only place reviewer identity appears.
+	Rating    *PublicUserRating     `json:"rating,omitempty"`
+	Props     []PublicUserPropCount `json:"props"`
+	Shoutouts []PublicUserShoutout  `json:"shoutouts"`
 }
 
 type PublicUserProfileSport struct {
@@ -31,6 +38,32 @@ type PublicUserProfileSport struct {
 	RatingCode        *string     `json:"rating_code,omitempty"`
 	RosteredPlayCount int64       `json:"rostered_play_count"`
 }
+
+type PublicUserRating struct {
+	Average float64 `json:"average"`
+	Count   int64   `json:"count"`
+}
+
+type PublicUserPropCount struct {
+	Sport model.Sport `json:"sport"`
+	Prop  string      `json:"prop"`
+	Count int64       `json:"count"`
+}
+
+type PublicUserShoutout struct {
+	Shoutout            string      `json:"shoutout"`
+	CreatedAt           string      `json:"created_at"`
+	ReviewerDisplayName string      `json:"reviewer_display_name"`
+	ReviewerUsername    *string     `json:"reviewer_username,omitempty"`
+	ReviewerPhotoURL    *string     `json:"reviewer_photo_url,omitempty"`
+	PlayID              string      `json:"play_id"`
+	Sport               model.Sport `json:"sport"`
+	PlayName            *string     `json:"play_name,omitempty"`
+	PlayStartsAt        string      `json:"play_starts_at"`
+}
+
+// shoutoutLimit caps the profile's shoutout list; newest first.
+const shoutoutLimit = 20
 
 type ProfileOutput struct {
 	Body PublicUserProfile
@@ -66,8 +99,62 @@ func RegisterProfile(api huma.API, store ProfileStore) {
 			return nil, huma.Error500InternalServerError("failed to count user plays by sport")
 		}
 
-		return &ProfileOutput{Body: mapPublicUserProfile(row, count, sportCounts)}, nil
+		profile := mapPublicUserProfile(row, count, sportCounts)
+		if err := hydrateReviewReputation(ctx, store, &profile); err != nil {
+			return nil, huma.Error500InternalServerError("failed to get user reviews")
+		}
+
+		return &ProfileOutput{Body: profile}, nil
 	})
+}
+
+func hydrateReviewReputation(ctx context.Context, store ProfileStore, profile *PublicUserProfile) error {
+	rating, err := store.GetUserRatingAggregate(ctx, profile.ID)
+	if err != nil {
+		return err
+	}
+	if rating.RatingCount > 0 {
+		profile.Rating = &PublicUserRating{Average: rating.Average, Count: rating.RatingCount}
+	}
+
+	propCounts, err := store.ListUserPropCounts(ctx, profile.ID)
+	if err != nil {
+		return err
+	}
+	profile.Props = make([]PublicUserPropCount, 0, len(propCounts))
+	for _, row := range propCounts {
+		profile.Props = append(profile.Props, PublicUserPropCount{
+			Sport: row.Sport,
+			Prop:  row.Prop,
+			Count: row.PropCount,
+		})
+	}
+
+	shoutouts, err := store.ListUserShoutouts(ctx, db.ListUserShoutoutsParams{
+		RevieweeUserID: profile.ID,
+		Limit:          shoutoutLimit,
+	})
+	if err != nil {
+		return err
+	}
+	profile.Shoutouts = make([]PublicUserShoutout, 0, len(shoutouts))
+	for _, row := range shoutouts {
+		if row.Shoutout == nil {
+			continue
+		}
+		profile.Shoutouts = append(profile.Shoutouts, PublicUserShoutout{
+			Shoutout:            *row.Shoutout,
+			CreatedAt:           row.CreatedAt.Format(time.RFC3339),
+			ReviewerDisplayName: row.ReviewerDisplayName,
+			ReviewerUsername:    row.ReviewerUsername,
+			ReviewerPhotoURL:    row.ReviewerPhotoUrl,
+			PlayID:              row.PlayID,
+			Sport:               row.Sport,
+			PlayName:            row.PlayName,
+			PlayStartsAt:        row.StartsAt.Format(time.RFC3339),
+		})
+	}
+	return nil
 }
 
 func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlayCount int64, sportCounts []db.CountRosteredPlaysByUserAndSportRow) PublicUserProfile {
