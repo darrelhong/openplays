@@ -15,8 +15,8 @@
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "API_BASE_URL=${API_BASE_URL:-http://localhost:8099} COOKIE_SECURE=${COOKIE_SECURE:-false} playwright test",
-		"test:e2e:ui": "API_BASE_URL=${API_BASE_URL:-http://localhost:8099} COOKIE_SECURE=${COOKIE_SECURE:-false} playwright test --ui",
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui",
 		"gen:types": "openapi-typescript"
 	},
 	"engines": {
