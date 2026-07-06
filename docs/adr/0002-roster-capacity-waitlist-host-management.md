@@ -3,7 +3,8 @@
 - Status: Accepted
 - Date: 2026-05-27
 - Amended by: [0007 - Require-waitlist join mode](0007-require-waitlist-join-mode.md) (join
-  placement on require-waitlist plays)
+  placement on require-waitlist plays); [0008 - Post-game player reviews](0008-post-game-player-reviews.md)
+  (all roster mutations freeze once the play ends)
 
 ## Context
 

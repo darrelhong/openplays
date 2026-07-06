@@ -7,3 +7,4 @@
 - [0005 - Play parsing pipeline](0005-play-parsing-pipeline.md)
 - [0006 - Chat: conversations, messages, and the Telegram-style web UI](0006-chat.md)
 - [0007 - Require-waitlist join mode (host-reviewed requests)](0007-require-waitlist-join-mode.md)
+- [0008 - Post-game player reviews (ratings, props, shoutouts)](0008-post-game-player-reviews.md)
