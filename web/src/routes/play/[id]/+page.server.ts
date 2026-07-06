@@ -1,5 +1,6 @@
 import { api } from '$lib/api/client';
 import { favouritePlay, unfavouritePlay } from '$lib/server/play-favourite-actions';
+import { env as publicEnv } from '$env/dynamic/public';
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -32,9 +33,30 @@ export const load: PageServerLoad = async ({ params, cookies, locals }) => {
 		);
 	}
 
+	const play = selectedPlayResponse.data;
+
+	// Once a game has ended, the roster shows per-player "Give props" buttons;
+	// co-players the viewer already reviewed drop theirs. Non-participants get
+	// an empty list (the reviews endpoint 403s them).
+	let reviewedUsernames: string[] = [];
+	const hasEnded = new Date(play.ends_at) <= new Date();
+	const reviewsRelevant = hasEnded || publicEnv.PUBLIC_DEV_REVIEWS_ALWAYS_OPEN === 'true';
+	if (sessionToken && reviewsRelevant && play.cancelled_at == null) {
+		const reviewsResponse = await api
+			.GET('/api/plays/{id}/reviews', {
+				headers: { Cookie: `session=${sessionToken}` },
+				params: { path: { id } }
+			})
+			.catch(() => null);
+		reviewedUsernames = (reviewsResponse?.data?.reviewees ?? [])
+			.filter((reviewee) => reviewee.my_review != null && reviewee.username != null)
+			.map((reviewee) => reviewee.username!);
+	}
+
 	return {
-		play: selectedPlayResponse.data,
-		user: locals.user
+		play,
+		user: locals.user,
+		reviewedUsernames
 	};
 };
 

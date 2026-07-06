@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { env } from '$env/dynamic/public';
 	import MessagesSquare from '@lucide/svelte/icons/messages-square';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 	import * as Dialog from '$lib/components/ui/dialog/index';
@@ -30,12 +31,14 @@
 		play,
 		user = null,
 		form = null,
-		dialog = true
+		dialog = true,
+		reviewedUsernames = []
 	}: {
 		play: Play;
 		user?: User | null;
 		form?: ActionForm;
 		dialog?: boolean;
+		reviewedUsernames?: string[];
 	} = $props();
 
 	const knownMetaKeys = ['fee_male', 'fee_female', 'shuttle', 'air_con', 'details'];
@@ -53,6 +56,18 @@
 	// The roster freezes once the game ends: no joins, leaves, or host actions
 	const hasEnded = $derived(new Date(play.ends_at) <= new Date());
 	const rosterOpen = $derived(!isCancelled && !hasEnded);
+	// Mirrors the backend review window (reviews.Window); display-only gating.
+	// PUBLIC_DEV_REVIEWS_ALWAYS_OPEN pairs with the server's
+	// DEV_REVIEWS_ALWAYS_OPEN to test review flows locally without waiting
+	// for a play to end.
+	const REVIEW_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+	const reviewsAlwaysOpen = env.PUBLIC_DEV_REVIEWS_ALWAYS_OPEN === 'true';
+	const canReviewPlayers = $derived(
+		reviewsAlwaysOpen ||
+			(hasEnded &&
+				!isCancelled &&
+				Date.now() <= new Date(play.ends_at).getTime() + REVIEW_WINDOW_MS)
+	);
 	const openSlots = $derived(rosterOpen ? Math.max(play.slots_left ?? 0, 0) : 0);
 	const openSlotRows = $derived(
 		Array.from({ length: Math.min(openSlots, 12) }, (_, index) => rosteredCount + index + 1)
@@ -80,6 +95,9 @@
 	const isUserCreated = $derived(play.created_by != null);
 	const sourceLabel = $derived(isUserCreated ? 'User created' : 'Auto-created from Telegram');
 	const viewerState = $derived(play.viewer_state ?? 'not_joined');
+	const viewerCanReview = $derived(
+		canReviewPlayers && ['creator', 'confirmed', 'added'].includes(viewerState)
+	);
 	const canManage = $derived(play.can_manage ?? false);
 	const canManageActive = $derived(canManage && rosterOpen);
 	const waitlistCount = $derived(play.waitlist_count ?? waitlist.length);
@@ -209,7 +227,20 @@
 		<div class="flex gap-3 items-center justify-between">
 			<PlayParticipantIdentity {participant} />
 			<div class="shrink-0">
-				{@render confirmedBadge()}
+				{#if !hasEnded}
+					{@render confirmedBadge()}
+				{:else if viewerCanReview && !participant.is_viewer && participant.username && !reviewedUsernames.includes(participant.username)}
+					<!-- After the game the roster is the record of who played; the
+					     badge gives way to reviewing your co-players -->
+					<Button
+						href={`/play/${play.id}/review/${participant.username}`}
+						size="xs"
+						variant="outline"
+						aria-label={`Give ${participantName(participant)} props`}
+					>
+						Give props
+					</Button>
+				{/if}
 			</div>
 		</div>
 

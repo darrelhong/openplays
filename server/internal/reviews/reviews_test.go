@@ -36,6 +36,18 @@ func TestWindowState(t *testing.T) {
 	}
 }
 
+func TestWindowStateDevBypass(t *testing.T) {
+	t.Setenv("DEV_REVIEWS_ALWAYS_OPEN", "true")
+
+	endsAt := time.Date(2026, 7, 1, 6, 0, 0, 0, time.UTC)
+	if state, _ := WindowState(endsAt, endsAt.Add(-time.Hour)); state != WindowOpen {
+		t.Fatalf("state before end = %q, want open under dev bypass", state)
+	}
+	if state, _ := WindowState(endsAt, endsAt.Add(Window+time.Hour)); state != WindowOpen {
+		t.Fatalf("state after close = %q, want open under dev bypass", state)
+	}
+}
+
 func TestValidateProps(t *testing.T) {
 	t.Run("accepts universal and same-sport props", func(t *testing.T) {
 		got, err := ValidateProps([]string{"great_sport", "powerful_smash"}, model.SportBadminton, false)

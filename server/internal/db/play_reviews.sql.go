@@ -237,6 +237,45 @@ func (q *Queries) ListUserPropCounts(ctx context.Context, revieweeUserID string)
 	return items, nil
 }
 
+const listUserRatingDistribution = `-- name: ListUserRatingDistribution :many
+SELECT
+    rating,
+    COUNT(*) AS rating_count
+FROM play_reviews
+WHERE reviewee_user_id = ? AND rating IS NOT NULL
+GROUP BY rating
+ORDER BY rating ASC
+`
+
+type ListUserRatingDistributionRow struct {
+	Rating      *int64
+	RatingCount int64
+}
+
+// Star breakdown for the profile's rating chart; still anonymous.
+func (q *Queries) ListUserRatingDistribution(ctx context.Context, revieweeUserID string) ([]ListUserRatingDistributionRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUserRatingDistribution, revieweeUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserRatingDistributionRow
+	for rows.Next() {
+		var i ListUserRatingDistributionRow
+		if err := rows.Scan(&i.Rating, &i.RatingCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUserShoutouts = `-- name: ListUserShoutouts :many
 SELECT
     r.shoutout,
@@ -247,7 +286,8 @@ SELECT
     p.id AS play_id,
     p.sport,
     p.name AS play_name,
-    p.starts_at
+    p.starts_at,
+    p.timezone
 FROM play_reviews r
 JOIN users u ON u.id = r.reviewer_user_id AND u.status = 'active'
 JOIN plays p ON p.id = r.play_id
@@ -271,6 +311,7 @@ type ListUserShoutoutsRow struct {
 	Sport               model.Sport
 	PlayName            *string
 	StartsAt            time.Time
+	Timezone            string
 }
 
 // Shoutouts are attributed by design; the review's rating is never selected.
@@ -293,6 +334,7 @@ func (q *Queries) ListUserShoutouts(ctx context.Context, arg ListUserShoutoutsPa
 			&i.Sport,
 			&i.PlayName,
 			&i.StartsAt,
+			&i.Timezone,
 		); err != nil {
 			return nil, err
 		}

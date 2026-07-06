@@ -50,6 +50,16 @@ SELECT
 FROM play_reviews
 WHERE reviewee_user_id = ? AND rating IS NOT NULL;
 
+-- name: ListUserRatingDistribution :many
+-- Star breakdown for the profile's rating chart; still anonymous.
+SELECT
+    rating,
+    COUNT(*) AS rating_count
+FROM play_reviews
+WHERE reviewee_user_id = ? AND rating IS NOT NULL
+GROUP BY rating
+ORDER BY rating ASC;
+
 -- name: ListUserPropCounts :many
 -- Props are sport-linked: each given prop counts toward the sport of the
 -- play it was earned in.
@@ -75,7 +85,8 @@ SELECT
     p.id AS play_id,
     p.sport,
     p.name AS play_name,
-    p.starts_at
+    p.starts_at,
+    p.timezone
 FROM play_reviews r
 JOIN users u ON u.id = r.reviewer_user_id AND u.status = 'active'
 JOIN plays p ON p.id = r.play_id

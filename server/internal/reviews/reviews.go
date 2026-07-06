@@ -2,7 +2,10 @@
 // the review window, the prop vocabulary, and (later) the prompt scheduler.
 package reviews
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
 const (
 	// Window is how long after a play ends its reviews stay editable.
@@ -22,6 +25,9 @@ const (
 // comparison is authoritative; SQL time filters are only used for list scans.
 func WindowState(endsAt, now time.Time) (state string, closesAt time.Time) {
 	closesAt = endsAt.Add(Window)
+	if alwaysOpen() {
+		return WindowOpen, closesAt
+	}
 	switch {
 	case now.Before(endsAt):
 		return WindowNotOpen, closesAt
@@ -30,4 +36,11 @@ func WindowState(endsAt, now time.Time) (state string, closesAt time.Time) {
 	default:
 		return WindowOpen, closesAt
 	}
+}
+
+// alwaysOpen forces the review window open regardless of the play's times, a
+// local-dev convenience (set DEV_REVIEWS_ALWAYS_OPEN=true) so review flows can
+// be tested without waiting for a play to end. Never set in production.
+func alwaysOpen() bool {
+	return os.Getenv("DEV_REVIEWS_ALWAYS_OPEN") == "true"
 }

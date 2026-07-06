@@ -241,6 +241,16 @@ func TestGetUserProfile_ReviewReputation(t *testing.T) {
 	if rating["count"] != float64(2) {
 		t.Fatalf("rating count = %v, want 2", rating["count"])
 	}
+	// One 4-star and one 5-star review: distribution is [0 0 0 1 1]
+	distribution, ok := rating["distribution"].([]any)
+	if !ok || len(distribution) != 5 {
+		t.Fatalf("distribution = %#v, want 5 buckets", rating["distribution"])
+	}
+	for star, want := range []float64{0, 0, 0, 1, 1} {
+		if distribution[star] != want {
+			t.Fatalf("distribution[%d] = %v, want %v", star, distribution[star], want)
+		}
+	}
 
 	// Props count under the sport they were earned in
 	props, ok := raw["props"].([]any)

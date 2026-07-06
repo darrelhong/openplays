@@ -42,6 +42,9 @@ type PublicUserProfileSport struct {
 type PublicUserRating struct {
 	Average float64 `json:"average"`
 	Count   int64   `json:"count"`
+	// Distribution holds the count of 1- through 5-star ratings, in that
+	// order, for the profile's rating breakdown chart.
+	Distribution [5]int64 `json:"distribution"`
 }
 
 type PublicUserPropCount struct {
@@ -60,6 +63,7 @@ type PublicUserShoutout struct {
 	Sport               model.Sport `json:"sport"`
 	PlayName            *string     `json:"play_name,omitempty"`
 	PlayStartsAt        string      `json:"play_starts_at"`
+	PlayTimezone        string      `json:"play_timezone"`
 }
 
 // shoutoutLimit caps the profile's shoutout list; newest first.
@@ -115,6 +119,15 @@ func hydrateReviewReputation(ctx context.Context, store ProfileStore, profile *P
 	}
 	if rating.RatingCount > 0 {
 		profile.Rating = &PublicUserRating{Average: rating.Average, Count: rating.RatingCount}
+		buckets, err := store.ListUserRatingDistribution(ctx, profile.ID)
+		if err != nil {
+			return err
+		}
+		for _, bucket := range buckets {
+			if bucket.Rating != nil && *bucket.Rating >= 1 && *bucket.Rating <= 5 {
+				profile.Rating.Distribution[*bucket.Rating-1] = bucket.RatingCount
+			}
+		}
 	}
 
 	propCounts, err := store.ListUserPropCounts(ctx, profile.ID)
@@ -152,6 +165,7 @@ func hydrateReviewReputation(ctx context.Context, store ProfileStore, profile *P
 			Sport:               row.Sport,
 			PlayName:            row.PlayName,
 			PlayStartsAt:        row.StartsAt.Format(time.RFC3339),
+			PlayTimezone:        row.Timezone,
 		})
 	}
 	return nil

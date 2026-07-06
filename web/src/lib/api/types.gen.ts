@@ -1292,12 +1292,14 @@ export interface components {
 			average: number;
 			/** Format: int64 */
 			count: number;
+			distribution: number[] | null;
 		};
 		PublicUserShoutout: {
 			created_at: string;
 			play_id: string;
 			play_name?: string;
 			play_starts_at: string;
+			play_timezone: string;
 			reviewer_display_name: string;
 			reviewer_photo_url?: string;
 			reviewer_username?: string;
