@@ -13,6 +13,7 @@ var deliveryPoliciesByKind = map[string]DeliveryPolicy{
 	"play.player_joined":     {Feed: true, Push: true},
 	"play.player_confirmed":  {Feed: true, Push: true},
 	"play.player_left":       {Feed: true, Push: true},
+	"play.review_prompt":     {Feed: true, Push: true},
 	"chat.message":           {Feed: true, Push: true, DebounceFeed: true},
 }
 

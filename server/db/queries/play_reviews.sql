@@ -95,8 +95,10 @@ ORDER BY r.created_at DESC, r.id DESC
 LIMIT ?;
 
 -- name: ListPlaysNeedingReviewPrompt :many
--- Plays that ended at least an hour ago; the 72h lower bound keeps the scan
--- small and stops plays that ended before this feature shipped from prompting.
+-- Ended plays whose participants are due the review nudge. The prompter's
+-- ticks are aligned a minute past five-minute marks, so no extra delay is
+-- needed here; the 72h lower bound keeps the scan small and stops plays that
+-- ended before this feature shipped from prompting.
 SELECT
     p.id,
     p.name,
@@ -106,7 +108,7 @@ FROM plays p
 LEFT JOIN venues v ON v.id = p.venue_id
 WHERE p.cancelled_at IS NULL
   AND p.created_by IS NOT NULL
-  AND p.ends_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now', '-1 hour')
+  AND p.ends_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now', '-72 hours')
 ORDER BY p.ends_at ASC;
 

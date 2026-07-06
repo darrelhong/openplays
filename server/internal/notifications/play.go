@@ -51,6 +51,22 @@ func NotifyPlayerMovedToWaitlist(ctx context.Context, sender Sender, play PlaySn
 	})
 }
 
+// NotifyReviewPrompt nudges a participant to review their co-players once a
+// play has ended. Sent at most once per (play, user) by the reviews.Prompter.
+func NotifyReviewPrompt(ctx context.Context, sender Sender, play PlaySnapshot, userID string) error {
+	if sender == nil || userID == "" {
+		return nil
+	}
+	return sender.Notify(ctx, userID, Payload{
+		Title:  playNotificationTitle(play),
+		Body:   "How was your game? Give props and shoutouts to show your appreciation!",
+		URL:    "/play/" + play.ID,
+		Tag:    "play:" + play.ID + ":review_prompt",
+		Kind:   "play.review_prompt",
+		PlayID: play.ID,
+	})
+}
+
 func NotifyPlayerAdded(ctx context.Context, sender Sender, play PlaySnapshot, playerUserID string) error {
 	if sender == nil || playerUserID == "" {
 		return nil

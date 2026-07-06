@@ -7,12 +7,8 @@ import (
 	"time"
 )
 
-const (
-	// Window is how long after a play ends its reviews stay editable.
-	Window = 14 * 24 * time.Hour
-	// PromptDelay is how long after a play ends the review prompt fires.
-	PromptDelay = time.Hour
-)
+// Window is how long after a play ends its reviews stay editable.
+const Window = 14 * 24 * time.Hour
 
 // Window states as exposed to clients.
 const (

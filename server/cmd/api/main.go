@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	_ "github.com/glebarez/sqlite"
 	"github.com/go-chi/chi/v5"
@@ -20,6 +23,8 @@ import (
 	"openplays/server/internal/geo"
 	"openplays/server/internal/google"
 	"openplays/server/internal/logging"
+	"openplays/server/internal/notifications"
+	"openplays/server/internal/reviews"
 )
 
 func main() {
@@ -69,12 +74,22 @@ func main() {
 	queries := db.New(sqlDb)
 	svc := auth.NewService(queries)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Shared by the API routes and background workers
+	pushService := notifications.MustNewSQLiteWebPushService(ctx, queries, "mailto:dev@openplays.app")
+
+	// Nudges participants to review their co-players after a play ends
+	prompter := reviews.NewPrompter(queries, pushService)
+	go prompter.Run(ctx)
+
 	router := chi.NewMux()
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, places, cookieSecure, devAuthEnabled)
+	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, places, pushService, cookieSecure, devAuthEnabled)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",
