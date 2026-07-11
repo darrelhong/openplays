@@ -22,6 +22,7 @@
 	let { data }: { data: PageData } = $props();
 
 	let selectedSport = $state<string>(page.url.searchParams.get('sport') || '');
+	let selectedSource = $state<string>(page.url.searchParams.get('source') || '');
 	let selectedVenue = $state<string>(getInitialVenue());
 	let selectedDateRange = $state<DateRange>({
 		start: getInitialDate('starts_after'),
@@ -35,6 +36,10 @@
 	);
 
 	const venueItems = $derived(data.venues.map((v) => ({ value: String(v.id), label: v.name })));
+	const sourceItems = [
+		{ value: 'user', label: 'Users' },
+		{ value: 'telegram', label: 'Telegram groups' }
+	];
 
 	// Disable levels above selected max for min, and below selected min for max
 	const levelOptions = $derived(selectedSport === 'tennis' ? TENNIS_LEVELS : BADMINTON_LEVELS);
@@ -141,6 +146,21 @@
 		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
 	}
 
+	function handleSourceChange(value: string) {
+		selectedSource = value;
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+		ensureTimezoneParam(params);
+		if (value) {
+			params.set('source', value);
+		} else {
+			params.delete('source');
+		}
+		params.delete('cursor');
+
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		goto(`?${params.toString()}`, { keepFocus: true, noScroll: true });
+	}
+
 	function handleLevelChange() {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		ensureTimezoneParam(params);
@@ -162,6 +182,7 @@
 
 	function clearFilters() {
 		selectedSport = '';
+		selectedSource = '';
 		selectedVenue = '';
 		selectedDateRange = { start: undefined, end: undefined };
 		selectedLevel = '';
@@ -169,6 +190,7 @@
 		const params = new SvelteURLSearchParams(page.url.searchParams);
 		ensureTimezoneParam(params);
 		params.delete('sport');
+		params.delete('source');
 		params.delete('lat');
 		params.delete('lng');
 		params.delete('starts_after');
@@ -200,6 +222,17 @@
 			onValueChange={handleSportChange}
 			placeholder="Any sport"
 			label="Sport"
+			allowDeselect
+		/>
+	</div>
+	<div class="w-full sm:w-52">
+		<Select
+			type="single"
+			items={sourceItems}
+			bind:value={selectedSource}
+			onValueChange={handleSourceChange}
+			placeholder="All games"
+			label="Game source"
 			allowDeselect
 		/>
 	</div>
@@ -247,7 +280,7 @@
 			/>
 		</div>
 	</div>
-	{#if selectedSport || selectedVenue || selectedDateRange.start || selectedDateRange.end || selectedLevel || selectedLevelMax}
+	{#if selectedSport || selectedSource || selectedVenue || selectedDateRange.start || selectedDateRange.end || selectedLevel || selectedLevelMax}
 		<Button class="w-full sm:w-auto" variant="outline" onclick={clearFilters}>Clear filters</Button>
 	{/if}
 </div>

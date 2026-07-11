@@ -22,6 +22,7 @@ import (
 type ListInput struct {
 	ListingType  string                  `query:"listing_type" doc:"Filter by listing type" enum:"play,sell_booking,"`
 	Sport        string                  `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
+	Source       string                  `query:"source" doc:"Filter by game source" enum:"user,telegram,"`
 	VenueID      int64                   `query:"venue_id" doc:"Filter by venue ID"`
 	LevelMin     string                  `query:"level_min" doc:"Minimum level code (e.g. HB). Shows plays overlapping this range."`
 	LevelMax     string                  `query:"level_max" doc:"Maximum level code (e.g. LI). Defaults to level_min if only level_min is set."`
@@ -98,6 +99,7 @@ func decodeDistanceCursor(cursor string) (distance float64, id string, ok bool) 
 type filters struct {
 	listingType       interface{}
 	sport             interface{}
+	source            interface{}
 	venueID           interface{}
 	startsAfter       interface{}
 	startsBefore      interface{}
@@ -132,6 +134,9 @@ func buildFilters(input *ListInput) filters {
 	}
 	if input.Sport != "" {
 		f.sport = input.Sport
+	}
+	if input.Source != "" {
+		f.source = input.Source
 	}
 	if input.VenueID != 0 {
 		f.venueID = input.VenueID
@@ -286,6 +291,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 	rows, err := queries.ListUpcomingPlays(ctx, db.ListUpcomingPlaysParams{
 		ListingType:       f.listingType,
 		Sport:             f.sport,
+		Source:            f.source,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,
@@ -302,6 +308,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 	total, err := queries.CountUpcomingPlays(ctx, db.CountUpcomingPlaysParams{
 		ListingType:       f.listingType,
 		Sport:             f.sport,
+		Source:            f.source,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,
@@ -335,6 +342,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 		RefLng:            input.Lng.Value,
 		ListingType:       f.listingType,
 		Sport:             f.sport,
+		Source:            f.source,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,
@@ -351,6 +359,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 	total, err := queries.CountUpcomingPlaysByDistance(ctx, db.CountUpcomingPlaysByDistanceParams{
 		ListingType:       f.listingType,
 		Sport:             f.sport,
+		Source:            f.source,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,

@@ -212,6 +212,14 @@ func TestBuildFilters_SportAndTennisLevel(t *testing.T) {
 	}
 }
 
+func TestBuildFilters_Source(t *testing.T) {
+	f := buildFilters(&ListInput{Source: "telegram"})
+
+	if got, want := f.source, "telegram"; got != want {
+		t.Errorf("source = %v, want %v", got, want)
+	}
+}
+
 func TestMapTimeRowOmitsTimestampsForUserCreatedPlays(t *testing.T) {
 	creatorID := "creator-1"
 	item := mapTimeRow(listUpcomingPlayRowWithCreatedBy(&creatorID))

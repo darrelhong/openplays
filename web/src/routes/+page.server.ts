@@ -8,6 +8,7 @@ type Sport = NonNullable<operations['list-plays']['parameters']['query']>['sport
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
 	const sport = url.searchParams.get('sport') || undefined;
+	const source = url.searchParams.get('source') || undefined;
 	const cursor = url.searchParams.get('cursor');
 	const limit = url.searchParams.get('limit');
 	const lat = url.searchParams.get('lat');
@@ -26,6 +27,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 				params: {
 					query: {
 						sport: sport as Sport,
+						source: source as 'user' | 'telegram' | undefined,
 						cursor: cursor || undefined,
 						limit: limit ? Number(limit) : undefined,
 						lat: lat ? Number(lat) : undefined,

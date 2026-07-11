@@ -2235,6 +2235,8 @@ export interface operations {
 				listing_type?: 'play' | 'sell_booking' | '';
 				/** @description Filter by sport */
 				sport?: 'badminton' | 'tennis' | 'football' | 'pickleball' | '';
+				/** @description Filter by game source */
+				source?: 'user' | 'telegram' | '';
 				/** @description Filter by venue ID */
 				venue_id?: number;
 				/** @description Minimum level code (e.g. HB). Shows plays overlapping this range. */
