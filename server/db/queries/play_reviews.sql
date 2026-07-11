@@ -76,7 +76,9 @@ ORDER BY p.sport ASC, prop_count DESC, prop ASC;
 
 -- name: ListUserShoutouts :many
 -- Shoutouts are attributed by design; the review's rating is never selected.
+-- Newest first with a (created_at, id) cursor.
 SELECT
+    r.id,
     r.shoutout,
     r.created_at,
     u.display_name AS reviewer_display_name,
@@ -90,9 +92,17 @@ SELECT
 FROM play_reviews r
 JOIN users u ON u.id = r.reviewer_user_id AND u.status = 'active'
 JOIN plays p ON p.id = r.play_id
-WHERE r.reviewee_user_id = ? AND r.shoutout IS NOT NULL
+WHERE r.reviewee_user_id = sqlc.arg('reviewee_user_id') AND r.shoutout IS NOT NULL
+  AND (sqlc.narg('cursor_created_at') IS NULL
+    OR r.created_at < sqlc.narg('cursor_created_at')
+    OR (r.created_at = sqlc.narg('cursor_created_at') AND r.id < sqlc.narg('cursor_id')))
 ORDER BY r.created_at DESC, r.id DESC
-LIMIT ?;
+LIMIT sqlc.arg('page_size');
+
+-- name: CountUserShoutouts :one
+SELECT COUNT(*) FROM play_reviews r
+JOIN users u ON u.id = r.reviewer_user_id AND u.status = 'active'
+WHERE r.reviewee_user_id = ? AND r.shoutout IS NOT NULL;
 
 -- name: ListPlaysNeedingReviewPrompt :many
 -- Ended plays whose participants are due the review nudge. The prompter's

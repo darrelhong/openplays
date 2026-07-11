@@ -38,6 +38,13 @@ async function selectOption(page: Page, label: string, option: string) {
 	await page.getByRole('option', { name: option, exact: true }).click();
 }
 
+// A date a week out (in SGT, the form's timezone) so the fixture never rots
+// into the past.
+const GAME_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Singapore' }).format(
+	new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+);
+const GAME_STARTS_AT = `${GAME_DATE}T19:30:00+08:00`;
+
 async function readJSON(req: IncomingMessage) {
 	const chunks: Buffer[] = [];
 	for await (const chunk of req) {
@@ -134,8 +141,8 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 	await page.getByLabel('Max Players').fill('4');
 	await page.getByLabel('Courts').fill('2');
 
-	await setFormValue(page, 'input[name="date"]', '2026-07-10');
-	await setFormValue(page, 'input[name="starts_at"]', '2026-07-10T19:30:00+08:00');
+	await setFormValue(page, 'input[name="date"]', GAME_DATE);
+	await setFormValue(page, 'input[name="starts_at"]', GAME_STARTS_AT);
 
 	const createForm = page.locator('form').filter({
 		has: page.getByRole('button', { name: 'Create Game' })
@@ -151,9 +158,9 @@ test('creates a game and shows submitted fields on the detail page', async ({ pa
 		visibility: 'unlisted',
 		venue: 'Test Sports Hall',
 		venue_id: '77',
-		date: '2026-07-10',
+		date: GAME_DATE,
 		start_time: '19:30',
-		starts_at: '2026-07-10T19:30:00+08:00',
+		starts_at: GAME_STARTS_AT,
 		fee: '12.50',
 		max_players: '4',
 		courts: '2'

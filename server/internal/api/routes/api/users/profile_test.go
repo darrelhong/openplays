@@ -272,35 +272,17 @@ func TestGetUserProfile_ReviewReputation(t *testing.T) {
 		t.Fatalf("tennis big_serve = %v, want 1", propCounts["tennis/big_serve"])
 	}
 
-	// Shoutouts are attributed, newest first, and carry the play context
-	shoutouts, ok := raw["shoutouts"].([]any)
-	if !ok || len(shoutouts) != 2 {
-		t.Fatalf("shoutouts = %#v, want 2", raw["shoutouts"])
-	}
-	first := shoutouts[0].(map[string]any)
-	if first["shoutout"] != "What a serve" {
-		t.Fatalf("first shoutout = %v, want newest", first["shoutout"])
-	}
-	if first["reviewer_display_name"] != "Shouty Reviewer" {
-		t.Fatalf("first shoutout reviewer = %v", first["reviewer_display_name"])
-	}
-	if first["sport"] != "tennis" || first["play_id"] != tennisPlayID {
-		t.Fatalf("first shoutout play context = %v/%v", first["sport"], first["play_id"])
-	}
-	for _, entry := range shoutouts {
-		if _, ok := entry.(map[string]any)["rating"]; ok {
-			t.Fatal("shoutout leaked a rating")
-		}
-	}
-
-	// Anonymity: a reviewer who wrote no shoutout must be absent from the
-	// entire response; ratings are aggregate-only.
+	// Anonymity: shoutouts live on their own endpoint, so the profile
+	// response must contain no reviewer identity at all; ratings are
+	// aggregate-only.
 	body, err := json.Marshal(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(body), "Silent Reviewer") || strings.Contains(string(body), "rep_silent") || strings.Contains(string(body), silent.ID) {
-		t.Fatal("profile response leaked a rating-only reviewer's identity")
+	for _, leaked := range []string{"Silent Reviewer", "rep_silent", silent.ID, "Shouty Reviewer", "rep_shouter", shouter.ID} {
+		if strings.Contains(string(body), leaked) {
+			t.Fatalf("profile response leaked reviewer identity %q", leaked)
+		}
 	}
 }
 
@@ -331,8 +313,5 @@ func TestGetUserProfile_NoReviewsOmitsRating(t *testing.T) {
 	}
 	if props, ok := raw["props"].([]any); !ok || len(props) != 0 {
 		t.Fatalf("props = %#v, want empty array", raw["props"])
-	}
-	if shoutouts, ok := raw["shoutouts"].([]any); !ok || len(shoutouts) != 0 {
-		t.Fatalf("shoutouts = %#v, want empty array", raw["shoutouts"])
 	}
 }

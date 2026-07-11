@@ -19,5 +19,4 @@ type ProfileStore interface {
 	GetUserRatingAggregate(ctx context.Context, revieweeUserID string) (db.GetUserRatingAggregateRow, error)
 	ListUserRatingDistribution(ctx context.Context, revieweeUserID string) ([]db.ListUserRatingDistributionRow, error)
 	ListUserPropCounts(ctx context.Context, revieweeUserID string) ([]db.ListUserPropCountsRow, error)
-	ListUserShoutouts(ctx context.Context, arg db.ListUserShoutoutsParams) ([]db.ListUserShoutoutsRow, error)
 }

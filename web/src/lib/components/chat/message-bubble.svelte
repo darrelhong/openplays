@@ -5,7 +5,7 @@
 	import { formatMessage } from './message-format';
 	import { refreshSubmit } from './refresh-submit';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index';
-	import { formatNotificationTime } from '$lib/components/notifications/notification-time';
+	import { formatDistance } from '$lib/utils/format-distance';
 	import { cn } from '$lib/utils/cn';
 	import type { Message } from './types';
 
@@ -69,7 +69,7 @@
 						}}>{segment.value}</span
 					>{:else}{segment.value}{/if}{/each}{:else}Message deleted{/if}<span
 			class={cn('text-[11px] ml-2 mt-1.5 float-right', mine ? 'opacity-70' : 'text-muted')}
-			>{formatNotificationTime(message.created_at)}</span
+			>{formatDistance(message.created_at)}</span
 		></span
 	>
 {/snippet}

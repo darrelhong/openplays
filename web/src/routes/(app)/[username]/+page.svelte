@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { SvelteURLSearchParams } from 'svelte/reactivity';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import Button from '$lib/components/ui/button.svelte';
 	import PropsSummaryDialog from '$lib/components/reviews/props-summary-dialog.svelte';
 	import RatingSummaryDialog from '$lib/components/reviews/rating-summary-dialog.svelte';
 	import { SPORTS } from '$lib/consts/index';
-	import { formatDate } from '$lib/utils/formatting';
+	import { formatDistance } from '$lib/utils/format-distance';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form?: ActionData } = $props();
@@ -14,7 +16,14 @@
 	const profile = $derived(data.profile);
 	const sports = $derived(profile.sports ?? []);
 	const isOwnProfile = $derived(data.user.id === profile.id);
-	const shoutouts = $derived(profile.shoutouts ?? []);
+	const shoutouts = $derived(data.shoutouts.items ?? []);
+	const onShoutoutPage = $derived(page.url.searchParams.has('cursor'));
+
+	function nextShoutoutPageUrl(nextCursor: string): string {
+		const params = new SvelteURLSearchParams(page.url.searchParams);
+		params.set('cursor', nextCursor);
+		return `?${params.toString()}`;
+	}
 	// Props are sport-linked: they render inside the sport's card
 	function propsFor(sport: string) {
 		return (profile.props ?? []).filter((row) => row.sport === sport);
@@ -41,11 +50,13 @@
 		<p class="text-xs text-muted">
 			Rating <span class="text-foreground">{sport.rating_code ?? 'Not set'}</span>
 		</p>
-		{#if sportProps.length > 0}
-			<span class="text-xs text-muted">
+		<span class="text-xs text-muted">
+			{#if sportProps.length > 0}
 				{sportProps.reduce((sum, row) => sum + row.count, 0)} props
-			</span>
-		{/if}
+			{:else}
+				No props received yet
+			{/if}
+		</span>
 	</div>
 {/snippet}
 
@@ -111,9 +122,13 @@
 			{/if}
 		</section>
 
-		{#if shoutouts.length > 0}
-			<section class="mt-5">
-				<h2 class="text-sm text-foreground font-semibold mb-3">Shoutouts</h2>
+		<section class="mt-5">
+			<h2 class="text-sm text-foreground font-semibold mb-3">
+				Shoutouts <span class="text-muted font-normal">({data.shoutouts.total})</span>
+			</h2>
+			{#if data.shoutouts.total === 0}
+				<p class="text-sm text-muted">No shoutouts yet</p>
+			{:else}
 				<ul class="gap-2 grid">
 					{#each shoutouts as shoutout (`${shoutout.play_id}:${shoutout.reviewer_username ?? shoutout.reviewer_display_name}`)}
 						<li class="px-3 py-2 border border-border rounded-md bg-card/50">
@@ -145,17 +160,36 @@
 									</span>
 								{/if}
 								<p class="text-xs text-muted shrink-0">
-									· {sportLabel(shoutout.sport)} · {formatDate(
-										shoutout.play_starts_at,
-										shoutout.play_timezone,
-										{ weekday: undefined, year: 'numeric' }
-									)}
+									· {sportLabel(shoutout.sport)} · {formatDistance(shoutout.created_at, {
+										suffix: true
+									})}
 								</p>
 							</div>
 						</li>
 					{/each}
 				</ul>
-			</section>
-		{/if}
+
+				{#if shoutouts.length === 0}
+					<p class="text-sm text-muted">No shoutouts on this page.</p>
+				{/if}
+
+				{#if onShoutoutPage || data.shoutouts.has_more}
+					<div class="mt-3 flex gap-3">
+						{#if onShoutoutPage}
+							<Button size="xs" variant="outline" onclick={() => history.back()}>Previous</Button>
+						{/if}
+						{#if data.shoutouts.has_more && data.shoutouts.next_cursor != null}
+							<Button
+								size="xs"
+								variant="outline"
+								class="ms-auto"
+								href={nextShoutoutPageUrl(data.shoutouts.next_cursor)}
+								data-sveltekit-noscroll>Next</Button
+							>
+						{/if}
+					</div>
+				{/if}
+			{/if}
+		</section>
 	</section>
 </div>

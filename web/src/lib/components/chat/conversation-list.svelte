@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { formatNotificationTime } from '$lib/components/notifications/notification-time';
+	import { formatDistance } from '$lib/utils/format-distance';
 	import { cn } from '$lib/utils/cn';
 	import ConversationAvatar from './conversation-avatar.svelte';
 	import type { Conversation } from './types';
@@ -118,7 +118,7 @@
 						<span class="flex gap-2 items-center justify-between">
 							<span class="text-sm text-foreground font-medium truncate">{conversation.title}</span>
 							<span class="text-xs text-muted shrink-0"
-								>{formatNotificationTime(conversation.updated_at)}</span
+								>{formatDistance(conversation.updated_at)}</span
 							>
 						</span>
 						<span class="mt-0.5 flex gap-2 items-center">

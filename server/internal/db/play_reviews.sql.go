@@ -12,6 +12,19 @@ import (
 	"openplays/server/internal/model"
 )
 
+const countUserShoutouts = `-- name: CountUserShoutouts :one
+SELECT COUNT(*) FROM play_reviews r
+JOIN users u ON u.id = r.reviewer_user_id AND u.status = 'active'
+WHERE r.reviewee_user_id = ? AND r.shoutout IS NOT NULL
+`
+
+func (q *Queries) CountUserShoutouts(ctx context.Context, revieweeUserID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserShoutouts, revieweeUserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getUserRatingAggregate = `-- name: GetUserRatingAggregate :one
 SELECT
     CAST(COALESCE(AVG(rating), 0) AS REAL) AS average,
@@ -280,6 +293,7 @@ func (q *Queries) ListUserRatingDistribution(ctx context.Context, revieweeUserID
 
 const listUserShoutouts = `-- name: ListUserShoutouts :many
 SELECT
+    r.id,
     r.shoutout,
     r.created_at,
     u.display_name AS reviewer_display_name,
@@ -293,17 +307,23 @@ SELECT
 FROM play_reviews r
 JOIN users u ON u.id = r.reviewer_user_id AND u.status = 'active'
 JOIN plays p ON p.id = r.play_id
-WHERE r.reviewee_user_id = ? AND r.shoutout IS NOT NULL
+WHERE r.reviewee_user_id = ?1 AND r.shoutout IS NOT NULL
+  AND (?2 IS NULL
+    OR r.created_at < ?2
+    OR (r.created_at = ?2 AND r.id < ?3))
 ORDER BY r.created_at DESC, r.id DESC
-LIMIT ?
+LIMIT ?4
 `
 
 type ListUserShoutoutsParams struct {
-	RevieweeUserID string
-	Limit          int64
+	RevieweeUserID  string
+	CursorCreatedAt interface{}
+	CursorID        *int64
+	PageSize        int64
 }
 
 type ListUserShoutoutsRow struct {
+	ID                  int64
 	Shoutout            *string
 	CreatedAt           time.Time
 	ReviewerDisplayName string
@@ -317,8 +337,14 @@ type ListUserShoutoutsRow struct {
 }
 
 // Shoutouts are attributed by design; the review's rating is never selected.
+// Newest first with a (created_at, id) cursor.
 func (q *Queries) ListUserShoutouts(ctx context.Context, arg ListUserShoutoutsParams) ([]ListUserShoutoutsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUserShoutouts, arg.RevieweeUserID, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, listUserShoutouts,
+		arg.RevieweeUserID,
+		arg.CursorCreatedAt,
+		arg.CursorID,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -327,6 +353,7 @@ func (q *Queries) ListUserShoutouts(ctx context.Context, arg ListUserShoutoutsPa
 	for rows.Next() {
 		var i ListUserShoutoutsRow
 		if err := rows.Scan(
+			&i.ID,
 			&i.Shoutout,
 			&i.CreatedAt,
 			&i.ReviewerDisplayName,

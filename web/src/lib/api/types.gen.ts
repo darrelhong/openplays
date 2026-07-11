@@ -642,6 +642,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/users/{username}/shoutouts': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List a user's shoutouts
+		 * @description Returns a page of attributed shoutouts on a user's profile, newest first. Requires authentication.
+		 */
+		get: operations['list-user-shoutouts'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/venues/': {
 		parameters: {
 			query?: never;
@@ -1095,6 +1115,24 @@ export interface components {
 			 */
 			total: number;
 		};
+		PagePublicUserShoutout: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PagePublicUserShoutout.json
+			 */
+			readonly $schema?: string;
+			/** @description Whether there are more results after this page */
+			has_more: boolean;
+			items: components['schemas']['PublicUserShoutout'][] | null;
+			/** @description Opaque cursor; pass as cursor to get the next page */
+			next_cursor?: string;
+			/**
+			 * Format: int64
+			 * @description Total number of matching results across all pages
+			 */
+			total: number;
+		};
 		PlayHistoryEventPublic: {
 			actor_display_name?: string;
 			created_at: string;
@@ -1268,7 +1306,6 @@ export interface components {
 			rating?: components['schemas']['PublicUserRating'];
 			/** Format: int64 */
 			rostered_play_count: number;
-			shoutouts: components['schemas']['PublicUserShoutout'][] | null;
 			sports: components['schemas']['PublicUserProfileSport'][] | null;
 			sports_profile?: components['schemas']['SportsProfile'];
 			username: string;
@@ -2755,6 +2792,43 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['PublicUserProfile'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-user-shoutouts': {
+		parameters: {
+			query?: {
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of results per page */
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Username */
+				username: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PagePublicUserShoutout'];
 				};
 			};
 			/** @description Error */

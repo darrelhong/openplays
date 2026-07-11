@@ -14,4 +14,5 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service) {
 	grp.UseMiddleware(authmw.RequireAuth(api, svc))
 	RegisterSearch(grp, queries)
 	RegisterProfile(grp, queries)
+	RegisterShoutouts(grp, queries)
 }

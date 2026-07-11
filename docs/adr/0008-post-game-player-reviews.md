@@ -51,8 +51,10 @@ rather than generic, and all reputation data is for logged-in users only.
 8. **API.** `GET /plays/{id}/reviews` returns the viewer's review sheet (window state, prop
    vocabulary for the play's sport, co-players with the viewer's own review); 403 for
    non-participants. `PUT /plays/{id}/reviews/{revieweeUserID}` saves one review, window-gated.
-   `PublicUserProfile` gains `rating` (average/count/distribution, omitted at zero), sport-linked
-   `props` counts, and up to 20 newest `shoutouts`.
+   `PublicUserProfile` gains `rating` (average/count/distribution, omitted at zero) and
+   sport-linked `props` counts; shoutouts live on their own cursor-paginated endpoint
+   (`GET /users/{username}/shoutouts`, newest first), keeping reviewer identity out of the
+   profile payload entirely.
 9. **UI.** Reviews are written per player at `/play/{id}/review/{username}` (stars first; props
    and shoutout reveal after rating; submit returns to the game). The entry point is the ended
    play's roster: Confirmed badges give way to per-player "Give props" buttons, hidden for
@@ -122,7 +124,6 @@ set cannot change after the review window opens — and is independently correct
 - With one rating the average is fully identifying; the product accepted showing from the first
   rating rather than a minimum-count threshold.
 - `user_blocks` are ignored: a blocked user's rating still counts and their shoutout still shows.
-- Shoutouts are capped at the 20 newest with no pagination.
 - Status-at-end approximates attendance; a no-show who never left the roster can review and be
   reviewed.
 - A crashed prompt run can drop a nudge (at-most-once by choice); the review itself remains

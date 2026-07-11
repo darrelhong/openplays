@@ -2,7 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { formatNotificationTime } from './notification-time';
+	import { formatDistance } from '$lib/utils/format-distance';
 	import type { UserNotification } from './types';
 
 	let {
@@ -39,7 +39,7 @@
 		{/if}
 	</span>
 	<span class="text-xs text-muted col-start-2 row-start-1 whitespace-nowrap"
-		>{formatNotificationTime(item.created_at)}</span
+		>{formatDistance(item.created_at)}</span
 	>
 	{#if unread}
 		<span

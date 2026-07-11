@@ -2,25 +2,45 @@ import { api } from '$lib/api/client';
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, cookies }) => {
+export const load: PageServerLoad = async ({ params, cookies, url }) => {
 	const sessionToken = cookies.get('session');
 	if (!sessionToken) {
 		error(401, 'Not authenticated');
 	}
 
-	const { data, error: apiError } = await api.GET('/api/users/{username}', {
-		headers: { Cookie: `session=${sessionToken}` },
-		params: { path: { username: params.username } }
-	});
+	const headers = { Cookie: `session=${sessionToken}` };
+	const cursor = url.searchParams.get('cursor');
+	const [profileResponse, shoutoutsResponse] = await Promise.all([
+		api.GET('/api/users/{username}', {
+			headers,
+			params: { path: { username: params.username } }
+		}),
+		api.GET('/api/users/{username}/shoutouts', {
+			headers,
+			params: {
+				path: { username: params.username },
+				query: { cursor: cursor || undefined }
+			}
+		})
+	]);
 
-	if (apiError) {
-		error(apiError.status ?? 500, apiError.detail ?? 'Failed to fetch user profile');
+	if (profileResponse.error) {
+		error(
+			profileResponse.error.status ?? 500,
+			profileResponse.error.detail ?? 'Failed to fetch user profile'
+		);
 	}
-	if (!data) {
+	if (!profileResponse.data) {
 		error(404, 'User not found');
 	}
+	if (shoutoutsResponse.error) {
+		error(
+			shoutoutsResponse.error.status ?? 500,
+			shoutoutsResponse.error.detail ?? 'Failed to fetch shoutouts'
+		);
+	}
 
-	return { profile: data };
+	return { profile: profileResponse.data, shoutouts: shoutoutsResponse.data };
 };
 
 export const actions: Actions = {
