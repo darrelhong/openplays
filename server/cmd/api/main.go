@@ -19,11 +19,13 @@ import (
 
 	apiRouter "openplays/server/internal/api/routes/api"
 	"openplays/server/internal/auth"
+	"openplays/server/internal/avatar"
 	"openplays/server/internal/db"
 	"openplays/server/internal/geo"
 	"openplays/server/internal/google"
 	"openplays/server/internal/logging"
 	"openplays/server/internal/notifications"
+	"openplays/server/internal/objectstore"
 	"openplays/server/internal/reviews"
 )
 
@@ -77,6 +79,24 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	var avatarService *avatar.Service
+	if os.Getenv("OBJECT_STORE_BUCKET") != "" {
+		objectConfig, err := objectstore.ConfigFromEnv()
+		if err != nil {
+			slog.Error("invalid object store configuration", "error", err)
+			os.Exit(1)
+		}
+		objects, err := objectstore.New(ctx, objectConfig)
+		if err != nil {
+			slog.Error("failed to initialize object store", "error", err)
+			os.Exit(1)
+		}
+		defer objects.Close()
+		avatarService = avatar.NewService(objects, queries, avatar.Processor{})
+	} else {
+		slog.Info("avatar uploads disabled; OBJECT_STORE_BUCKET is not set")
+	}
+
 	// Shared by the API routes and background workers
 	pushService := notifications.MustNewSQLiteWebPushService(ctx, queries, "mailto:dev@openplays.app")
 
@@ -89,7 +109,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries, svc, googleVerifier, facebookVerifier, places, pushService, cookieSecure, devAuthEnabled)
+	apiRouter.Register(humaAPI, queries, svc, avatarService, googleVerifier, facebookVerifier, places, pushService, cookieSecure, devAuthEnabled)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",

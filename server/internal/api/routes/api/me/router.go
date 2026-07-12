@@ -8,9 +8,10 @@ import (
 )
 
 // Register registers all /me routes with auth middleware.
-func Register(api huma.API, svc *auth.Service, store ProfileStore) {
+func Register(api huma.API, svc *auth.Service, store ProfileStore, avatarService AvatarService) {
 	grp := huma.NewGroup(api, "/me")
 	grp.UseMiddleware(authmw.RequireAuth(api, svc))
 	RegisterGet(grp)
 	RegisterUpdate(grp, store)
+	RegisterAvatar(grp, avatarService)
 }

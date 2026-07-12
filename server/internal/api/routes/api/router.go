@@ -4,6 +4,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"openplays/server/internal/auth"
+	"openplays/server/internal/avatar"
 	"openplays/server/internal/db"
 	"openplays/server/internal/geo"
 	"openplays/server/internal/notifications"
@@ -21,7 +22,7 @@ import (
 
 // Register registers all routes under /api. The push service is created by
 // the caller so background workers (e.g. the review prompter) share it.
-func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifier *auth.GoogleVerifier, facebookVerifier *auth.FacebookVerifier, places geo.PlaceProvider, pushService *notifications.WebPushService, cookieSecure bool, devAuthEnabled bool) {
+func Register(api huma.API, queries *db.Queries, svc *auth.Service, avatarService *avatar.Service, googleVerifier *auth.GoogleVerifier, facebookVerifier *auth.FacebookVerifier, places geo.PlaceProvider, pushService *notifications.WebPushService, cookieSecure bool, devAuthEnabled bool) {
 	grp := huma.NewGroup(api, "/api")
 
 	// Public routes
@@ -33,6 +34,10 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, googleVerifi
 	devRouter.Register(grp, queries, devRouter.Config{Enabled: devAuthEnabled, CookieSecure: cookieSecure})
 
 	// Protected routes (auth middleware applied via huma.UseMiddleware)
-	meRouter.Register(grp, svc, queries)
+	var avatarRoutes meRouter.AvatarService
+	if avatarService != nil {
+		avatarRoutes = avatarService
+	}
+	meRouter.Register(grp, svc, queries, avatarRoutes)
 	usersRouter.Register(grp, queries, svc)
 }
