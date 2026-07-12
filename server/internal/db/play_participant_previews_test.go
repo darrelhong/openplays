@@ -18,11 +18,13 @@ func TestParticipantPreviewQueries(t *testing.T) {
 	userID := createParticipantTestUser(t, ctx, queries, "user-1")
 	waitlistedUserID := createParticipantTestUser(t, ctx, queries, "user-2")
 	photoURL := "https://example.com/user-1.png"
+	if _, err := sqlDB.ExecContext(ctx, "UPDATE users SET photo_url = ? WHERE id = ?", photoURL, userID); err != nil {
+		t.Fatalf("set user photo: %v", err)
+	}
 	sportsProfile := `{"tennis":{"level":"4.2"}}`
 	if _, err := queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
 		ID:            userID,
 		DisplayName:   "Alice Tan",
-		PhotoUrl:      &photoURL,
 		SportsProfile: &sportsProfile,
 	}); err != nil {
 		t.Fatalf("update user profile: %v", err)

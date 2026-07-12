@@ -99,11 +99,27 @@ LIMIT sqlc.arg('limit');
 UPDATE users SET
     display_name = ?,
     username = ?,
-    photo_url = ?,
     sports_profile = ?,
-    contact_info = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
+RETURNING *;
+
+-- name: SetUserAvatar :one
+UPDATE users SET
+    photo_url = sqlc.arg('photo_url'),
+    avatar_key = sqlc.arg('avatar_key'),
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE id = sqlc.arg('id')
+  AND avatar_key IS sqlc.narg('expected_avatar_key')
+RETURNING *;
+
+-- name: ClearUserAvatar :one
+UPDATE users SET
+    photo_url = oauth_photo_url,
+    avatar_key = NULL,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE id = sqlc.arg('id')
+  AND avatar_key IS sqlc.arg('expected_avatar_key')
 RETURNING *;
 
 -- name: UpdateUserStatus :exec

@@ -2,6 +2,8 @@ package db_test
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"testing"
 
 	"openplays/server/internal/db"
@@ -101,5 +103,111 @@ func TestOAuthUpsertRefreshesDisplayedPhotoWithoutCustomAvatar(t *testing.T) {
 	}
 	if user.OauthPhotoUrl == nil || *user.OauthPhotoUrl != refreshedPhoto {
 		t.Fatalf("oauth_photo_url = %v, want %q", user.OauthPhotoUrl, refreshedPhoto)
+	}
+}
+
+func TestSetAndClearUserAvatarRestoresOAuthPhoto(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+	providerID := "google-avatar-restore"
+	providerPhoto := "https://provider.example/photo.jpg"
+	if _, err := queries.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		ID: "avatar-restore", Email: "restore@example.com", DisplayName: "Restore",
+		PhotoUrl: &providerPhoto, OauthPhotoUrl: &providerPhoto, GoogleID: &providerID,
+	}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	customPhoto := "https://images.example/avatars/avatar-restore/custom.jpg"
+	key := "avatars/avatar-restore/custom.jpg"
+	custom, err := queries.SetUserAvatar(ctx, db.SetUserAvatarParams{
+		ID: "avatar-restore", PhotoUrl: &customPhoto, AvatarKey: &key,
+	})
+	if err != nil {
+		t.Fatalf("set avatar: %v", err)
+	}
+	if custom.PhotoUrl == nil || *custom.PhotoUrl != customPhoto || custom.AvatarKey == nil || *custom.AvatarKey != key {
+		t.Fatalf("custom avatar = %#v", custom)
+	}
+
+	restored, err := queries.ClearUserAvatar(ctx, db.ClearUserAvatarParams{
+		ID: "avatar-restore", ExpectedAvatarKey: &key,
+	})
+	if err != nil {
+		t.Fatalf("clear avatar: %v", err)
+	}
+	if restored.PhotoUrl == nil || *restored.PhotoUrl != providerPhoto || restored.AvatarKey != nil {
+		t.Fatalf("restored avatar = %#v", restored)
+	}
+}
+
+func TestAvatarMutationsRejectStaleAvatarKey(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+	providerID := "google-avatar-cas"
+	providerPhoto := "https://provider.example/photo.jpg"
+	if _, err := queries.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		ID: "avatar-cas", Email: "cas@example.com", DisplayName: "CAS",
+		PhotoUrl: &providerPhoto, OauthPhotoUrl: &providerPhoto, GoogleID: &providerID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	firstURL, firstKey := "https://images.example/first.jpg", "avatars/avatar-cas/first.jpg"
+	if _, err := queries.SetUserAvatar(ctx, db.SetUserAvatarParams{
+		ID: "avatar-cas", PhotoUrl: &firstURL, AvatarKey: &firstKey,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	secondURL, secondKey := "https://images.example/second.jpg", "avatars/avatar-cas/second.jpg"
+	if _, err := queries.SetUserAvatar(ctx, db.SetUserAvatarParams{
+		ID: "avatar-cas", PhotoUrl: &secondURL, AvatarKey: &secondKey,
+		ExpectedAvatarKey: nil,
+	}); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("stale set error = %v, want sql.ErrNoRows", err)
+	}
+	staleKey := "avatars/avatar-cas/stale.jpg"
+	if _, err := queries.ClearUserAvatar(ctx, db.ClearUserAvatarParams{
+		ID: "avatar-cas", ExpectedAvatarKey: &staleKey,
+	}); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("stale clear error = %v, want sql.ErrNoRows", err)
+	}
+}
+
+func TestUpdateUserProfilePreservesOwnedPhotoAndContactFields(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+	providerID := "google-profile-owned-fields"
+	providerPhoto := "https://provider.example/photo.jpg"
+	if _, err := queries.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
+		ID: "owned-fields", Email: "owned@example.com", DisplayName: "Before",
+		PhotoUrl: &providerPhoto, OauthPhotoUrl: &providerPhoto, GoogleID: &providerID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	customPhoto := "https://images.example/custom.jpg"
+	avatarKey := "avatars/owned-fields/custom.jpg"
+	contact := `{"telegram":"@owned"}`
+	if _, err := sqlDB.ExecContext(ctx,
+		"UPDATE users SET photo_url = ?, avatar_key = ?, contact_info = ? WHERE id = ?",
+		customPhoto, avatarKey, contact, "owned-fields",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+		ID: "owned-fields", DisplayName: "After",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.PhotoUrl == nil || *updated.PhotoUrl != customPhoto ||
+		updated.AvatarKey == nil || *updated.AvatarKey != avatarKey ||
+		updated.ContactInfo == nil || *updated.ContactInfo != contact {
+		t.Fatalf("owned fields changed: %#v", updated)
 	}
 }

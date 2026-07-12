@@ -137,9 +137,7 @@ func createSearchTestUser(t *testing.T, ctx context.Context, queries *db.Queries
 			ID:            user.ID,
 			DisplayName:   user.DisplayName,
 			Username:      username,
-			PhotoUrl:      user.PhotoUrl,
 			SportsProfile: sportsProfile,
-			ContactInfo:   user.ContactInfo,
 		})
 		if err != nil {
 			t.Fatalf("update user %q profile: %v", id, err)

@@ -69,9 +69,7 @@ func RegisterUpdate(api huma.API, store ProfileStore) {
 		updated, err := store.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
 			DisplayName:   displayName,
 			Username:      username,
-			PhotoUrl:      user.PhotoURL,
 			SportsProfile: sportsProfileRaw,
-			ContactInfo:   user.ContactInfo,
 			ID:            user.ID,
 		})
 		if err != nil {

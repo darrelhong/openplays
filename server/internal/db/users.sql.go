@@ -12,6 +12,43 @@ import (
 	"openplays/server/internal/model"
 )
 
+const clearUserAvatar = `-- name: ClearUserAvatar :one
+UPDATE users SET
+    photo_url = oauth_photo_url,
+    avatar_key = NULL,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE id = ?1
+  AND avatar_key IS ?2
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+`
+
+type ClearUserAvatarParams struct {
+	ID                string
+	ExpectedAvatarKey *string
+}
+
+func (q *Queries) ClearUserAvatar(ctx context.Context, arg ClearUserAvatarParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, clearUserAvatar, arg.ID, arg.ExpectedAvatarKey)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.GoogleID,
+		&i.FacebookID,
+		&i.Status,
+		&i.SportsProfile,
+		&i.ContactInfo,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
+	)
+	return i, err
+}
+
 const countRosteredPlaysByUser = `-- name: CountRosteredPlaysByUser :one
 SELECT COUNT(DISTINCT play_id)
 FROM (
@@ -480,13 +517,55 @@ func (q *Queries) SearchActiveUsers(ctx context.Context, arg SearchActiveUsersPa
 	return items, nil
 }
 
+const setUserAvatar = `-- name: SetUserAvatar :one
+UPDATE users SET
+    photo_url = ?1,
+    avatar_key = ?2,
+    updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE id = ?3
+  AND avatar_key IS ?4
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+`
+
+type SetUserAvatarParams struct {
+	PhotoUrl          *string
+	AvatarKey         *string
+	ID                string
+	ExpectedAvatarKey *string
+}
+
+func (q *Queries) SetUserAvatar(ctx context.Context, arg SetUserAvatarParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, setUserAvatar,
+		arg.PhotoUrl,
+		arg.AvatarKey,
+		arg.ID,
+		arg.ExpectedAvatarKey,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.GoogleID,
+		&i.FacebookID,
+		&i.Status,
+		&i.SportsProfile,
+		&i.ContactInfo,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
+	)
+	return i, err
+}
+
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users SET
     display_name = ?,
     username = ?,
-    photo_url = ?,
     sports_profile = ?,
-    contact_info = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
@@ -495,9 +574,7 @@ RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, 
 type UpdateUserProfileParams struct {
 	DisplayName   string
 	Username      *string
-	PhotoUrl      *string
 	SportsProfile *string
-	ContactInfo   *string
 	ID            string
 }
 
@@ -505,9 +582,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 	row := q.db.QueryRowContext(ctx, updateUserProfile,
 		arg.DisplayName,
 		arg.Username,
-		arg.PhotoUrl,
 		arg.SportsProfile,
-		arg.ContactInfo,
 		arg.ID,
 	)
 	var i User
