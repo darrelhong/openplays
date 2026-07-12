@@ -1,20 +1,36 @@
 -- name: UpsertUserByGoogleID :one
-INSERT INTO users (id, email, username, display_name, photo_url, google_id, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, oauth_photo_url, google_id, updated_at)
+VALUES (
+    sqlc.arg('id'), sqlc.arg('email'), sqlc.narg('username'), sqlc.arg('display_name'),
+    sqlc.narg('photo_url'), sqlc.narg('oauth_photo_url'), sqlc.narg('google_id'),
+    strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+)
 ON CONFLICT(google_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
-    photo_url = excluded.photo_url,
+    oauth_photo_url = excluded.oauth_photo_url,
+    photo_url = CASE
+        WHEN users.avatar_key IS NULL THEN excluded.oauth_photo_url
+        ELSE users.photo_url
+    END,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 RETURNING *;
 
 -- name: UpsertUserByFacebookID :one
-INSERT INTO users (id, email, username, display_name, photo_url, facebook_id, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, oauth_photo_url, facebook_id, updated_at)
+VALUES (
+    sqlc.arg('id'), sqlc.arg('email'), sqlc.narg('username'), sqlc.arg('display_name'),
+    sqlc.narg('photo_url'), sqlc.narg('oauth_photo_url'), sqlc.narg('facebook_id'),
+    strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+)
 ON CONFLICT(facebook_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
-    photo_url = excluded.photo_url,
+    oauth_photo_url = excluded.oauth_photo_url,
+    photo_url = CASE
+        WHEN users.avatar_key IS NULL THEN excluded.oauth_photo_url
+        ELSE users.photo_url
+    END,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 RETURNING *;
 

@@ -239,7 +239,7 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, token string) (GetSess
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at FROM users WHERE email = ?
+SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key FROM users WHERE email = ?
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -258,12 +258,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.ContactInfo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at FROM users WHERE id = ?
+SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -282,6 +284,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.ContactInfo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
 	)
 	return i, err
 }
@@ -317,7 +321,7 @@ func (q *Queries) IsBlocked(ctx context.Context, arg IsBlockedParams) (bool, err
 const linkFacebookID = `-- name: LinkFacebookID :one
 UPDATE users SET facebook_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE email = ? AND facebook_id IS NULL
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
 `
 
 type LinkFacebookIDParams struct {
@@ -341,6 +345,8 @@ func (q *Queries) LinkFacebookID(ctx context.Context, arg LinkFacebookIDParams) 
 		&i.ContactInfo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
 	)
 	return i, err
 }
@@ -348,7 +354,7 @@ func (q *Queries) LinkFacebookID(ctx context.Context, arg LinkFacebookIDParams) 
 const linkGoogleID = `-- name: LinkGoogleID :one
 UPDATE users SET google_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE email = ? AND google_id IS NULL
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
 `
 
 type LinkGoogleIDParams struct {
@@ -372,6 +378,8 @@ func (q *Queries) LinkGoogleID(ctx context.Context, arg LinkGoogleIDParams) (Use
 		&i.ContactInfo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
 	)
 	return i, err
 }
@@ -481,7 +489,7 @@ UPDATE users SET
     contact_info = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
 `
 
 type UpdateUserProfileParams struct {
@@ -516,6 +524,8 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.ContactInfo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
 	)
 	return i, err
 }
@@ -538,23 +548,32 @@ func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusPara
 }
 
 const upsertUserByFacebookID = `-- name: UpsertUserByFacebookID :one
-INSERT INTO users (id, email, username, display_name, photo_url, facebook_id, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, oauth_photo_url, facebook_id, updated_at)
+VALUES (
+    ?1, ?2, ?3, ?4,
+    ?5, ?6, ?7,
+    strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+)
 ON CONFLICT(facebook_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
-    photo_url = excluded.photo_url,
+    oauth_photo_url = excluded.oauth_photo_url,
+    photo_url = CASE
+        WHEN users.avatar_key IS NULL THEN excluded.oauth_photo_url
+        ELSE users.photo_url
+    END,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
 `
 
 type UpsertUserByFacebookIDParams struct {
-	ID          string
-	Email       string
-	Username    *string
-	DisplayName string
-	PhotoUrl    *string
-	FacebookID  *string
+	ID            string
+	Email         string
+	Username      *string
+	DisplayName   string
+	PhotoUrl      *string
+	OauthPhotoUrl *string
+	FacebookID    *string
 }
 
 func (q *Queries) UpsertUserByFacebookID(ctx context.Context, arg UpsertUserByFacebookIDParams) (User, error) {
@@ -564,6 +583,7 @@ func (q *Queries) UpsertUserByFacebookID(ctx context.Context, arg UpsertUserByFa
 		arg.Username,
 		arg.DisplayName,
 		arg.PhotoUrl,
+		arg.OauthPhotoUrl,
 		arg.FacebookID,
 	)
 	var i User
@@ -580,28 +600,39 @@ func (q *Queries) UpsertUserByFacebookID(ctx context.Context, arg UpsertUserByFa
 		&i.ContactInfo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
 	)
 	return i, err
 }
 
 const upsertUserByGoogleID = `-- name: UpsertUserByGoogleID :one
-INSERT INTO users (id, email, username, display_name, photo_url, google_id, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S+00:00', 'now'))
+INSERT INTO users (id, email, username, display_name, photo_url, oauth_photo_url, google_id, updated_at)
+VALUES (
+    ?1, ?2, ?3, ?4,
+    ?5, ?6, ?7,
+    strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+)
 ON CONFLICT(google_id) DO UPDATE SET
     email = excluded.email,
     display_name = excluded.display_name,
-    photo_url = excluded.photo_url,
+    oauth_photo_url = excluded.oauth_photo_url,
+    photo_url = CASE
+        WHEN users.avatar_key IS NULL THEN excluded.oauth_photo_url
+        ELSE users.photo_url
+    END,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
 `
 
 type UpsertUserByGoogleIDParams struct {
-	ID          string
-	Email       string
-	Username    *string
-	DisplayName string
-	PhotoUrl    *string
-	GoogleID    *string
+	ID            string
+	Email         string
+	Username      *string
+	DisplayName   string
+	PhotoUrl      *string
+	OauthPhotoUrl *string
+	GoogleID      *string
 }
 
 func (q *Queries) UpsertUserByGoogleID(ctx context.Context, arg UpsertUserByGoogleIDParams) (User, error) {
@@ -611,6 +642,7 @@ func (q *Queries) UpsertUserByGoogleID(ctx context.Context, arg UpsertUserByGoog
 		arg.Username,
 		arg.DisplayName,
 		arg.PhotoUrl,
+		arg.OauthPhotoUrl,
 		arg.GoogleID,
 	)
 	var i User
@@ -627,6 +659,8 @@ func (q *Queries) UpsertUserByGoogleID(ctx context.Context, arg UpsertUserByGoog
 		&i.ContactInfo,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
 	)
 	return i, err
 }

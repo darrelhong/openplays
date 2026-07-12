@@ -177,6 +177,8 @@ type User struct {
 	ContactInfo   *string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+	OauthPhotoUrl *string
+	AvatarKey     *string
 }
 
 type UserBlock struct {

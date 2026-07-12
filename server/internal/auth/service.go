@@ -152,12 +152,13 @@ func (s *Service) upsertUser(ctx context.Context, id Identity) (db.User, error) 
 		case ProviderGoogle:
 			providerID := id.ProviderID
 			user, err = s.store.UpsertUserByGoogleID(ctx, db.UpsertUserByGoogleIDParams{
-				ID:          uuid.New().String(),
-				Email:       email,
-				Username:    &username,
-				DisplayName: id.DisplayName,
-				PhotoUrl:    photoURL,
-				GoogleID:    &providerID,
+				ID:            uuid.New().String(),
+				Email:         email,
+				Username:      &username,
+				DisplayName:   id.DisplayName,
+				PhotoUrl:      photoURL,
+				OauthPhotoUrl: photoURL,
+				GoogleID:      &providerID,
 			})
 			// Email conflict → user exists via Facebook, link Google to that account
 			if err != nil && isEmailConflict(err) {
@@ -169,12 +170,13 @@ func (s *Service) upsertUser(ctx context.Context, id Identity) (db.User, error) 
 		case ProviderFacebook:
 			providerID := id.ProviderID
 			user, err = s.store.UpsertUserByFacebookID(ctx, db.UpsertUserByFacebookIDParams{
-				ID:          uuid.New().String(),
-				Email:       email,
-				Username:    &username,
-				DisplayName: id.DisplayName,
-				PhotoUrl:    photoURL,
-				FacebookID:  &providerID,
+				ID:            uuid.New().String(),
+				Email:         email,
+				Username:      &username,
+				DisplayName:   id.DisplayName,
+				PhotoUrl:      photoURL,
+				OauthPhotoUrl: photoURL,
+				FacebookID:    &providerID,
 			})
 			// Email conflict → user exists via Google, link Facebook to that account
 			if err != nil && isEmailConflict(err) {
