@@ -161,3 +161,19 @@ func TestConfigAllowsLoopbackDevelopmentURLs(t *testing.T) {
 		t.Fatalf("Validate: %v", err)
 	}
 }
+
+func TestUsesPathStyleEndpoint(t *testing.T) {
+	for _, endpoint := range []string{
+		"http://localhost:9000",
+		"http://127.0.0.1:9000",
+		"http://[::1]:9000",
+	} {
+		if !usesPathStyleEndpoint(endpoint) {
+			t.Errorf("usesPathStyleEndpoint(%q) = false, want true", endpoint)
+		}
+	}
+
+	if usesPathStyleEndpoint("https://account.r2.cloudflarestorage.com") {
+		t.Error("R2 endpoint unexpectedly uses path-style addressing")
+	}
+}

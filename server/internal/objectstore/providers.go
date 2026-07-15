@@ -3,6 +3,7 @@ package objectstore
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -21,6 +22,7 @@ func New(ctx context.Context, cfg Config) (*Store, error) {
 	}
 	client := s3.NewFromConfig(awsCfg, func(options *s3.Options) {
 		options.BaseEndpoint = aws.String(cfg.Endpoint)
+		options.UsePathStyle = usesPathStyleEndpoint(cfg.Endpoint)
 	})
 	bucket, err := s3blob.OpenBucket(ctx, client, cfg.Bucket, nil)
 	if err != nil {
@@ -33,4 +35,11 @@ func New(ctx context.Context, cfg Config) (*Store, error) {
 		return nil, err
 	}
 	return store, nil
+}
+
+// Local S3-compatible stores such as MinIO do not normally have wildcard DNS
+// configured, so address buckets as /bucket/key instead of bucket.host/key.
+func usesPathStyleEndpoint(endpoint string) bool {
+	parsed, err := url.Parse(endpoint)
+	return err == nil && isLoopbackHost(parsed.Hostname())
 }

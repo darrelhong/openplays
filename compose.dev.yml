@@ -1,0 +1,32 @@
+name: openplays-dev
+
+services:
+  object-store:
+    image: quay.io/minio/minio:RELEASE.2025-06-13T11-33-47Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: openplays
+      MINIO_ROOT_PASSWORD: openplays-local-secret
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - object-store-data:/data
+
+  object-store-init:
+    image: quay.io/minio/mc:RELEASE.2025-05-21T01-59-54Z
+    depends_on:
+      - object-store
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until mc alias set local http://object-store:9000 openplays openplays-local-secret; do
+          sleep 1
+        done
+        mc mb --ignore-existing local/openplays-local
+        mc anonymous set download local/openplays-local
+    restart: "no"
+
+volumes:
+  object-store-data:

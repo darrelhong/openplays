@@ -33,6 +33,34 @@ web/        SvelteKit frontend
 deploy/     Systemd units, Caddyfile, setup/deploy scripts
 ```
 
+## Local object storage
+
+The development Compose stack runs MinIO, creates the `openplays-local` bucket,
+and makes its objects publicly readable. The Go API and SvelteKit app still run
+directly on the host.
+
+On macOS, start a Docker-compatible VM with Colima, then start the stack:
+
+```bash
+colima start --cpu 2 --memory 2 --disk 10
+docker-compose -f compose.dev.yml up -d
+```
+
+Copy `server/.env.example` to `server/.env` if needed. Its object-store values
+already match this stack. MinIO's API is available at
+`http://localhost:9000`; its console is at `http://localhost:9001` with username
+`openplays` and password `openplays-local-secret`.
+
+Stop the services while preserving uploaded files:
+
+```bash
+docker-compose -f compose.dev.yml down
+```
+
+Add `--volumes` to that command when you want to delete all local objects and
+recreate the bucket from scratch. If Docker's Compose CLI plugin is configured,
+the equivalent `docker compose` commands work too.
+
 ## CI/CD
 
 GitHub Actions runs on every push/PR:
