@@ -391,3 +391,14 @@ func TestLogin_PlusAddressing_NormalizedBeforeMerge(t *testing.T) {
 		t.Errorf("email = %q, want test@gmail.com (normalized)", result.User.Email)
 	}
 }
+
+func TestMapUserReportsCustomAvatarWithoutExposingKey(t *testing.T) {
+	key := "avatars/user/custom.jpg"
+	mapped := auth.MapUser(db.User{AvatarKey: &key})
+	if !mapped.HasCustomAvatar {
+		t.Fatal("HasCustomAvatar = false, want true")
+	}
+	if auth.MapUser(db.User{}).HasCustomAvatar {
+		t.Fatal("HasCustomAvatar = true without avatar key")
+	}
+}

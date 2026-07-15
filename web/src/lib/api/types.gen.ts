@@ -1523,6 +1523,7 @@ export interface components {
 			created_at: string;
 			display_name: string;
 			email: string;
+			has_custom_avatar: boolean;
 			id: string;
 			photo_url?: string;
 			sports_profile?: components['schemas']['SportsProfile'];

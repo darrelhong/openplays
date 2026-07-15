@@ -227,6 +227,7 @@ SELECT
     u.status,
     u.sports_profile,
     u.contact_info,
+    u.avatar_key,
     u.created_at,
     u.updated_at
 FROM sessions s
@@ -248,6 +249,7 @@ type GetSessionWithUserRow struct {
 	Status        string
 	SportsProfile *string
 	ContactInfo   *string
+	AvatarKey     *string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -269,6 +271,7 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, token string) (GetSess
 		&i.Status,
 		&i.SportsProfile,
 		&i.ContactInfo,
+		&i.AvatarKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

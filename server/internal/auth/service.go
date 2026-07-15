@@ -60,16 +60,17 @@ type Store interface {
 
 // User is the public representation of a user.
 type User struct {
-	ID            string               `json:"id"`
-	Email         string               `json:"email"`
-	Username      *string              `json:"username,omitempty"`
-	DisplayName   string               `json:"display_name"`
-	PhotoURL      *string              `json:"photo_url,omitempty"`
-	Status        string               `json:"status"`
-	SportsProfile *model.SportsProfile `json:"sports_profile,omitempty"`
-	ContactInfo   *string              `json:"contact_info,omitempty"`
-	CreatedAt     string               `json:"created_at"`
-	UpdatedAt     string               `json:"updated_at"`
+	ID              string               `json:"id"`
+	Email           string               `json:"email"`
+	Username        *string              `json:"username,omitempty"`
+	DisplayName     string               `json:"display_name"`
+	PhotoURL        *string              `json:"photo_url,omitempty"`
+	HasCustomAvatar bool                 `json:"has_custom_avatar"`
+	Status          string               `json:"status"`
+	SportsProfile   *model.SportsProfile `json:"sports_profile,omitempty"`
+	ContactInfo     *string              `json:"contact_info,omitempty"`
+	CreatedAt       string               `json:"created_at"`
+	UpdatedAt       string               `json:"updated_at"`
 }
 
 // LoginResult is returned by Login on success.
@@ -246,32 +247,34 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 func MapUser(u db.User) User {
 	sportsProfile, _ := model.ParseSportsProfile(u.SportsProfile)
 	return User{
-		ID:            u.ID,
-		Email:         u.Email,
-		Username:      u.Username,
-		DisplayName:   u.DisplayName,
-		PhotoURL:      u.PhotoUrl,
-		Status:        u.Status,
-		SportsProfile: sportsProfile,
-		ContactInfo:   u.ContactInfo,
-		CreatedAt:     u.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     u.UpdatedAt.Format(time.RFC3339),
+		ID:              u.ID,
+		Email:           u.Email,
+		Username:        u.Username,
+		DisplayName:     u.DisplayName,
+		PhotoURL:        u.PhotoUrl,
+		HasCustomAvatar: u.AvatarKey != nil,
+		Status:          u.Status,
+		SportsProfile:   sportsProfile,
+		ContactInfo:     u.ContactInfo,
+		CreatedAt:       u.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       u.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
 func mapSessionUser(s db.GetSessionWithUserRow) User {
 	sportsProfile, _ := model.ParseSportsProfile(s.SportsProfile)
 	return User{
-		ID:            s.UserID2,
-		Email:         s.Email,
-		Username:      s.Username,
-		DisplayName:   s.DisplayName,
-		PhotoURL:      s.PhotoUrl,
-		Status:        s.Status,
-		SportsProfile: sportsProfile,
-		ContactInfo:   s.ContactInfo,
-		CreatedAt:     s.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     s.UpdatedAt.Format(time.RFC3339),
+		ID:              s.UserID2,
+		Email:           s.Email,
+		Username:        s.Username,
+		DisplayName:     s.DisplayName,
+		PhotoURL:        s.PhotoUrl,
+		HasCustomAvatar: s.AvatarKey != nil,
+		Status:          s.Status,
+		SportsProfile:   sportsProfile,
+		ContactInfo:     s.ContactInfo,
+		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       s.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

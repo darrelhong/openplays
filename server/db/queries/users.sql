@@ -147,6 +147,7 @@ SELECT
     u.status,
     u.sports_profile,
     u.contact_info,
+    u.avatar_key,
     u.created_at,
     u.updated_at
 FROM sessions s
