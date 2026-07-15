@@ -51,10 +51,12 @@ export type SeedUser = {
 	email: string;
 	username: string;
 	display_name: string;
+	photo_url?: string;
 	status: string;
 	sports_profile: Record<string, { level: string }>;
 	created_at: string;
 	updated_at: string;
+	has_custom_avatar: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -70,7 +72,8 @@ export const SEED_USERS: Record<string, SeedUser> = {
 		status: 'active',
 		sports_profile: { badminton: { level: 'A' } },
 		created_at: '2026-05-26T09:02:17Z',
-		updated_at: '2026-05-26T09:02:17Z'
+		updated_at: '2026-05-26T09:02:17Z',
+		has_custom_avatar: false
 	},
 	'seed-host': {
 		id: 'seed-host',
@@ -80,7 +83,8 @@ export const SEED_USERS: Record<string, SeedUser> = {
 		status: 'active',
 		sports_profile: { badminton: { level: 'HB' }, tennis: { level: '3.5' } },
 		created_at: '2026-05-26T09:02:17Z',
-		updated_at: '2026-05-26T09:02:17Z'
+		updated_at: '2026-05-26T09:02:17Z',
+		has_custom_avatar: false
 	},
 	'seed-li': {
 		id: 'seed-li',
@@ -90,7 +94,8 @@ export const SEED_USERS: Record<string, SeedUser> = {
 		status: 'active',
 		sports_profile: { badminton: { level: 'LI' } },
 		created_at: '2026-05-26T09:02:17Z',
-		updated_at: '2026-05-26T09:02:17Z'
+		updated_at: '2026-05-26T09:02:17Z',
+		has_custom_avatar: false
 	}
 };
 

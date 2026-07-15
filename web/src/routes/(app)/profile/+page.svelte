@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
+	import { onDestroy } from 'svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 	import { FormField, TextInput, InputGroup } from '$lib/components/ui/form';
 	import { Select } from '$lib/components/ui/select/index';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import Button from '$lib/components/ui/button.svelte';
+	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import { BADMINTON_LEVELS } from '$lib/consts/index';
 	import {
 		formatTennisLevel,
@@ -15,6 +18,7 @@
 	} from '$lib/utils/sports-profile';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import Camera from '@lucide/svelte/icons/camera';
 
 	let { data }: { data: PageData } = $props();
 
@@ -26,12 +30,72 @@
 	let badmintonLevel = $state(initialSportsProfileForm().badmintonLevel);
 	let tennisLevel = $state(formatTennisLevel(initialSportsProfileForm().tennisLevel));
 	let addSportOpen = $state(false);
+	let avatarInput: HTMLInputElement;
+	let avatarPreview = $state<string>();
+	let avatarClientError = $state('');
+	let avatarBusy = $state<'upload' | 'remove' | null>(null);
+	const maxAvatarBytes = 5 * 1024 * 1024;
 
 	let hasBadminton = $derived(activeSports.includes('badminton'));
 	let hasTennis = $derived(activeSports.includes('tennis'));
 	let availableSports = $derived(
 		PROFILE_SPORT_OPTIONS.filter((sport) => !activeSports.includes(sport.value))
 	);
+	let displayedAvatar = $derived(avatarPreview ?? user.photo_url);
+	let avatarError = $derived(
+		avatarClientError || (avatarBusy === null ? page.form?.avatarError : '') || ''
+	);
+	let avatarSuccess = $derived(avatarBusy === null ? page.form?.avatarSuccess : '');
+
+	const enhanceAvatar = (action: 'upload' | 'remove'): SubmitFunction => {
+		return () => {
+			avatarBusy = action;
+			avatarClientError = '';
+			return async ({ update }) => {
+				try {
+					// Successful updates already invalidate all load data by default.
+					await update();
+				} finally {
+					avatarBusy = null;
+					resetAvatarSelection();
+				}
+			};
+		};
+	};
+
+	function clearAvatarPreview() {
+		if (avatarPreview) {
+			URL.revokeObjectURL(avatarPreview);
+			avatarPreview = undefined;
+		}
+	}
+
+	function resetAvatarSelection() {
+		clearAvatarPreview();
+		if (avatarInput) avatarInput.value = '';
+	}
+
+	function selectAvatar(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		avatarClientError = '';
+		if (!['image/jpeg', 'image/png'].includes(file.type)) {
+			avatarClientError = 'Profile photo must be JPEG or PNG';
+			input.value = '';
+			return;
+		}
+		if (file.size > maxAvatarBytes) {
+			avatarClientError = 'Profile photo must be 5 MB or smaller';
+			input.value = '';
+			return;
+		}
+		clearAvatarPreview();
+		avatarPreview = URL.createObjectURL(file);
+		input.form?.requestSubmit();
+	}
+
+	onDestroy(clearAvatarPreview);
 
 	function initialSportsProfileForm() {
 		return data.sportsProfileForm;
@@ -76,6 +140,59 @@
 <div class="mx-auto mt-8 max-w-md w-full">
 	<div class="p-6 border border-border rounded-xl bg-card">
 		<h1 class="text-xl text-foreground font-bold mb-6">Edit Profile</h1>
+
+		<section class="mb-6 pb-6 border-b border-border flex gap-4 items-center">
+			<UserAvatar
+				src={displayedAvatar}
+				nameForFallback={user.username ?? user.display_name}
+				className="size-20 text-xl"
+			/>
+			<div class="flex flex-1 flex-col gap-2 items-start">
+				<div class="flex flex-wrap gap-2">
+					<form
+						method="POST"
+						action="?/avatar"
+						enctype="multipart/form-data"
+						use:enhance={enhanceAvatar('upload')}
+					>
+						<input
+							bind:this={avatarInput}
+							type="file"
+							name="avatar"
+							accept="image/jpeg,image/png"
+							class="sr-only"
+							onchange={selectAvatar}
+						/>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							class="gap-1.5"
+							disabled={avatarBusy !== null}
+							onclick={() => avatarInput.click()}
+						>
+							<Camera class="size-4" />
+							{avatarBusy === 'upload' ? 'Uploading…' : 'Change photo'}
+						</Button>
+					</form>
+					{#if user.has_custom_avatar}
+						<form method="POST" action="?/removeAvatar" use:enhance={enhanceAvatar('remove')}>
+							<Button type="submit" variant="ghost" size="sm" disabled={avatarBusy !== null}>
+								{avatarBusy === 'remove' ? 'Removing…' : 'Remove'}
+							</Button>
+						</form>
+					{/if}
+				</div>
+				<p class="text-xs text-muted-foreground">JPEG or PNG, up to 5 MB.</p>
+				{#if avatarError}
+					<p class="text-sm text-destructive" role="alert">{avatarError}</p>
+				{:else if avatarSuccess}
+					<p class="text-sm text-success" role="status">
+						{avatarSuccess}
+					</p>
+				{/if}
+			</div>
+		</section>
 
 		<form method="POST" action="?/update" use:enhance class="flex flex-col gap-4">
 			<FormField label="Email" id="email">
