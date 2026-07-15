@@ -17,6 +17,8 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/openplays/data
+# Multipart uploads larger than Huma's in-memory threshold spill to /tmp.
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target

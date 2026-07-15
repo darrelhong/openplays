@@ -10,6 +10,8 @@ WorkingDirectory=/opt/openplays/web
 ExecStart=/usr/bin/node build/index.js
 Environment=PORT=3000
 Environment=HOST=127.0.0.1
+# Accept the 5 MiB avatar plus multipart framing; the Go API enforces the file limit.
+Environment=BODY_SIZE_LIMIT=6M
 EnvironmentFile=/opt/openplays/web/.env
 Restart=on-failure
 RestartSec=5
