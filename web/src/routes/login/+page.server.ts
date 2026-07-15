@@ -1,19 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import { api } from '$lib/api/client';
 import { COOKIE_SECURE } from '$env/static/private';
-import { env } from '$env/dynamic/private';
 import type { Actions, PageServerLoad } from './$types';
-
-function isLoginFeatureEnabled(): boolean {
-	return env.FEATURE_LOGIN === 'true';
-}
 
 // Redirect to home if already logged in
 export const load: PageServerLoad = async ({ locals }) => {
-	if (!isLoginFeatureEnabled()) {
-		redirect(303, '/');
-	}
-
 	if (locals.user) {
 		redirect(303, '/');
 	}
@@ -28,10 +19,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 // 6. We set the cookie on the browser here — browser never talks to Go directly
 export const actions: Actions = {
 	google: async ({ request, cookies }) => {
-		if (!isLoginFeatureEnabled()) {
-			redirect(303, '/');
-		}
-
 		const formData = await request.formData();
 		const credential = formData.get('credential') as string;
 

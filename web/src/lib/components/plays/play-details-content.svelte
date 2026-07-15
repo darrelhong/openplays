@@ -32,12 +32,14 @@
 		user = null,
 		form = null,
 		dialog = true,
+		showLoginButton = false,
 		reviewedUsernames = []
 	}: {
 		play: Play;
 		user?: User | null;
 		form?: ActionForm;
 		dialog?: boolean;
+		showLoginButton?: boolean;
 		reviewedUsernames?: string[];
 	} = $props();
 
@@ -580,7 +582,9 @@
 								{@render requestedBadge()}
 							{/if}
 						{:else if !user}
-							<Button href="/login" size="sm">Sign in to join</Button>
+							{#if showLoginButton}
+								<Button href="/login" size="sm">Sign in to join</Button>
+							{/if}
 						{:else if viewerState === 'creator'}
 							<Badge variant="info" size="sm">Hosting</Badge>
 						{:else if viewerState === 'confirmed'}

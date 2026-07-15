@@ -11,6 +11,7 @@
 		user={data.user}
 		{form}
 		dialog={false}
+		showLoginButton={data.showLoginButton}
 		reviewedUsernames={data.reviewedUsernames}
 	/>
 </div>
