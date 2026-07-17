@@ -26,6 +26,23 @@ func TestGetUserProfile_ReturnsMinimalProfileAndRosterCount(t *testing.T) {
 		Badminton: &model.SportLevelProfile{Level: &level},
 	})
 	target := createSearchTestUser(t, ctx, queries, "profile-alice", "Alice Tan", &username, profileRaw)
+	bio := "Weeknight badminton and tennis player."
+	instagram := "alice.plays"
+	profileLinksRaw, err := model.ProfileLinksString(&model.ProfileLinks{Instagram: &instagram})
+	if err != nil {
+		t.Fatalf("ProfileLinksString: %v", err)
+	}
+	target, err = queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+		ID:            target.ID,
+		DisplayName:   target.DisplayName,
+		Username:      target.Username,
+		SportsProfile: target.SportsProfile,
+		Bio:           &bio,
+		ProfileLinks:  profileLinksRaw,
+	})
+	if err != nil {
+		t.Fatalf("update public profile details: %v", err)
+	}
 
 	hostedPlayID := createProfileTestPlay(t, ctx, queries, "profile-play-hosted", target.ID)
 	confirmedPlayID := createProfileTestPlay(t, ctx, queries, "profile-play-confirmed", viewer.ID)
@@ -74,6 +91,13 @@ func TestGetUserProfile_ReturnsMinimalProfileAndRosterCount(t *testing.T) {
 	}
 	if raw["username"] != "alice_tan" {
 		t.Fatalf("username = %v, want alice_tan", raw["username"])
+	}
+	if raw["bio"] != bio {
+		t.Fatalf("bio = %v, want %q", raw["bio"], bio)
+	}
+	links, ok := raw["profile_links"].(map[string]any)
+	if !ok || links["instagram"] != "alice.plays" {
+		t.Fatalf("profile_links = %#v", raw["profile_links"])
 	}
 	if raw["rostered_play_count"] != float64(2) {
 		t.Fatalf("rostered_play_count = %v, want 2", raw["rostered_play_count"])

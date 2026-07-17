@@ -22,6 +22,8 @@ type PublicUserProfile struct {
 	Username          string                   `json:"username"`
 	PhotoURL          *string                  `json:"photo_url,omitempty"`
 	SportsProfile     *model.SportsProfile     `json:"sports_profile,omitempty"`
+	Bio               *string                  `json:"bio,omitempty"`
+	ProfileLinks      *model.ProfileLinks      `json:"profile_links,omitempty"`
 	Sports            []PublicUserProfileSport `json:"sports"`
 	RosteredPlayCount int64                    `json:"rostered_play_count"`
 	// Review reputation. The rating is an anonymous aggregate; props count
@@ -130,6 +132,7 @@ func hydrateReviewReputation(ctx context.Context, store ProfileStore, profile *P
 
 func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlayCount int64, sportCounts []db.CountRosteredPlaysByUserAndSportRow) PublicUserProfile {
 	profile, _ := model.ParseSportsProfile(row.SportsProfile)
+	profileLinks, _ := model.ParseProfileLinks(row.ProfileLinks)
 	username := ""
 	if row.Username != nil {
 		username = *row.Username
@@ -140,6 +143,8 @@ func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlay
 		Username:          username,
 		PhotoURL:          row.PhotoUrl,
 		SportsProfile:     profile,
+		Bio:               row.Bio,
+		ProfileLinks:      profileLinks,
 		Sports:            publicUserProfileSports(profile, sportCounts),
 		RosteredPlayCount: rosteredPlayCount,
 	}

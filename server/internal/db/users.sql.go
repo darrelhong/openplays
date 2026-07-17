@@ -19,7 +19,7 @@ UPDATE users SET
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?1
   AND avatar_key IS ?2
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
 `
 
 type ClearUserAvatarParams struct {
@@ -45,6 +45,8 @@ func (q *Queries) ClearUserAvatar(ctx context.Context, arg ClearUserAvatarParams
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -186,7 +188,7 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, userID string) error {
 }
 
 const getActiveUserProfileByUsername = `-- name: GetActiveUserProfileByUsername :one
-SELECT id, display_name, username, photo_url, sports_profile
+SELECT id, display_name, username, photo_url, sports_profile, bio, profile_links
 FROM users
 WHERE username = ? AND status = 'active'
 `
@@ -197,6 +199,8 @@ type GetActiveUserProfileByUsernameRow struct {
 	Username      *string
 	PhotoUrl      *string
 	SportsProfile *string
+	Bio           *string
+	ProfileLinks  *string
 }
 
 func (q *Queries) GetActiveUserProfileByUsername(ctx context.Context, username *string) (GetActiveUserProfileByUsernameRow, error) {
@@ -208,6 +212,8 @@ func (q *Queries) GetActiveUserProfileByUsername(ctx context.Context, username *
 		&i.Username,
 		&i.PhotoUrl,
 		&i.SportsProfile,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -227,6 +233,8 @@ SELECT
     u.status,
     u.sports_profile,
     u.contact_info,
+    u.bio,
+    u.profile_links,
     u.avatar_key,
     u.created_at,
     u.updated_at
@@ -249,6 +257,8 @@ type GetSessionWithUserRow struct {
 	Status        string
 	SportsProfile *string
 	ContactInfo   *string
+	Bio           *string
+	ProfileLinks  *string
 	AvatarKey     *string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
@@ -271,6 +281,8 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, token string) (GetSess
 		&i.Status,
 		&i.SportsProfile,
 		&i.ContactInfo,
+		&i.Bio,
+		&i.ProfileLinks,
 		&i.AvatarKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -279,7 +291,7 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, token string) (GetSess
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key FROM users WHERE email = ?
+SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links FROM users WHERE email = ?
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -300,12 +312,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key FROM users WHERE id = ?
+SELECT id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -326,6 +340,8 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -361,7 +377,7 @@ func (q *Queries) IsBlocked(ctx context.Context, arg IsBlockedParams) (bool, err
 const linkFacebookID = `-- name: LinkFacebookID :one
 UPDATE users SET facebook_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE email = ? AND facebook_id IS NULL
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
 `
 
 type LinkFacebookIDParams struct {
@@ -387,6 +403,8 @@ func (q *Queries) LinkFacebookID(ctx context.Context, arg LinkFacebookIDParams) 
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -394,7 +412,7 @@ func (q *Queries) LinkFacebookID(ctx context.Context, arg LinkFacebookIDParams) 
 const linkGoogleID = `-- name: LinkGoogleID :one
 UPDATE users SET google_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE email = ? AND google_id IS NULL
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
 `
 
 type LinkGoogleIDParams struct {
@@ -420,6 +438,8 @@ func (q *Queries) LinkGoogleID(ctx context.Context, arg LinkGoogleIDParams) (Use
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -527,7 +547,7 @@ UPDATE users SET
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?3
   AND avatar_key IS ?4
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
 `
 
 type SetUserAvatarParams struct {
@@ -560,6 +580,8 @@ func (q *Queries) SetUserAvatar(ctx context.Context, arg SetUserAvatarParams) (U
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -569,15 +591,19 @@ UPDATE users SET
     display_name = ?,
     username = ?,
     sports_profile = ?,
+    bio = ?,
+    profile_links = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
 `
 
 type UpdateUserProfileParams struct {
 	DisplayName   string
 	Username      *string
 	SportsProfile *string
+	Bio           *string
+	ProfileLinks  *string
 	ID            string
 }
 
@@ -586,6 +612,8 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.DisplayName,
 		arg.Username,
 		arg.SportsProfile,
+		arg.Bio,
+		arg.ProfileLinks,
 		arg.ID,
 	)
 	var i User
@@ -604,6 +632,8 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -641,7 +671,7 @@ ON CONFLICT(facebook_id) DO UPDATE SET
         ELSE users.photo_url
     END,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
 `
 
 type UpsertUserByFacebookIDParams struct {
@@ -680,6 +710,8 @@ func (q *Queries) UpsertUserByFacebookID(ctx context.Context, arg UpsertUserByFa
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }
@@ -700,7 +732,7 @@ ON CONFLICT(google_id) DO UPDATE SET
         ELSE users.photo_url
     END,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
-RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
 `
 
 type UpsertUserByGoogleIDParams struct {
@@ -739,6 +771,8 @@ func (q *Queries) UpsertUserByGoogleID(ctx context.Context, arg UpsertUserByGoog
 		&i.UpdatedAt,
 		&i.OauthPhotoUrl,
 		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
 	)
 	return i, err
 }

@@ -37,6 +37,8 @@ func (f *fakeProfileStore) UpdateUserProfile(_ context.Context, arg db.UpdateUse
 	u.DisplayName = arg.DisplayName
 	u.Username = arg.Username
 	u.SportsProfile = arg.SportsProfile
+	u.Bio = arg.Bio
+	u.ProfileLinks = arg.ProfileLinks
 	return u, nil
 }
 
@@ -176,6 +178,70 @@ func TestUpdateProfile_InvalidSportsProfile_Returns422(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", resp.StatusCode)
+	}
+}
+
+func TestUpdateProfile_BioAndProfileLinks(t *testing.T) {
+	now := time.Now()
+	profileStore := &fakeProfileStore{
+		updated: db.User{
+			ID: "user-1", Email: "test@test.com", Status: "active",
+			CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setup(activeSession(), profileStore)
+	defer ts.Close()
+
+	body := `{"display_name":"New Name","bio":"  Always up for tennis.  ","profile_links":{"rovo":"@darrel","reclub":"darrel","telegram":"@darrel_sg","instagram":"darrel.plays","facebook":"darrel.plays","x":"darrel_plr","strava_athlete_id":"123456"}}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	if profileStore.lastArgs.Bio == nil || *profileStore.lastArgs.Bio != "Always up for tennis." {
+		t.Fatalf("stored bio = %#v", profileStore.lastArgs.Bio)
+	}
+	links, err := model.ParseProfileLinks(profileStore.lastArgs.ProfileLinks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if links == nil || links.Rovo == nil || *links.Rovo != "darrel" {
+		t.Fatalf("stored links = %#v", links)
+	}
+
+	var out auth.User
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.ProfileLinks == nil || out.ProfileLinks.StravaAthleteID == nil || *out.ProfileLinks.StravaAthleteID != "123456" {
+		t.Fatalf("response profile_links = %#v", out.ProfileLinks)
+	}
+}
+
+func TestUpdateProfile_InvalidProfileLinkReturns422(t *testing.T) {
+	ts := setup(activeSession(), &fakeProfileStore{})
+	defer ts.Close()
+
+	body := `{"display_name":"New Name","profile_links":{"telegram":"not/a/handle"}}`
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want 422", resp.StatusCode)
 	}

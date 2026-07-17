@@ -179,6 +179,8 @@ type User struct {
 	UpdatedAt     time.Time
 	OauthPhotoUrl *string
 	AvatarKey     *string
+	Bio           *string
+	ProfileLinks  *string
 }
 
 type UserBlock struct {

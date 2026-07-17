@@ -69,6 +69,8 @@ type User struct {
 	Status          string               `json:"status"`
 	SportsProfile   *model.SportsProfile `json:"sports_profile,omitempty"`
 	ContactInfo     *string              `json:"contact_info,omitempty"`
+	Bio             *string              `json:"bio,omitempty"`
+	ProfileLinks    *model.ProfileLinks  `json:"profile_links,omitempty"`
 	CreatedAt       string               `json:"created_at"`
 	UpdatedAt       string               `json:"updated_at"`
 }
@@ -246,6 +248,7 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 
 func MapUser(u db.User) User {
 	sportsProfile, _ := model.ParseSportsProfile(u.SportsProfile)
+	profileLinks, _ := model.ParseProfileLinks(u.ProfileLinks)
 	return User{
 		ID:              u.ID,
 		Email:           u.Email,
@@ -256,6 +259,8 @@ func MapUser(u db.User) User {
 		Status:          u.Status,
 		SportsProfile:   sportsProfile,
 		ContactInfo:     u.ContactInfo,
+		Bio:             u.Bio,
+		ProfileLinks:    profileLinks,
 		CreatedAt:       u.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       u.UpdatedAt.Format(time.RFC3339),
 	}
@@ -263,6 +268,7 @@ func MapUser(u db.User) User {
 
 func mapSessionUser(s db.GetSessionWithUserRow) User {
 	sportsProfile, _ := model.ParseSportsProfile(s.SportsProfile)
+	profileLinks, _ := model.ParseProfileLinks(s.ProfileLinks)
 	return User{
 		ID:              s.UserID2,
 		Email:           s.Email,
@@ -273,6 +279,8 @@ func mapSessionUser(s db.GetSessionWithUserRow) User {
 		Status:          s.Status,
 		SportsProfile:   sportsProfile,
 		ContactInfo:     s.ContactInfo,
+		Bio:             s.Bio,
+		ProfileLinks:    profileLinks,
 		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       s.UpdatedAt.Format(time.RFC3339),
 	}

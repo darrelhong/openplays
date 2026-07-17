@@ -51,7 +51,7 @@ SELECT * FROM users WHERE id = ?;
 SELECT * FROM users WHERE email = ?;
 
 -- name: GetActiveUserProfileByUsername :one
-SELECT id, display_name, username, photo_url, sports_profile
+SELECT id, display_name, username, photo_url, sports_profile, bio, profile_links
 FROM users
 WHERE username = ? AND status = 'active';
 
@@ -100,6 +100,8 @@ UPDATE users SET
     display_name = ?,
     username = ?,
     sports_profile = ?,
+    bio = ?,
+    profile_links = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 RETURNING *;
@@ -147,6 +149,8 @@ SELECT
     u.status,
     u.sports_profile,
     u.contact_info,
+    u.bio,
+    u.profile_links,
     u.avatar_key,
     u.created_at,
     u.updated_at

@@ -19,6 +19,8 @@ type UpdateInput struct {
 		DisplayName   string               `json:"display_name" required:"true" doc:"User's display name"`
 		Username      *string              `json:"username,omitempty" doc:"Optional unique handle"`
 		SportsProfile *model.SportsProfile `json:"sports_profile,omitempty" doc:"Self-rated sport levels"`
+		Bio           *string              `json:"bio,omitempty" doc:"Optional public bio, up to 500 characters"`
+		ProfileLinks  *model.ProfileLinks  `json:"profile_links,omitempty" doc:"Optional public profile identifiers"`
 	}
 }
 
@@ -66,10 +68,29 @@ func RegisterUpdate(api huma.API, store ProfileStore) {
 			return nil, huma.Error422UnprocessableEntity(err.Error())
 		}
 
+		bio := user.Bio
+		if input.Body.Bio != nil {
+			bio, err = model.NormalizeBio(input.Body.Bio)
+			if err != nil {
+				return nil, huma.Error422UnprocessableEntity(err.Error())
+			}
+		}
+
+		profileLinks := user.ProfileLinks
+		if input.Body.ProfileLinks != nil {
+			profileLinks = input.Body.ProfileLinks
+		}
+		profileLinksRaw, err := model.ProfileLinksString(profileLinks)
+		if err != nil {
+			return nil, huma.Error422UnprocessableEntity(err.Error())
+		}
+
 		updated, err := store.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
 			DisplayName:   displayName,
 			Username:      username,
 			SportsProfile: sportsProfileRaw,
+			Bio:           bio,
+			ProfileLinks:  profileLinksRaw,
 			ID:            user.ID,
 		})
 		if err != nil {
