@@ -55,8 +55,15 @@
 		return () => {
 			avatarBusy = action;
 			avatarClientError = '';
-			return async ({ update }) => {
+			return async ({ result, update }) => {
 				try {
+					if (
+						result.type === 'failure' &&
+						result.data &&
+						typeof result.data.avatarError === 'string'
+					) {
+						avatarClientError = result.data.avatarError;
+					}
 					// Successful updates already invalidate all load data by default.
 					await update();
 				} finally {
