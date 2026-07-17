@@ -11,6 +11,7 @@
 	import Button from '$lib/components/ui/button.svelte';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import { BADMINTON_LEVELS } from '$lib/consts/index';
+	import { PROFILE_LINK_PROVIDERS } from '$lib/utils/profile-links';
 	import {
 		formatTennisLevel,
 		PROFILE_TENNIS_LEVELS,
@@ -30,6 +31,8 @@
 	let activeSports = $state<ProfileSport[]>([...initialSportsProfileForm().activeSports]);
 	let badmintonLevel = $state(initialSportsProfileForm().badmintonLevel);
 	let tennisLevel = $state(formatTennisLevel(initialSportsProfileForm().tennisLevel));
+	let bio = $state(initialProfileForm().bio);
+	let profileLinks = $state({ ...initialProfileForm().profileLinksForm });
 	let addSportOpen = $state(false);
 	let avatarInput: HTMLInputElement;
 	let avatarPreview = $state<string>();
@@ -106,11 +109,26 @@
 		return data.user;
 	}
 
+	function initialProfileForm() {
+		return (
+			page.form?.profileForm ?? {
+				bio: data.bio,
+				profileLinksForm: data.profileLinksForm
+			}
+		);
+	}
+
 	$effect(() => {
 		const updatedUser = page.form?.user;
 		if (updatedUser) {
 			displayName = updatedUser.display_name;
 			username = updatedUser.username ?? username;
+		}
+
+		const profileForm = page.form?.profileForm;
+		if (profileForm) {
+			bio = profileForm.bio;
+			profileLinks = { ...profileForm.profileLinksForm };
 		}
 
 		const profile = page.form?.sportsProfileForm;
@@ -230,6 +248,19 @@
 				</InputGroup>
 			</FormField>
 
+			<FormField label="Bio" id="bio">
+				<textarea
+					id="bio"
+					name="bio"
+					maxlength={500}
+					rows="4"
+					bind:value={bio}
+					placeholder="Tell other players a little about yourself"
+					class="text-sm text-foreground px-3 py-2 border border-input-border rounded-lg bg-input min-h-24 w-full resize-y placeholder:text-muted-foreground focus:outline-none focus:border-ring"
+				></textarea>
+				<p class="text-xs text-muted-foreground mt-1 text-right">{[...bio].length}/500</p>
+			</FormField>
+
 			<section class="flex flex-col gap-3">
 				<div class="flex gap-3 items-center justify-between">
 					<h2 class="text-sm text-foreground font-medium">Sports</h2>
@@ -330,6 +361,29 @@
 						/>
 					</div>
 				{/if}
+			</section>
+
+			<section class="pt-4 border-t border-border flex flex-col gap-3">
+				<div>
+					<h2 class="text-sm text-foreground font-medium">Social media links</h2>
+				</div>
+
+				{#each PROFILE_LINK_PROVIDERS as provider (provider.key)}
+					<FormField label={provider.label} id={`profile_link_${provider.key}`}>
+						<TextInput
+							id={`profile_link_${provider.key}`}
+							name={`profile_link_${provider.key}`}
+							bind:value={profileLinks[provider.key]}
+							placeholder={provider.placeholder}
+							maxlength={provider.maxLength}
+							pattern={provider.pattern}
+							inputmode={provider.inputMode}
+							autocapitalize="none"
+							autocomplete="off"
+							spellcheck="false"
+						/>
+					</FormField>
+				{/each}
 			</section>
 
 			{#if page.form?.success}

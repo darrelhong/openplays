@@ -1317,6 +1317,15 @@ export interface components {
 			user_id: string;
 			username?: string;
 		};
+		ProfileLinks: {
+			facebook?: string;
+			instagram?: string;
+			reclub?: string;
+			rovo?: string;
+			strava_athlete_id?: string;
+			telegram?: string;
+			x?: string;
+		};
 		PublicUserProfile: {
 			/**
 			 * Format: uri
@@ -1324,9 +1333,11 @@ export interface components {
 			 * @example https://example.com/schemas/PublicUserProfile.json
 			 */
 			readonly $schema?: string;
+			bio?: string;
 			display_name: string;
 			id: string;
 			photo_url?: string;
+			profile_links?: components['schemas']['ProfileLinks'];
 			props: components['schemas']['PublicUserPropCount'][] | null;
 			rating?: components['schemas']['PublicUserRating'];
 			/** Format: int64 */
@@ -1449,8 +1460,12 @@ export interface components {
 			 * @example https://example.com/schemas/UpdateInputBody.json
 			 */
 			readonly $schema?: string;
+			/** @description Optional public bio, up to 500 characters */
+			bio?: string;
 			/** @description User's display name */
 			display_name: string;
+			/** @description Optional public profile identifiers */
+			profile_links?: components['schemas']['ProfileLinks'];
 			/** @description Self-rated sport levels */
 			sports_profile?: components['schemas']['SportsProfile'];
 			/** @description Optional unique handle */
@@ -1519,6 +1534,7 @@ export interface components {
 			 * @example https://example.com/schemas/User.json
 			 */
 			readonly $schema?: string;
+			bio?: string;
 			contact_info?: string;
 			created_at: string;
 			display_name: string;
@@ -1526,6 +1542,7 @@ export interface components {
 			has_custom_avatar: boolean;
 			id: string;
 			photo_url?: string;
+			profile_links?: components['schemas']['ProfileLinks'];
 			sports_profile?: components['schemas']['SportsProfile'];
 			status: string;
 			updated_at: string;

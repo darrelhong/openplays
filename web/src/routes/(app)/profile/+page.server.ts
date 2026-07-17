@@ -1,4 +1,5 @@
 import { api } from '$lib/api/client';
+import { profileLinksFromFormData, profileLinksToForm } from '$lib/utils/profile-links';
 import { sportsProfileFromFormData, sportsProfileToForm } from '$lib/utils/sports-profile';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
@@ -6,7 +7,9 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ parent }) => {
 	const { user } = await parent();
 	return {
-		sportsProfileForm: sportsProfileToForm(user.sports_profile)
+		sportsProfileForm: sportsProfileToForm(user.sports_profile),
+		bio: user.bio ?? '',
+		profileLinksForm: profileLinksToForm(user.profile_links)
 	};
 };
 
@@ -62,18 +65,28 @@ export const actions: Actions = {
 		const displayName = (formData.get('display_name') as string)?.trim();
 		const username = (formData.get('username') as string)?.trim();
 		const sportsProfile = sportsProfileFromFormData(formData);
+		const bio = String(formData.get('bio') ?? '').trim();
+		const profileLinks = profileLinksFromFormData(formData);
+		const profileForm = {
+			bio,
+			profileLinksForm: profileLinksToForm(profileLinks)
+		};
 
 		if (!displayName) {
-			return { error: 'Display name is required' };
+			return fail(400, { error: 'Display name is required', profileForm });
 		}
 
 		if (username === '') {
-			return { error: 'Username cannot be empty' };
+			return fail(400, { error: 'Username cannot be empty', profileForm });
+		}
+
+		if ([...bio].length > 500) {
+			return fail(422, { error: 'Bio must be 500 characters or fewer', profileForm });
 		}
 
 		const sessionToken = cookies.get('session');
 		if (!sessionToken) {
-			return { error: 'Not authenticated' };
+			return fail(401, { error: 'Not authenticated', profileForm });
 		}
 
 		const { data, error } = await api.PATCH('/api/me/', {
@@ -81,22 +94,31 @@ export const actions: Actions = {
 			body: {
 				display_name: displayName,
 				username: username || undefined,
-				sports_profile: sportsProfile
+				sports_profile: sportsProfile,
+				bio,
+				profile_links: profileLinks
 			}
 		});
 
 		if (error) {
-			return { error: error.detail ?? 'Failed to update profile' };
+			return fail(error.status ?? 500, {
+				error: error.detail ?? 'Failed to update profile',
+				profileForm
+			});
 		}
 
 		if (!data) {
-			return { error: 'Failed to update profile' };
+			return fail(500, { error: 'Failed to update profile', profileForm });
 		}
 
 		return {
 			success: true,
 			user: data,
-			sportsProfileForm: sportsProfileToForm(data.sports_profile)
+			sportsProfileForm: sportsProfileToForm(data.sports_profile),
+			profileForm: {
+				bio: data.bio ?? '',
+				profileLinksForm: profileLinksToForm(data.profile_links)
+			}
 		};
 	}
 };
