@@ -132,9 +132,10 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?3 IS NULL OR p.listing_type = ?3)
   AND (?4 IS NULL OR p.sport = ?4)
   AND (?5 IS NULL OR p.source = ?5)
-  AND (?6 IS NULL OR p.venue_id = ?6)
-  AND (?7 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?7))
-  AND (?8 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?8))
+  AND (?6 IS NULL OR p.slots_left > 0)
+  AND (?7 IS NULL OR p.venue_id = ?7)
+  AND (?8 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?8))
+  AND (?9 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?9))
 `
 
 type CountUpcomingPlaysParams struct {
@@ -143,6 +144,7 @@ type CountUpcomingPlaysParams struct {
 	ListingType       interface{}
 	Sport             interface{}
 	Source            interface{}
+	Availability      interface{}
 	VenueID           interface{}
 	FilterLevelMinOrd interface{}
 	FilterLevelMaxOrd interface{}
@@ -156,6 +158,7 @@ func (q *Queries) CountUpcomingPlays(ctx context.Context, arg CountUpcomingPlays
 		arg.ListingType,
 		arg.Sport,
 		arg.Source,
+		arg.Availability,
 		arg.VenueID,
 		arg.FilterLevelMinOrd,
 		arg.FilterLevelMaxOrd,
@@ -176,9 +179,10 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?3 IS NULL OR p.listing_type = ?3)
   AND (?4 IS NULL OR p.sport = ?4)
   AND (?5 IS NULL OR p.source = ?5)
-  AND (?6 IS NULL OR p.venue_id = ?6)
-  AND (?7 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?7))
-  AND (?8 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?8))
+  AND (?6 IS NULL OR p.slots_left > 0)
+  AND (?7 IS NULL OR p.venue_id = ?7)
+  AND (?8 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?8))
+  AND (?9 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?9))
 `
 
 type CountUpcomingPlaysByDistanceParams struct {
@@ -187,6 +191,7 @@ type CountUpcomingPlaysByDistanceParams struct {
 	ListingType       interface{}
 	Sport             interface{}
 	Source            interface{}
+	Availability      interface{}
 	VenueID           interface{}
 	FilterLevelMinOrd interface{}
 	FilterLevelMaxOrd interface{}
@@ -200,6 +205,7 @@ func (q *Queries) CountUpcomingPlaysByDistance(ctx context.Context, arg CountUpc
 		arg.ListingType,
 		arg.Sport,
 		arg.Source,
+		arg.Availability,
 		arg.VenueID,
 		arg.FilterLevelMinOrd,
 		arg.FilterLevelMaxOrd,
@@ -891,14 +897,15 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?3 IS NULL OR p.listing_type = ?3)
   AND (?4 IS NULL OR p.sport = ?4)
   AND (?5 IS NULL OR p.source = ?5)
-  AND (?6 IS NULL OR p.venue_id = ?6)
-  AND (?7 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?7))
-  AND (?8 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?8))
-  AND (?9 IS NULL
-    OR p.starts_at > ?9
-    OR (p.starts_at = ?9 AND p.id > ?10))
+  AND (?6 IS NULL OR p.slots_left > 0)
+  AND (?7 IS NULL OR p.venue_id = ?7)
+  AND (?8 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?8))
+  AND (?9 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?9))
+  AND (?10 IS NULL
+    OR p.starts_at > ?10
+    OR (p.starts_at = ?10 AND p.id > ?11))
 ORDER BY p.starts_at ASC, p.id ASC
-LIMIT ?11
+LIMIT ?12
 `
 
 type ListUpcomingPlaysParams struct {
@@ -907,6 +914,7 @@ type ListUpcomingPlaysParams struct {
 	ListingType       interface{}
 	Sport             interface{}
 	Source            interface{}
+	Availability      interface{}
 	VenueID           interface{}
 	FilterLevelMinOrd interface{}
 	FilterLevelMaxOrd interface{}
@@ -971,6 +979,7 @@ func (q *Queries) ListUpcomingPlays(ctx context.Context, arg ListUpcomingPlaysPa
 		arg.ListingType,
 		arg.Sport,
 		arg.Source,
+		arg.Availability,
 		arg.VenueID,
 		arg.FilterLevelMinOrd,
 		arg.FilterLevelMaxOrd,
@@ -1071,22 +1080,23 @@ WHERE p.ends_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
   AND (?5 IS NULL OR p.listing_type = ?5)
   AND (?6 IS NULL OR p.sport = ?6)
   AND (?7 IS NULL OR p.source = ?7)
-  AND (?8 IS NULL OR p.venue_id = ?8)
-  AND (?9 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?9))
-  AND (?10 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?10))
-  AND (?11 IS NULL
+  AND (?8 IS NULL OR p.slots_left > 0)
+  AND (?9 IS NULL OR p.venue_id = ?9)
+  AND (?10 IS NULL OR (p.level_max_ord IS NULL OR p.level_max_ord >= ?10))
+  AND (?11 IS NULL OR (p.level_min_ord IS NULL OR p.level_min_ord <= ?11))
+  AND (?12 IS NULL
     OR 2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
         cos(radians(?1)) * cos(radians(v.latitude)) *
         pow(sin((radians(v.longitude) - radians(?2)) / 2), 2)
-    )) > ?11
+    )) > ?12
     OR (2 * 6371 * asin(sqrt(
         pow(sin((radians(v.latitude) - radians(?1)) / 2), 2) +
         cos(radians(?1)) * cos(radians(v.latitude)) *
         pow(sin((radians(v.longitude) - radians(?2)) / 2), 2)
-    )) = ?11 AND p.id > ?12))
+    )) = ?12 AND p.id > ?13))
 ORDER BY distance_km ASC, p.id ASC
-LIMIT ?13
+LIMIT ?14
 `
 
 type ListUpcomingPlaysByDistanceParams struct {
@@ -1097,6 +1107,7 @@ type ListUpcomingPlaysByDistanceParams struct {
 	ListingType       interface{}
 	Sport             interface{}
 	Source            interface{}
+	Availability      interface{}
 	VenueID           interface{}
 	FilterLevelMinOrd interface{}
 	FilterLevelMaxOrd interface{}
@@ -1163,6 +1174,7 @@ func (q *Queries) ListUpcomingPlaysByDistance(ctx context.Context, arg ListUpcom
 		arg.ListingType,
 		arg.Sport,
 		arg.Source,
+		arg.Availability,
 		arg.VenueID,
 		arg.FilterLevelMinOrd,
 		arg.FilterLevelMaxOrd,

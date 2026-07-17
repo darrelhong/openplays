@@ -23,6 +23,7 @@ type ListInput struct {
 	ListingType  string                  `query:"listing_type" doc:"Filter by listing type" enum:"play,sell_booking,"`
 	Sport        string                  `query:"sport" doc:"Filter by sport" enum:"badminton,tennis,football,pickleball,"`
 	Source       string                  `query:"source" doc:"Filter by game source" enum:"user,telegram,"`
+	Availability string                  `query:"availability" doc:"Only include games with available slots" enum:"available,"`
 	VenueID      int64                   `query:"venue_id" doc:"Filter by venue ID"`
 	LevelMin     string                  `query:"level_min" doc:"Minimum level code (e.g. HB). Shows plays overlapping this range."`
 	LevelMax     string                  `query:"level_max" doc:"Maximum level code (e.g. LI). Defaults to level_min if only level_min is set."`
@@ -100,6 +101,7 @@ type filters struct {
 	listingType       interface{}
 	sport             interface{}
 	source            interface{}
+	availability      interface{}
 	venueID           interface{}
 	startsAfter       interface{}
 	startsBefore      interface{}
@@ -137,6 +139,9 @@ func buildFilters(input *ListInput) filters {
 	}
 	if input.Source != "" {
 		f.source = input.Source
+	}
+	if input.Availability != "" {
+		f.availability = input.Availability
 	}
 	if input.VenueID != 0 {
 		f.venueID = input.VenueID
@@ -292,6 +297,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 		ListingType:       f.listingType,
 		Sport:             f.sport,
 		Source:            f.source,
+		Availability:      f.availability,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,
@@ -309,6 +315,7 @@ func listByTime(ctx context.Context, queries *db.Queries, input *ListInput, f fi
 		ListingType:       f.listingType,
 		Sport:             f.sport,
 		Source:            f.source,
+		Availability:      f.availability,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,
@@ -343,6 +350,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 		ListingType:       f.listingType,
 		Sport:             f.sport,
 		Source:            f.source,
+		Availability:      f.availability,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,
@@ -360,6 +368,7 @@ func listByDistance(ctx context.Context, queries *db.Queries, input *ListInput, 
 		ListingType:       f.listingType,
 		Sport:             f.sport,
 		Source:            f.source,
+		Availability:      f.availability,
 		VenueID:           f.venueID,
 		StartsAfter:       f.startsAfter,
 		StartsBefore:      f.startsBefore,

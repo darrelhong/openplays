@@ -220,6 +220,14 @@ func TestBuildFilters_Source(t *testing.T) {
 	}
 }
 
+func TestBuildFilters_Availability(t *testing.T) {
+	f := buildFilters(&ListInput{Availability: "available"})
+
+	if got, want := f.availability, "available"; got != want {
+		t.Errorf("availability = %v, want %v", got, want)
+	}
+}
+
 func TestMapTimeRowOmitsTimestampsForUserCreatedPlays(t *testing.T) {
 	creatorID := "creator-1"
 	item := mapTimeRow(listUpcomingPlayRowWithCreatedBy(&creatorID))
