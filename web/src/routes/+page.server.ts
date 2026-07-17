@@ -5,10 +5,12 @@ import type { Actions, PageServerLoad } from './$types';
 import type { operations } from '$lib/api/types.gen';
 
 type Sport = NonNullable<operations['list-plays']['parameters']['query']>['sport'];
+type Availability = NonNullable<operations['list-plays']['parameters']['query']>['availability'];
 
 export const load: PageServerLoad = async ({ url, cookies }) => {
 	const sport = url.searchParams.get('sport') || undefined;
 	const source = url.searchParams.get('source') || undefined;
+	const availability = url.searchParams.get('availability') || undefined;
 	const cursor = url.searchParams.get('cursor');
 	const limit = url.searchParams.get('limit');
 	const lat = url.searchParams.get('lat');
@@ -28,6 +30,7 @@ export const load: PageServerLoad = async ({ url, cookies }) => {
 					query: {
 						sport: sport as Sport,
 						source: source as 'user' | 'telegram' | undefined,
+						availability: availability as Availability,
 						cursor: cursor || undefined,
 						limit: limit ? Number(limit) : undefined,
 						lat: lat ? Number(lat) : undefined,

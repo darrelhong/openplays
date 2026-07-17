@@ -2345,6 +2345,8 @@ export interface operations {
 				sport?: 'badminton' | 'tennis' | 'football' | 'pickleball' | '';
 				/** @description Filter by game source */
 				source?: 'user' | 'telegram' | '';
+				/** @description Only include games with available slots */
+				availability?: 'available' | '';
 				/** @description Filter by venue ID */
 				venue_id?: number;
 				/** @description Minimum level code (e.g. HB). Shows plays overlapping this range. */
