@@ -7,6 +7,8 @@ export type ProfileLinksFormValues = Record<ProfileLinkKey, string>;
 type ProfileLinkProvider = {
 	key: ProfileLinkKey;
 	label: string;
+	displayLabel: string;
+	displayPrefix: '@' | '';
 	placeholder: string;
 	maxLength: number;
 	pattern: string;
@@ -20,6 +22,8 @@ export const PROFILE_LINK_PROVIDERS: ReadonlyArray<ProfileLinkProvider> = [
 	{
 		key: 'rovo',
 		label: 'Rovo username',
+		displayLabel: 'Rovo',
+		displayPrefix: '@',
 		placeholder: 'username',
 		maxLength: 64,
 		pattern: '[A-Za-z0-9._-]+',
@@ -28,6 +32,8 @@ export const PROFILE_LINK_PROVIDERS: ReadonlyArray<ProfileLinkProvider> = [
 	{
 		key: 'reclub',
 		label: 'Reclub username',
+		displayLabel: 'Reclub',
+		displayPrefix: '@',
 		placeholder: 'username',
 		maxLength: 64,
 		pattern: '[A-Za-z0-9._-]+',
@@ -36,6 +42,8 @@ export const PROFILE_LINK_PROVIDERS: ReadonlyArray<ProfileLinkProvider> = [
 	{
 		key: 'telegram',
 		label: 'Telegram',
+		displayLabel: 'Telegram',
+		displayPrefix: '@',
 		placeholder: 'username',
 		maxLength: 32,
 		pattern: '[A-Za-z0-9_]+',
@@ -44,6 +52,8 @@ export const PROFILE_LINK_PROVIDERS: ReadonlyArray<ProfileLinkProvider> = [
 	{
 		key: 'instagram',
 		label: 'Instagram',
+		displayLabel: 'Instagram',
+		displayPrefix: '@',
 		placeholder: 'username',
 		maxLength: 30,
 		pattern: '[A-Za-z0-9._]+',
@@ -52,6 +62,8 @@ export const PROFILE_LINK_PROVIDERS: ReadonlyArray<ProfileLinkProvider> = [
 	{
 		key: 'facebook',
 		label: 'Facebook',
+		displayLabel: 'Facebook',
+		displayPrefix: '@',
 		placeholder: 'username',
 		maxLength: 64,
 		pattern: '[A-Za-z0-9._-]+',
@@ -60,6 +72,8 @@ export const PROFILE_LINK_PROVIDERS: ReadonlyArray<ProfileLinkProvider> = [
 	{
 		key: 'x',
 		label: 'X (Twitter)',
+		displayLabel: 'X',
+		displayPrefix: '@',
 		placeholder: 'username',
 		maxLength: 15,
 		pattern: '[A-Za-z0-9_]+',
@@ -68,6 +82,8 @@ export const PROFILE_LINK_PROVIDERS: ReadonlyArray<ProfileLinkProvider> = [
 	{
 		key: 'strava_athlete_id',
 		label: 'Strava ID',
+		displayLabel: 'Strava',
+		displayPrefix: '',
 		placeholder: 'athlete ID',
 		maxLength: 20,
 		pattern: '[0-9]+',

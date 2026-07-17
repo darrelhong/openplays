@@ -9,6 +9,7 @@
 	import RatingSummaryDialog from '$lib/components/reviews/rating-summary-dialog.svelte';
 	import { SPORTS } from '$lib/consts/index';
 	import { formatDistance } from '$lib/utils/format-distance';
+	import { PROFILE_LINK_PROVIDERS, profileLinkUrl } from '$lib/utils/profile-links';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form?: ActionData } = $props();
@@ -18,6 +19,21 @@
 	const isOwnProfile = $derived(data.user.id === profile.id);
 	const shoutouts = $derived(data.shoutouts.items ?? []);
 	const onShoutoutPage = $derived(page.url.searchParams.has('cursor'));
+	const socialLinks = $derived(
+		PROFILE_LINK_PROVIDERS.flatMap((provider) => {
+			const identifier = profile.profile_links?.[provider.key];
+			return identifier
+				? [
+						{
+							key: provider.key,
+							label: provider.displayLabel,
+							displayValue: `${provider.displayPrefix}${identifier}`,
+							url: profileLinkUrl(provider, identifier)
+						}
+					]
+				: [];
+		})
+	);
 
 	function nextShoutoutPageUrl(nextCursor: string): string {
 		const params = new SvelteURLSearchParams(page.url.searchParams);
@@ -90,6 +106,29 @@
 
 		{#if form?.error}
 			<p class="text-sm text-destructive mt-3">{form.error}</p>
+		{/if}
+
+		{#if profile.bio}
+			<p class="text-sm text-foreground mt-4 whitespace-pre-wrap break-words">{profile.bio}</p>
+		{/if}
+
+		{#if socialLinks.length > 0}
+			<ul class="mt-4 flex flex-wrap gap-x-4 gap-y-1.5">
+				{#each socialLinks as link (link.key)}
+					<li class="text-sm flex shrink-0 gap-1.5 items-baseline">
+						<span class="text-muted shrink-0">{link.label}:</span>
+						<a
+							href={link.url}
+							target="_blank"
+							rel="external noopener noreferrer"
+							aria-label={`View ${link.label} profile (opens in a new tab)`}
+							class="text-foreground whitespace-nowrap hover:text-primary focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 hover:underline"
+						>
+							{link.displayValue}
+						</a>
+					</li>
+				{/each}
+			</ul>
 		{/if}
 
 		<div class="mt-6 py-4 border-y border-border">
