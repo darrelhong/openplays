@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { onDestroy } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData } from './$types';
@@ -139,7 +140,14 @@
 
 <div class="mx-auto mt-8 max-w-md w-full">
 	<div class="p-6 border border-border rounded-xl bg-card">
-		<h1 class="text-xl text-foreground font-bold mb-6">Edit Profile</h1>
+		<div class="mb-6 flex gap-3 items-center justify-between">
+			<h1 class="text-xl text-foreground font-bold">Edit Profile</h1>
+			{#if user.username}
+				<Button href={resolve(`/${user.username}`)} variant="outline" size="sm">
+					View profile
+				</Button>
+			{/if}
+		</div>
 
 		<section class="mb-6 pb-6 border-b border-border flex gap-4 items-center">
 			<UserAvatar
