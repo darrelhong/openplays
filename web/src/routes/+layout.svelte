@@ -148,7 +148,7 @@
 					<Dialog.Footer class="mt-4">
 						<Button
 							size="sm"
-							href="https://github.com/darrelhong/openplays/issues/new"
+							href="https://fragrant-prawn-836.notion.site/8adf60f613054080abb7b8b6677e74d1"
 							target="_blank"
 							rel="external noopener noreferrer"
 							variant="secondary">Report issue / Request feature</Button
