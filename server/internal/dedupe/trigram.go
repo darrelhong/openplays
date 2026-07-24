@@ -64,6 +64,11 @@ func Similarity(a, b string) float64 {
 // emojiRe matches most emoji characters and variation selectors.
 var emojiRe = regexp.MustCompile(`[\x{1F000}-\x{1FFFF}]|[\x{2600}-\x{27BF}]|[\x{FE00}-\x{FE0F}]|[\x{200D}]|[\x{20E3}]|[\x{E0020}-\x{E007F}]`)
 
+// StripEmoji removes emoji characters and their formatting code points.
+func StripEmoji(text string) string {
+	return emojiRe.ReplaceAllString(text, "")
+}
+
 // Normalize prepares text for comparison by lowercasing, stripping emoji,
 // collapsing whitespace, and removing common noise characters.
 func Normalize(text string) string {
@@ -71,7 +76,7 @@ func Normalize(text string) string {
 	text = strings.ToLower(text)
 
 	// Strip emoji
-	text = emojiRe.ReplaceAllString(text, "")
+	text = StripEmoji(text)
 
 	// Strip common noise: hashtags, markdown formatting
 	text = strings.ReplaceAll(text, "#", "")

@@ -2,7 +2,67 @@ package pipeline
 
 import (
 	"testing"
+	"time"
+
+	"openplays/server/internal/model"
 )
+
+func TestToUpsertPlayParams_NormalizesHostNameForDeduplication(t *testing.T) {
+	start := time.Date(2026, 7, 24, 19, 0, 0, 0, time.FixedZone("SGT", 8*60*60))
+	date := "2026-07-24"
+	startTime := "19:00"
+	endTime := "21:00"
+	input := MessageInput{
+		SenderName: "Jasmine",
+		Timestamp:  start,
+		Timezone:   "Asia/Singapore",
+		Source:     "telegram",
+	}
+
+	tests := []struct {
+		name     string
+		hostName string
+	}{
+		{name: "unchanged", hostName: "Jasmine"},
+		{name: "emoji and whitespace", hostName: "🏸  Jasmine"},
+		{name: "case variation", hostName: "JASMINE"},
+		{name: "invisible formatting", hostName: "\u200bJasmine\u200f"},
+		{name: "edge punctuation", hostName: "** Jasmine! **"},
+		{name: "compatibility characters", hostName: "Ｊａｓｍｉｎｅ"},
+		{name: "empty after normalization falls back to sender", hostName: "🏸"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			candidate := model.ParsedPlayCandidate{
+				HostName:  &tt.hostName,
+				Date:      &date,
+				StartTime: &startTime,
+				EndTime:   &endTime,
+			}
+
+			params := ToUpsertPlayParams(&candidate, input)
+			if params.HostName != "Jasmine" {
+				t.Errorf("HostName for %q = %q, want %q", tt.hostName, params.HostName, "Jasmine")
+			}
+		})
+	}
+}
+
+func TestToUpsertPlayParams_PreservesDifferentOrganizer(t *testing.T) {
+	hostName := "🏸 Alice"
+	candidate := model.ParsedPlayCandidate{HostName: &hostName}
+
+	params := ToUpsertPlayParams(&candidate, MessageInput{
+		SenderName: "Jasmine",
+		Timezone:   "Asia/Singapore",
+		Source:     "telegram",
+	})
+
+	if params.HostName != "Alice" {
+		t.Fatalf("HostName = %q, want %q", params.HostName, "Alice")
+	}
+}
 
 func TestParseResponse_FloatCourts(t *testing.T) {
 	t.Run("array with float courts parses", func(t *testing.T) {

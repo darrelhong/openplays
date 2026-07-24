@@ -3,11 +3,15 @@ package pipeline
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 
 	"openplays/server/internal/db"
+	"openplays/server/internal/dedupe"
 	"openplays/server/internal/model"
 )
 
@@ -20,9 +24,17 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.Ups
 		currency = *c.Currency
 	}
 
-	hostName := input.SenderName
-	if c.HostName != nil && *c.HostName != "" {
-		hostName = *c.HostName
+	senderName := normalizeHostName(input.SenderName)
+	hostName := senderName
+	if c.HostName != nil {
+		if extractedName := normalizeHostName(*c.HostName); extractedName != "" {
+			hostName = extractedName
+			// Prefer the sender's stable casing when the extractor only changed
+			// capitalization or Unicode representation.
+			if senderName != "" && strings.EqualFold(extractedName, senderName) {
+				hostName = senderName
+			}
+		}
 	}
 
 	listingType := model.ListingPlay
@@ -69,6 +81,27 @@ func ToUpsertPlayParams(c *model.ParsedPlayCandidate, input MessageInput) db.Ups
 	}
 
 	return params
+}
+
+// normalizeHostName keeps the readable name used in listings while removing
+// Unicode, formatting, and edge-noise differences that would bypass the
+// database deduplication key.
+func normalizeHostName(hostName string) string {
+	hostName = norm.NFKC.String(dedupe.StripEmoji(hostName))
+	hostName = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || unicode.In(r, unicode.Cf) {
+			return -1
+		}
+		if unicode.IsSpace(r) {
+			return ' '
+		}
+		return r
+	}, hostName)
+	hostName = strings.Join(strings.Fields(hostName), " ")
+
+	return strings.TrimFunc(hostName, func(r rune) bool {
+		return unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r)
+	})
 }
 
 func toGenderPref(s *string) *model.GenderPref {
