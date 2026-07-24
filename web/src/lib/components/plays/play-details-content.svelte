@@ -493,7 +493,7 @@
 			{#if play.game_type}
 				<div class="flex gap-4">
 					<dt class="text-muted w-24">Type</dt>
-					<dd>{capitalize(play.game_type)}</dd>
+					<dd>{capitalize(play.game_type.replaceAll('_', ' '))}</dd>
 				</div>
 			{/if}
 			<div class="flex gap-4">

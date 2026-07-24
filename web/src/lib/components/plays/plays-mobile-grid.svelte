@@ -93,7 +93,7 @@
 					{#if play.game_type}
 						<div>
 							<dt class="text-xs text-muted tracking-wide">Type</dt>
-							<dd class="mt-0.5">{capitalize(play.game_type)}</dd>
+							<dd class="mt-0.5">{capitalize(play.game_type.replaceAll('_', ' '))}</dd>
 						</div>
 					{/if}
 				</dl>
