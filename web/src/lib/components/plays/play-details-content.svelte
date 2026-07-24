@@ -674,7 +674,7 @@
 				{#each play.contacts as contact (`${contact.type}:${contact.value}`)}
 					<div class="text-sm flex gap-4">
 						<dt class="text-muted shrink-0 w-24">{contact.type}</dt>
-						<dd>{contact.value}</dd>
+						<dd class="min-w-0 break-words">{contact.value}</dd>
 					</div>
 				{/each}
 			</div>
