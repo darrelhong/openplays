@@ -93,6 +93,112 @@ func TestUpsertPlay_UpdateOnConflict(t *testing.T) {
 	}
 }
 
+func TestPlayDedupe_AllowsMatchingTelegramAndUserGames(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	startsAt := futureTime()
+	venueID := int64(1)
+	if _, err := queries.UpsertPlay(ctx, makePlayParams("Daniel", "SBH", venueID, startsAt)); err != nil {
+		t.Fatalf("UpsertPlay telegram game: %v", err)
+	}
+
+	creatorID := createMyPlaysTestUser(t, ctx, queries, "matching-source-user")
+	userGame := makeUserPlayParams(uuid.NewString(), "Daniel", creatorID, startsAt)
+	userGame.VenueID = &venueID
+	if _, err := queries.CreatePlay(ctx, userGame); err != nil {
+		t.Fatalf("CreatePlay matching user game: %v", err)
+	}
+
+	plays, err := queries.GetUpcomingPlays(ctx)
+	if err != nil {
+		t.Fatalf("GetUpcomingPlays: %v", err)
+	}
+	if len(plays) != 2 {
+		t.Fatalf("plays count = %d, want separate Telegram and user games", len(plays))
+	}
+}
+
+func TestCreatePlay_RejectsDuplicateActiveGameForCreator(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	startsAt := futureTime()
+	venueID := int64(1)
+	creatorID := createMyPlaysTestUser(t, ctx, queries, "duplicate-start-user")
+	first := makeUserPlayParams(uuid.NewString(), "First game", creatorID, startsAt)
+	first.VenueID = &venueID
+	firstPlay, err := queries.CreatePlay(ctx, first)
+	if err != nil {
+		t.Fatalf("CreatePlay first game: %v", err)
+	}
+
+	second := makeUserPlayParams(uuid.NewString(), "Different game", creatorID, startsAt)
+	second.VenueID = &venueID
+	if _, err := queries.CreatePlay(ctx, second); err == nil {
+		t.Fatal("CreatePlay duplicate game succeeded, want unique constraint error")
+	}
+
+	if _, err := queries.CancelUserCreatedPlay(ctx, db.CancelUserCreatedPlayParams{
+		ID:          firstPlay.ID,
+		CancelledBy: &creatorID,
+	}); err != nil {
+		t.Fatalf("CancelUserCreatedPlay first game: %v", err)
+	}
+	if _, err := queries.CreatePlay(ctx, second); err != nil {
+		t.Fatalf("CreatePlay replacement after cancellation: %v", err)
+	}
+}
+
+func TestCreatePlay_AllowsSameCreatorAtSameTimeForDifferentGameIdentity(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	startsAt := futureTime()
+	creatorID := createMyPlaysTestUser(t, ctx, queries, "different-game-user")
+	firstVenueID := int64(1)
+	secondVenueID := int64(2)
+
+	first := makeUserPlayParams(uuid.NewString(), "First venue", creatorID, startsAt)
+	first.VenueID = &firstVenueID
+	if _, err := queries.CreatePlay(ctx, first); err != nil {
+		t.Fatalf("CreatePlay first venue: %v", err)
+	}
+
+	differentVenue := makeUserPlayParams(uuid.NewString(), "Second venue", creatorID, startsAt)
+	differentVenue.VenueID = &secondVenueID
+	if _, err := queries.CreatePlay(ctx, differentVenue); err != nil {
+		t.Fatalf("CreatePlay different venue: %v", err)
+	}
+
+	differentSport := makeUserPlayParams(uuid.NewString(), "Different sport", creatorID, startsAt)
+	differentSport.VenueID = &firstVenueID
+	differentSport.Sport = model.SportTennis
+	if _, err := queries.CreatePlay(ctx, differentSport); err != nil {
+		t.Fatalf("CreatePlay different sport: %v", err)
+	}
+}
+
+func TestCreatePlay_AllowsDifferentCreatorsAtSameTime(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	startsAt := futureTime()
+	firstCreatorID := createMyPlaysTestUser(t, ctx, queries, "same-time-user-1")
+	secondCreatorID := createMyPlaysTestUser(t, ctx, queries, "same-time-user-2")
+
+	if _, err := queries.CreatePlay(ctx, makeUserPlayParams(uuid.NewString(), "First user", firstCreatorID, startsAt)); err != nil {
+		t.Fatalf("CreatePlay first user: %v", err)
+	}
+	if _, err := queries.CreatePlay(ctx, makeUserPlayParams(uuid.NewString(), "Second user", secondCreatorID, startsAt)); err != nil {
+		t.Fatalf("CreatePlay second user: %v", err)
+	}
+}
+
 func TestUpsertPlay_DifferentVenueID_InsertsBoth(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)
@@ -398,10 +504,11 @@ func TestListMyUpcomingPlays_PaginatesByStartsAtAndID(t *testing.T) {
 
 	userID := createMyPlaysTestUser(t, ctx, queries, "page-user")
 	ownerID := createMyPlaysTestUser(t, ctx, queries, "page-owner")
+	secondOwnerID := createMyPlaysTestUser(t, ctx, queries, "page-owner-2")
 	startsAt := futureTime().Truncate(time.Hour)
 
 	first := createMyPlaysTestPlay(t, ctx, queries, "page-a", "Page A", ownerID, startsAt)
-	second := createMyPlaysTestPlay(t, ctx, queries, "page-b", "Page B", ownerID, startsAt)
+	second := createMyPlaysTestPlay(t, ctx, queries, "page-b", "Page B", secondOwnerID, startsAt)
 	third := createMyPlaysTestPlay(t, ctx, queries, "page-c", "Page C", ownerID, startsAt.Add(time.Hour))
 	for _, play := range []db.Play{first, second, third} {
 		if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{PlayID: play.ID, UserID: &userID, Status: model.ParticipantConfirmed}); err != nil {
