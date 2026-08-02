@@ -49,7 +49,13 @@ async function confirmAction(page: Page, triggerName: string | RegExp, confirmNa
 	await page.getByRole('button', { name: triggerName }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toBeVisible();
-	await dialog.getByRole('button', { name: confirmName }).click();
+	const actionURL = page.url();
+	// SvelteKit redirects successful form actions back to this same URL. Wait
+	// for the POST itself rather than the deprecated/racy navigation helper.
+	const actionResponse = page.waitForResponse(
+		(response) => response.request().method() === 'POST' && response.url().startsWith(actionURL)
+	);
+	await Promise.all([actionResponse, dialog.getByRole('button', { name: confirmName }).click()]);
 }
 
 const advanced = SEED_USERS['seed-advanced']!;
