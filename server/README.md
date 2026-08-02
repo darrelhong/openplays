@@ -114,6 +114,26 @@ For local seed-user login without OAuth, also set:
 DEV_AUTH_ENABLED=true
 ```
 
+To inspect email sign-in codes locally, start Mailpit with the development compose stack:
+
+```bash
+docker compose -f ../compose.dev.yml up -d mailpit
+```
+
+Then use these local-only API settings:
+
+```env
+EMAIL_OTP_ENABLED=true
+EMAIL_OTP_SECRET=replace-with-a-random-32-byte-secret
+EMAIL_PROVIDER=smtp
+SMTP_HOST=127.0.0.1
+SMTP_PORT=1025
+EMAIL_FROM=OpenPlays <login@localhost>
+```
+
+Open http://localhost:8025 to inspect the captured message. Mailpit accepts SMTP on port 1025 and
+does not deliver messages externally.
+
 Seed local dev users:
 
 ```bash
@@ -140,9 +160,12 @@ The server starts on port 8080 by default (configure with `API_PORT` in `.env`).
 ### Auth endpoints
 
 - `POST /api/auth/google` — body: `{"credential": "<google-id-token>"}` → returns user + session token, sets `session` cookie
+- `POST /api/auth/email-otp/request` — body: `{"email": "user@gmail.com"}` → sends a 6-digit code valid for 15 minutes
+- `POST /api/auth/email-otp/verify` — body: `{"email": "user@gmail.com", "code": "123456"}` → returns user + session token, sets `session` cookie
 - `GET /api/auth/me` — returns current user from session cookie
 - `POST /api/auth/logout` — clears session
 - `POST /api/dev/login` — local dev only, enabled by `DEV_AUTH_ENABLED=true`; creates a session for a seeded user
+- `GET /api/dev/email-otp-preview` — local dev only, enabled by `DEV_AUTH_ENABLED=true`; renders the OTP email HTML with a sample code
 
 ### Play endpoints
 
@@ -161,6 +184,14 @@ Pagination is cursor-based. The response includes `next_cursor` and `has_more` f
 | `API_PORT` | No | `8080` | HTTP port |
 | `GOOGLE_CLIENT_ID` | Yes (for auth) | — | Google OAuth client ID |
 | `GOOGLE_PLACES_API_KEY` | No | — | Enables Google Places venue suggestions and resolution for user-created games and venuefill |
+| `EMAIL_OTP_ENABLED` | No | — | Set `true` to enable the primary passwordless email-code login |
+| `EMAIL_ALLOWED_DOMAINS` | For email login | — | Comma-separated exact email-domain allowlist |
+| `EMAIL_OTP_SECRET` | For email login | — | At least 32 random characters; use `openssl rand -base64 32` |
+| `EMAIL_PROVIDER` | No | `resend` | Transactional email provider: `resend` or local `smtp` |
+| `EMAIL_FROM` | For email login | — | Verified sender, e.g. `OpenPlays <login@send.openplays.app>` |
+| `RESEND_API_KEY` | For Resend | — | Resend API key used by the email transport |
+| `SMTP_HOST` | For SMTP | — | SMTP host, normally `127.0.0.1` for local Mailpit |
+| `SMTP_PORT` | For SMTP | `1025` | SMTP port, Mailpit's default |
 | `COOKIE_SECURE` | No | `true` | Set `false` for local dev (HTTP) |
 | `DEV_AUTH_ENABLED` | No | — | Set `true` to register local-only `/api/dev/*` auth helpers |
 | `LOG_FORMAT` | No | `text` | `text` or `json` |

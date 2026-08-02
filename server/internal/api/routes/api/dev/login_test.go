@@ -113,6 +113,30 @@ func TestLogin_UnknownUserReturns404(t *testing.T) {
 	}
 }
 
+func TestEmailPreview_ReturnsOTPSenderHTML(t *testing.T) {
+	r := chi.NewRouter()
+	api := humachi.New(r, huma.DefaultConfig("test", "0.0.1"))
+	grp := huma.NewGroup(api, "/dev")
+	dev.RegisterEmailPreview(grp)
+
+	req := httptest.NewRequest(http.MethodGet, "/dev/email-otp-preview", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 body=%s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		HTML string `json:"html"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !strings.Contains(out.HTML, "482731") || !strings.Contains(out.HTML, "OpenPlays sign-in code") {
+		t.Fatalf("preview HTML = %q", out.HTML)
+	}
+}
+
 type fakeDB struct{}
 
 func (f *fakeDB) ExecContext(context.Context, string, ...interface{}) (sql.Result, error) {

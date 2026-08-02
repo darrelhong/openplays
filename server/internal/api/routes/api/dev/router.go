@@ -19,6 +19,7 @@ func Register(api huma.API, queries *db.Queries, cfg Config) {
 
 	grp := huma.NewGroup(api, "/dev")
 	RegisterLogin(grp, queries, cfg)
+	RegisterEmailPreview(grp)
 }
 
 func mapUser(user db.User) auth.User {

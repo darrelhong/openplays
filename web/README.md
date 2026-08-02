@@ -41,7 +41,7 @@ cd ../server
 go run ./tools/seeddev/
 ```
 
-Then start the API and web dev servers and open `/__dev/login`. The page only loads in SvelteKit dev mode when `DEV_AUTH_ENABLED=true`; the backend `/api/dev/*` routes are only registered when the same flag is enabled on the API server.
+Then start the API and web dev servers and open `/__dev/login` for a seeded session or `/__dev/email-preview` to inspect the OTP email HTML. Both pages only load in SvelteKit dev mode when `DEV_AUTH_ENABLED=true`; the backend `/api/dev/*` routes are only registered when the same flag is enabled on the API server.
 
 ## API Types
 
