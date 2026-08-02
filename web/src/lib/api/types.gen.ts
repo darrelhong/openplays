@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+	'/api/auth/email-otp/request': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Request an email sign-in code
+		 * @description Send a short-lived, single-use sign-in code to an eligible email address.
+		 */
+		post: operations['auth-email-otp-request'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/auth/email-otp/verify': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Verify an email sign-in code
+		 * @description Exchange a valid, short-lived email sign-in code for a session.
+		 */
+		post: operations['auth-email-otp-verify'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/auth/facebook': {
 		parameters: {
 			query?: never;
@@ -182,6 +222,26 @@ export interface paths {
 		 * @description Idempotently creates or returns a play chat conversation for current roster users.
 		 */
 		post: operations['create-play-chat-conversation'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/dev/email-otp-preview': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * Preview email sign-in code
+		 * @description Render the email OTP HTML with a fixed sample code. Only registered when DEV_AUTH_ENABLED=true.
+		 */
+		get: operations['dev-email-otp-preview'];
+		put?: never;
+		post?: never;
 		delete?: never;
 		options?: never;
 		head?: never;
@@ -910,6 +970,57 @@ export interface components {
 			readonly $schema?: string;
 			play_id: string;
 		};
+		EmailOTPRequestInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/EmailOTPRequestInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Email address to receive the sign-in code */
+			email: string;
+		};
+		EmailOTPRequestOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/EmailOTPRequestOutputBody.json
+			 */
+			readonly $schema?: string;
+			message: string;
+		};
+		EmailOTPVerifyInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/EmailOTPVerifyInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Six-digit sign-in code */
+			code: string;
+			/** @description Email address used to request the sign-in code */
+			email: string;
+		};
+		EmailOTPVerifyOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/EmailOTPVerifyOutputBody.json
+			 */
+			readonly $schema?: string;
+			session_token: string;
+			user: components['schemas']['User'];
+		};
+		EmailPreviewOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/EmailPreviewOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description Rendered HTML for the email OTP preview */
+			html: string;
+		};
 		ErrorDetail: {
 			/** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
 			location?: string;
@@ -1613,6 +1724,73 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+	'auth-email-otp-request': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['EmailOTPRequestInputBody'];
+			};
+		};
+		responses: {
+			/** @description Accepted */
+			202: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['EmailOTPRequestOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'auth-email-otp-verify': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['EmailOTPVerifyInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					'Set-Cookie'?: string;
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['EmailOTPVerifyOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
 	'auth-facebook': {
 		parameters: {
 			query?: never;
@@ -1937,6 +2115,35 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['ChatConversationSummary'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'dev-email-otp-preview': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['EmailPreviewOutputBody'];
 				};
 			};
 			/** @description Error */
