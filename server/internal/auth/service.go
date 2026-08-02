@@ -58,6 +58,14 @@ type Store interface {
 	RefreshSession(ctx context.Context, arg db.RefreshSessionParams) error
 }
 
+// EmailUserStore is the optional database boundary used by passwordless email
+// login. It is separate from Store so existing OAuth-only store implementations
+// do not need to implement email account creation.
+type EmailUserStore interface {
+	GetUserByEmail(ctx context.Context, email string) (db.User, error)
+	CreateUserByEmail(ctx context.Context, arg db.CreateUserByEmailParams) (db.User, error)
+}
+
 // User is the public representation of a user.
 type User struct {
 	ID              string               `json:"id"`
@@ -101,6 +109,49 @@ func (s *Service) Login(ctx context.Context, id Identity) (*LoginResult, error) 
 	if err != nil {
 		return nil, fmt.Errorf("upsert user: %w", err)
 	}
+	return s.createLoginSession(ctx, user, string(id.Provider))
+}
+
+// LoginEmail finds or creates a user whose email ownership was verified by an
+// email code, then creates a normal OpenPlays session.
+func (s *Service) LoginEmail(ctx context.Context, email string) (*LoginResult, error) {
+	store, ok := s.store.(EmailUserStore)
+	if !ok {
+		return nil, errors.New("email login is not supported by the auth store")
+	}
+
+	email = normalizeEmail(email)
+	user, err := store.GetUserByEmail(ctx, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		local := strings.SplitN(email, "@", 2)[0]
+		usernameBase := usernames.BaseFromDisplayName(local)
+		for attempt := 0; attempt <= usernameCollisionRetries; attempt++ {
+			username := usernameBase
+			if attempt > 0 || usernames.IsReserved(usernameBase) {
+				username, err = usernames.WithRandomSuffix(usernameBase)
+				if err != nil {
+					return nil, fmt.Errorf("generate username: %w", err)
+				}
+			}
+			user, err = store.CreateUserByEmail(ctx, db.CreateUserByEmailParams{
+				ID: uuid.New().String(), Email: email, Username: &username, DisplayName: local,
+			})
+			if err != nil && isUsernameConflict(err) {
+				continue
+			}
+			if err != nil && isEmailConflict(err) {
+				user, err = store.GetUserByEmail(ctx, email)
+			}
+			break
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find or create email user: %w", err)
+	}
+	return s.createLoginSession(ctx, user, "email_otp")
+}
+
+func (s *Service) createLoginSession(ctx context.Context, user db.User, provider string) (*LoginResult, error) {
 
 	if user.Status != "active" {
 		return nil, fmt.Errorf("%w: %s", ErrAccountBanned, user.Status)
@@ -122,8 +173,7 @@ func (s *Service) Login(ctx context.Context, id Identity) (*LoginResult, error) 
 
 	slog.Info("auth: user logged in",
 		"user_id", user.ID,
-		"email", user.Email,
-		"provider", string(id.Provider),
+		"provider", provider,
 	)
 
 	return &LoginResult{

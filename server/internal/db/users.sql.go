@@ -51,6 +51,26 @@ func (q *Queries) ClearUserAvatar(ctx context.Context, arg ClearUserAvatarParams
 	return i, err
 }
 
+const consumeEmailOTPChallenge = `-- name: ConsumeEmailOTPChallenge :one
+DELETE FROM email_otp_challenges
+WHERE email = ?
+  AND code_hash = ?
+  AND expires_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+RETURNING email
+`
+
+type ConsumeEmailOTPChallengeParams struct {
+	Email    string
+	CodeHash string
+}
+
+func (q *Queries) ConsumeEmailOTPChallenge(ctx context.Context, arg ConsumeEmailOTPChallengeParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, consumeEmailOTPChallenge, arg.Email, arg.CodeHash)
+	var email string
+	err := row.Scan(&email)
+	return email, err
+}
+
 const countRosteredPlaysByUser = `-- name: CountRosteredPlaysByUser :one
 SELECT COUNT(DISTINCT play_id)
 FROM (
@@ -130,6 +150,27 @@ func (q *Queries) CreateBlock(ctx context.Context, arg CreateBlockParams) error 
 	return err
 }
 
+const createEmailOTPChallenge = `-- name: CreateEmailOTPChallenge :exec
+INSERT INTO email_otp_challenges (email, code_hash, expires_at, attempts)
+VALUES (?, ?, ?, 0)
+ON CONFLICT(email) DO UPDATE SET
+    code_hash = excluded.code_hash,
+    expires_at = excluded.expires_at,
+    attempts = 0,
+    created_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+`
+
+type CreateEmailOTPChallengeParams struct {
+	Email     string
+	CodeHash  string
+	ExpiresAt time.Time
+}
+
+func (q *Queries) CreateEmailOTPChallenge(ctx context.Context, arg CreateEmailOTPChallengeParams) error {
+	_, err := q.db.ExecContext(ctx, createEmailOTPChallenge, arg.Email, arg.CodeHash, arg.ExpiresAt)
+	return err
+}
+
 const createSession = `-- name: CreateSession :exec
 INSERT INTO sessions (token, user_id, expires_at)
 VALUES (?, ?, ?)
@@ -146,6 +187,51 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const createUserByEmail = `-- name: CreateUserByEmail :one
+INSERT INTO users (id, email, username, display_name, updated_at)
+VALUES (
+    ?1, ?2, ?3, ?4,
+    strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+)
+RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links
+`
+
+type CreateUserByEmailParams struct {
+	ID          string
+	Email       string
+	Username    *string
+	DisplayName string
+}
+
+func (q *Queries) CreateUserByEmail(ctx context.Context, arg CreateUserByEmailParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, createUserByEmail,
+		arg.ID,
+		arg.Email,
+		arg.Username,
+		arg.DisplayName,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.DisplayName,
+		&i.PhotoUrl,
+		&i.GoogleID,
+		&i.FacebookID,
+		&i.Status,
+		&i.SportsProfile,
+		&i.ContactInfo,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OauthPhotoUrl,
+		&i.AvatarKey,
+		&i.Bio,
+		&i.ProfileLinks,
+	)
+	return i, err
+}
+
 const deleteBlock = `-- name: DeleteBlock :exec
 DELETE FROM user_blocks WHERE blocker_id = ? AND blocked_id = ?
 `
@@ -157,6 +243,31 @@ type DeleteBlockParams struct {
 
 func (q *Queries) DeleteBlock(ctx context.Context, arg DeleteBlockParams) error {
 	_, err := q.db.ExecContext(ctx, deleteBlock, arg.BlockerID, arg.BlockedID)
+	return err
+}
+
+const deleteEmailOTPChallenge = `-- name: DeleteEmailOTPChallenge :exec
+DELETE FROM email_otp_challenges
+WHERE email = ?1 AND code_hash = ?2
+`
+
+type DeleteEmailOTPChallengeParams struct {
+	Email    string
+	CodeHash string
+}
+
+func (q *Queries) DeleteEmailOTPChallenge(ctx context.Context, arg DeleteEmailOTPChallengeParams) error {
+	_, err := q.db.ExecContext(ctx, deleteEmailOTPChallenge, arg.Email, arg.CodeHash)
+	return err
+}
+
+const deleteExpiredEmailOTPChallenges = `-- name: DeleteExpiredEmailOTPChallenges :exec
+DELETE FROM email_otp_challenges
+WHERE expires_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+`
+
+func (q *Queries) DeleteExpiredEmailOTPChallenges(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteExpiredEmailOTPChallenges)
 	return err
 }
 
@@ -214,6 +325,25 @@ func (q *Queries) GetActiveUserProfileByUsername(ctx context.Context, username *
 		&i.SportsProfile,
 		&i.Bio,
 		&i.ProfileLinks,
+	)
+	return i, err
+}
+
+const getEmailOTPChallenge = `-- name: GetEmailOTPChallenge :one
+SELECT email, code_hash, expires_at, attempts, created_at
+FROM email_otp_challenges
+WHERE email = ?
+`
+
+func (q *Queries) GetEmailOTPChallenge(ctx context.Context, email string) (EmailOtpChallenge, error) {
+	row := q.db.QueryRowContext(ctx, getEmailOTPChallenge, email)
+	var i EmailOtpChallenge
+	err := row.Scan(
+		&i.Email,
+		&i.CodeHash,
+		&i.ExpiresAt,
+		&i.Attempts,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -344,6 +474,19 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.ProfileLinks,
 	)
 	return i, err
+}
+
+const incrementEmailOTPAttempts = `-- name: IncrementEmailOTPAttempts :exec
+UPDATE email_otp_challenges
+SET attempts = attempts + 1
+WHERE email = ?
+  AND expires_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND attempts < 5
+`
+
+func (q *Queries) IncrementEmailOTPAttempts(ctx context.Context, email string) error {
+	_, err := q.db.ExecContext(ctx, incrementEmailOTPAttempts, email)
+	return err
 }
 
 const isBlocked = `-- name: IsBlocked :one
@@ -482,6 +625,37 @@ type RefreshSessionParams struct {
 
 func (q *Queries) RefreshSession(ctx context.Context, arg RefreshSessionParams) error {
 	_, err := q.db.ExecContext(ctx, refreshSession, arg.ExpiresAt, arg.Token)
+	return err
+}
+
+const restoreEmailOTPChallenge = `-- name: RestoreEmailOTPChallenge :exec
+UPDATE email_otp_challenges
+SET code_hash = ?1,
+    expires_at = ?2,
+    attempts = ?3,
+    created_at = ?4
+WHERE email = ?5
+  AND code_hash = ?6
+`
+
+type RestoreEmailOTPChallengeParams struct {
+	CodeHash         string
+	ExpiresAt        time.Time
+	Attempts         int64
+	CreatedAt        time.Time
+	Email            string
+	ExpectedCodeHash string
+}
+
+func (q *Queries) RestoreEmailOTPChallenge(ctx context.Context, arg RestoreEmailOTPChallengeParams) error {
+	_, err := q.db.ExecContext(ctx, restoreEmailOTPChallenge,
+		arg.CodeHash,
+		arg.ExpiresAt,
+		arg.Attempts,
+		arg.CreatedAt,
+		arg.Email,
+		arg.ExpectedCodeHash,
+	)
 	return err
 }
 

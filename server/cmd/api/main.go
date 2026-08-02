@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	_ "github.com/glebarez/sqlite"
@@ -21,6 +23,7 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/avatar"
 	"openplays/server/internal/db"
+	mailpkg "openplays/server/internal/email"
 	"openplays/server/internal/geo"
 	"openplays/server/internal/google"
 	"openplays/server/internal/logging"
@@ -75,6 +78,11 @@ func main() {
 
 	queries := db.New(sqlDb)
 	svc := auth.NewService(queries)
+	emailOTPSvc, err := configureEmailOTPService(queries, svc)
+	if err != nil {
+		slog.Error("invalid email-auth configuration", "error", err)
+		os.Exit(1)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -109,7 +117,7 @@ func main() {
 	router.Use(middleware.Recoverer)
 
 	humaAPI := humachi.New(router, huma.DefaultConfig("OpenPlays API", "0.1.0"))
-	apiRouter.Register(humaAPI, queries, svc, avatarService, googleVerifier, facebookVerifier, places, pushService, cookieSecure, devAuthEnabled)
+	apiRouter.Register(humaAPI, queries, svc, emailOTPSvc, avatarService, googleVerifier, facebookVerifier, places, pushService, cookieSecure, devAuthEnabled)
 
 	slog.Info("api server starting", "port", port,
 		"docs", "http://localhost:"+port+"/docs",
@@ -120,4 +128,50 @@ func main() {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}
+}
+
+func configureEmailOTPService(queries *db.Queries, svc *auth.Service) (*auth.EmailOTPService, error) {
+	if os.Getenv("EMAIL_OTP_ENABLED") != "true" {
+		slog.Info("email login disabled; EMAIL_OTP_ENABLED is not true")
+		return nil, nil
+	}
+
+	sender, err := newConfiguredEmailSender()
+	if err != nil {
+		return nil, err
+	}
+	allowedDomains := os.Getenv("EMAIL_ALLOWED_DOMAINS")
+	policy, err := auth.NewDomainAllowlist(strings.Split(allowedDomains, ","))
+	if err != nil {
+		return nil, err
+	}
+	emailOTPSvc, err := auth.NewEmailOTPService(queries, svc, sender, auth.EmailOTPConfig{
+		From: os.Getenv("EMAIL_FROM"), Policy: policy, CodeSecret: os.Getenv("EMAIL_OTP_SECRET"),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return emailOTPSvc, nil
+}
+
+func newConfiguredEmailSender() (mailpkg.Sender, error) {
+	provider := strings.ToLower(strings.TrimSpace(os.Getenv("EMAIL_PROVIDER")))
+	if provider == "" {
+		provider = "resend"
+	}
+	if provider == "smtp" {
+		sender, err := mailpkg.NewSMTPSender(os.Getenv("SMTP_HOST"), os.Getenv("SMTP_PORT"))
+		if err != nil {
+			return nil, err
+		}
+		return sender, nil
+	}
+	if provider != "resend" {
+		return nil, fmt.Errorf("unsupported EMAIL_PROVIDER %q", provider)
+	}
+	sender, err := mailpkg.NewResendSender(os.Getenv("RESEND_API_KEY"), nil)
+	if err != nil {
+		return nil, err
+	}
+	return sender, nil
 }

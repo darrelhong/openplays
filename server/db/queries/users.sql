@@ -50,6 +50,14 @@ SELECT * FROM users WHERE id = ?;
 -- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = ?;
 
+-- name: CreateUserByEmail :one
+INSERT INTO users (id, email, username, display_name, updated_at)
+VALUES (
+    sqlc.arg('id'), sqlc.arg('email'), sqlc.narg('username'), sqlc.arg('display_name'),
+    strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+)
+RETURNING *;
+
 -- name: GetActiveUserProfileByUsername :one
 SELECT id, display_name, username, photo_url, sports_profile, bio, profile_links
 FROM users
@@ -169,6 +177,51 @@ DELETE FROM sessions WHERE user_id = ?;
 
 -- name: RefreshSession :exec
 UPDATE sessions SET expires_at = ? WHERE token = ?;
+
+-- name: CreateEmailOTPChallenge :exec
+INSERT INTO email_otp_challenges (email, code_hash, expires_at, attempts)
+VALUES (?, ?, ?, 0)
+ON CONFLICT(email) DO UPDATE SET
+    code_hash = excluded.code_hash,
+    expires_at = excluded.expires_at,
+    attempts = 0,
+    created_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now');
+
+-- name: GetEmailOTPChallenge :one
+SELECT email, code_hash, expires_at, attempts, created_at
+FROM email_otp_challenges
+WHERE email = ?;
+
+-- name: IncrementEmailOTPAttempts :exec
+UPDATE email_otp_challenges
+SET attempts = attempts + 1
+WHERE email = ?
+  AND expires_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+  AND attempts < 5;
+
+-- name: ConsumeEmailOTPChallenge :one
+DELETE FROM email_otp_challenges
+WHERE email = ?
+  AND code_hash = ?
+  AND expires_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+RETURNING email;
+
+-- name: DeleteEmailOTPChallenge :exec
+DELETE FROM email_otp_challenges
+WHERE email = sqlc.arg('email') AND code_hash = sqlc.arg('code_hash');
+
+-- name: RestoreEmailOTPChallenge :exec
+UPDATE email_otp_challenges
+SET code_hash = sqlc.arg('code_hash'),
+    expires_at = sqlc.arg('expires_at'),
+    attempts = sqlc.arg('attempts'),
+    created_at = sqlc.arg('created_at')
+WHERE email = sqlc.arg('email')
+  AND code_hash = sqlc.arg('expected_code_hash');
+
+-- name: DeleteExpiredEmailOTPChallenges :exec
+DELETE FROM email_otp_challenges
+WHERE expires_at <= strftime('%Y-%m-%d %H:%M:%S+00:00', 'now');
 
 -- name: CreateBlock :exec
 INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id) VALUES (?, ?);

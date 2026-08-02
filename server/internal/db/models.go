@@ -41,6 +41,14 @@ type ChatReadState struct {
 	ReadAt            time.Time
 }
 
+type EmailOtpChallenge struct {
+	Email     string
+	CodeHash  string
+	ExpiresAt time.Time
+	Attempts  int64
+	CreatedAt time.Time
+}
+
 type Play struct {
 	ID                   string
 	CreatedAt            time.Time
