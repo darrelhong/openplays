@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, type Snippet } from 'svelte';
 	import 'virtual:uno.css';
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
@@ -10,7 +11,6 @@
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import { DESCRIPTION } from '$lib/consts/index';
 	import type { LayoutData } from './$types';
-	import type { Snippet } from 'svelte';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
 	import UserDropdownMenu from '$lib/components/nav/user-dropdown-menu.svelte';
 	import NotificationPopover from '$lib/components/notifications/notification-popover.svelte';
@@ -37,6 +37,12 @@
 		const next = order[(idx + 1) % order.length]!;
 		setTheme(next);
 	}
+
+	onMount(() => {
+		if ('serviceWorker' in navigator) {
+			void navigator.serviceWorker.register('/service-worker.js');
+		}
+	});
 </script>
 
 <svelte:head>
