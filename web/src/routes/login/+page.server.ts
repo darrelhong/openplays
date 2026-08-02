@@ -46,5 +46,52 @@ export const actions: Actions = {
 		});
 
 		redirect(303, '/');
+	},
+
+	'email-otp': async ({ request }) => {
+		const formData = await request.formData();
+		const email = String(formData.get('email') ?? '').trim();
+
+		if (!email) {
+			return { error: 'Enter your email address' };
+		}
+
+		const { error } = await api.POST('/api/auth/email-otp/request', {
+			body: { email }
+		});
+
+		if (error) {
+			return { error: error.detail ?? 'We couldn’t send a sign-in code', email };
+		}
+
+		return { otpSent: true, email };
+	},
+
+	'email-otp-verify': async ({ request, cookies }) => {
+		const formData = await request.formData();
+		const email = String(formData.get('email') ?? '').trim();
+		const code = String(formData.get('code') ?? '').trim();
+
+		if (!email || !code) {
+			return { error: 'Enter the code from your email', otpSent: true, email };
+		}
+
+		const { data, error } = await api.POST('/api/auth/email-otp/verify', {
+			body: { email, code }
+		});
+
+		if (error) {
+			return { error: error.detail ?? 'That code didn’t work. Try again.', otpSent: true, email };
+		}
+
+		cookies.set('session', data.session_token, {
+			path: '/',
+			httpOnly: true,
+			secure: COOKIE_SECURE !== 'false',
+			sameSite: 'lax',
+			maxAge: 30 * 24 * 60 * 60
+		});
+
+		redirect(303, '/');
 	}
 };

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { PUBLIC_GOOGLE_CLIENT_ID } from '$env/static/public';
 
@@ -58,6 +59,8 @@
 	let error = $derived(
 		(page.form?.error ?? page.url.searchParams.get('error')) as string | undefined
 	);
+	let otpSent = $derived(page.form?.otpSent as boolean | undefined);
+	let otpEmail = $derived(page.form?.email as string | undefined);
 </script>
 
 <svelte:head>
@@ -68,8 +71,8 @@
 	<div class="mx-4 p-6 pb-7 border border-border rounded-xl bg-card max-w-sm w-full">
 		<div class="flex flex-col gap-6 items-center">
 			<div class="mb-4 text-center flex flex-col gap-2 items-center">
-				<h1 class="text-2xl text-foreground font-bold">Welcome to OpenPlays</h1>
-				<p class="text-sm text-muted">Sign up or log in to create and manage your games.</p>
+				<h1 class="text-2xl text-foreground font-bold">Welcome back</h1>
+				<p class="text-sm text-muted">Sign in to keep track of your games.</p>
 			</div>
 
 			{#if error}
@@ -91,6 +94,73 @@
 				</button>
 				-->
 			</div>
+
+			<div class="text-xs text-muted flex gap-3 w-full items-center">
+				<div class="bg-border flex-1 h-px"></div>
+				<span>or use email</span>
+				<div class="bg-border flex-1 h-px"></div>
+			</div>
+
+			{#if otpSent}
+				<div class="text-sm text-muted p-4 text-center border border-border rounded-lg bg-muted/30">
+					<p class="text-foreground font-medium">Check your inbox</p>
+					<p class="mt-1">
+						We sent a 6-digit code to <span class="text-foreground font-medium">{otpEmail}</span>.
+						Enter it below to finish signing in.
+					</p>
+				</div>
+
+				<form method="POST" action="?/email-otp-verify" class="flex flex-col gap-3 w-full">
+					<input type="hidden" name="email" value={otpEmail} />
+					<label for="email-otp-code" class="text-sm text-foreground font-medium">Your code</label>
+					<input
+						id="email-otp-code"
+						name="code"
+						type="text"
+						inputmode="numeric"
+						autocomplete="one-time-code"
+						pattern="[0-9]*"
+						maxlength="6"
+						minlength="6"
+						placeholder="123456"
+						title="Enter the 6-digit code from your email"
+						required
+						oninput={(event) => {
+							const input = event.currentTarget as HTMLInputElement;
+							input.value = input.value.replace(/\D/g, '').slice(0, 6);
+						}}
+						class="text-lg text-foreground tracking-[0.3em] px-3 py-2.5 text-center outline-none border border-border rounded-lg bg-background w-full placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
+					/>
+					<button
+						type="submit"
+						class="text-sm text-primary-foreground font-medium px-4 py-2.5 rounded-lg bg-primary w-full transition-colors hover:bg-primary/90"
+					>
+						Sign in
+					</button>
+					<a href={resolve('/login')} class="text-sm text-muted text-center hover:text-foreground"
+						>Use a different email</a
+					>
+				</form>
+			{:else}
+				<form method="POST" action="?/email-otp" class="flex flex-col gap-3 w-full">
+					<label for="email-otp-email" class="sr-only">Email address</label>
+					<input
+						id="email-otp-email"
+						name="email"
+						type="email"
+						autocomplete="email"
+						placeholder="you@example.com"
+						required
+						class="text-sm text-foreground px-3 py-2.5 outline-none border border-border rounded-lg bg-background w-full placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/20"
+					/>
+					<button
+						type="submit"
+						class="text-sm text-primary-foreground font-medium px-4 py-2.5 rounded-lg bg-primary w-full transition-colors hover:bg-primary/90"
+					>
+						Continue with email
+					</button>
+				</form>
+			{/if}
 
 			<form bind:this={formEl} method="POST" action="?/google" class="hidden">
 				<input bind:this={credentialInput} type="hidden" name="credential" />
