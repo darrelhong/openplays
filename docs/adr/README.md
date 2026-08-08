@@ -10,3 +10,4 @@
 - [0008 - Post-game player reviews (ratings, props, shoutouts)](0008-post-game-player-reviews.md)
 - [0009 - Persist avatar object URLs with stable object keys](0009-avatar-object-urls.md)
 - [0010 - Email OTP passwordless login](0010-email-otp-passwordless-login.md)
+- [0011 - Host-invited players](0011-play-invites.md)
