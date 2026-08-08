@@ -81,6 +81,20 @@ func NotifyPlayerAdded(ctx context.Context, sender Sender, play PlaySnapshot, pl
 	})
 }
 
+func NotifyPlayerInvited(ctx context.Context, sender Sender, play PlaySnapshot, playerUserID, hostName string) error {
+	if sender == nil || playerUserID == "" {
+		return nil
+	}
+	return sender.Notify(ctx, playerUserID, Payload{
+		Title:  playNotificationTitle(play),
+		Body:   fmt.Sprintf("%s invited you to the game", notificationName(hostName, "Someone")),
+		URL:    "/play/" + play.ID,
+		Tag:    "play:" + play.ID + ":invited:" + playerUserID,
+		Kind:   "play.invited",
+		PlayID: play.ID,
+	})
+}
+
 func NotifyHostsPlayerJoined(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
 	body := fmt.Sprintf("%s joined the game", notificationName(playerName, "Someone"))
 	payload := Payload{

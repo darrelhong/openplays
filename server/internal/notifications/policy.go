@@ -9,6 +9,7 @@ type DeliveryPolicy struct {
 var deliveryPoliciesByKind = map[string]DeliveryPolicy{
 	"play.join_requested":    {Feed: true, Push: true},
 	"play.player_added":      {Feed: true, Push: true},
+	"play.invited":           {Feed: true, Push: true},
 	"play.moved_to_waitlist": {Feed: true, Push: true},
 	"play.player_joined":     {Feed: true, Push: true},
 	"play.player_confirmed":  {Feed: true, Push: true},
