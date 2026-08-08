@@ -104,6 +104,7 @@ const (
 	// player asked to join and a host decides whether to add them to the game
 	// or park them on the waitlist. Does not reserve a slot.
 	ParticipantRequested PlayParticipantStatus = "requested"
+	ParticipantInvited   PlayParticipantStatus = "invited"
 )
 
 // Schema implements huma.SchemaProvider.
@@ -114,6 +115,7 @@ func (s PlayParticipantStatus) Schema(r huma.Registry) *huma.Schema {
 		string(ParticipantWaitlisted),
 		string(ParticipantAdded),
 		string(ParticipantRequested),
+		string(ParticipantInvited),
 	}
 	return schema
 }
@@ -139,6 +141,10 @@ const (
 	PlayEventParticipantLeftWaitlist     PlayEventType = "participant.left_waitlist"
 	PlayEventParticipantRequestWithdrawn PlayEventType = "participant.request_withdrawn"
 	PlayEventParticipantRemoved          PlayEventType = "participant.removed"
+	PlayEventParticipantInvited          PlayEventType = "participant.invited"
+	PlayEventParticipantInviteAccepted   PlayEventType = "participant.invite_accepted"
+	PlayEventParticipantInviteDeclined   PlayEventType = "participant.invite_declined"
+	PlayEventParticipantInviteRevoked    PlayEventType = "participant.invite_revoked"
 
 	PlayEventCancelled PlayEventType = "play.cancelled"
 )
@@ -159,6 +165,10 @@ func (e PlayEventType) Schema(r huma.Registry) *huma.Schema {
 		string(PlayEventParticipantLeftWaitlist),
 		string(PlayEventParticipantRequestWithdrawn),
 		string(PlayEventParticipantRemoved),
+		string(PlayEventParticipantInvited),
+		string(PlayEventParticipantInviteAccepted),
+		string(PlayEventParticipantInviteDeclined),
+		string(PlayEventParticipantInviteRevoked),
 		string(PlayEventCancelled),
 	}
 	return schema

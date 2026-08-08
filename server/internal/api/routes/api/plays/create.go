@@ -185,11 +185,12 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 		}
 
 		if _, err := store.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
-			PlayID:     play.ID,
-			UserID:     &user.ID,
-			RatingCode: hostRatingCode,
-			RatingOrd:  hostRatingOrd,
-			Status:     model.ParticipantConfirmed,
+			PlayID:          play.ID,
+			UserID:          &user.ID,
+			RatingCode:      hostRatingCode,
+			RatingOrd:       hostRatingOrd,
+			Status:          model.ParticipantConfirmed,
+			InvitedByUserID: nil,
 		}); err != nil {
 			return nil, huma.Error500InternalServerError("failed to seed creator participant")
 		}

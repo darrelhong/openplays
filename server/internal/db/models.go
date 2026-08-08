@@ -117,15 +117,16 @@ type PlayHost struct {
 }
 
 type PlayParticipant struct {
-	ID         int64
-	PlayID     string
-	UserID     *string
-	GuestName  *string
-	RatingCode *string
-	RatingOrd  *int64
-	Status     model.PlayParticipantStatus
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID              int64
+	PlayID          string
+	UserID          *string
+	GuestName       *string
+	RatingCode      *string
+	RatingOrd       *int64
+	Status          model.PlayParticipantStatus
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	InvitedByUserID *string
 }
 
 type PlayReview struct {

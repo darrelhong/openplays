@@ -24,6 +24,18 @@ func (q *Queries) CountConfirmedPlayParticipants(ctx context.Context, playID str
 	return count, err
 }
 
+const countInvitedPlayParticipants = `-- name: CountInvitedPlayParticipants :one
+SELECT COUNT(*) FROM play_participants
+WHERE play_id = ? AND status = 'invited'
+`
+
+func (q *Queries) CountInvitedPlayParticipants(ctx context.Context, playID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countInvitedPlayParticipants, playID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPlayParticipantsByStatus = `-- name: CountPlayParticipantsByStatus :one
 SELECT COUNT(*) FROM play_participants
 WHERE play_id = ? AND status = ?
@@ -55,20 +67,21 @@ func (q *Queries) CountReservedPlayParticipants(ctx context.Context, playID stri
 
 const createPlayParticipant = `-- name: CreatePlayParticipant :one
 INSERT INTO play_participants (
-    play_id, user_id, guest_name, rating_code, rating_ord, status
+    play_id, user_id, guest_name, rating_code, rating_ord, status, invited_by_user_id
 ) VALUES (
-    ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?
 )
-RETURNING id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at
+RETURNING id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at, invited_by_user_id
 `
 
 type CreatePlayParticipantParams struct {
-	PlayID     string
-	UserID     *string
-	GuestName  *string
-	RatingCode *string
-	RatingOrd  *int64
-	Status     model.PlayParticipantStatus
+	PlayID          string
+	UserID          *string
+	GuestName       *string
+	RatingCode      *string
+	RatingOrd       *int64
+	Status          model.PlayParticipantStatus
+	InvitedByUserID *string
 }
 
 func (q *Queries) CreatePlayParticipant(ctx context.Context, arg CreatePlayParticipantParams) (PlayParticipant, error) {
@@ -79,6 +92,7 @@ func (q *Queries) CreatePlayParticipant(ctx context.Context, arg CreatePlayParti
 		arg.RatingCode,
 		arg.RatingOrd,
 		arg.Status,
+		arg.InvitedByUserID,
 	)
 	var i PlayParticipant
 	err := row.Scan(
@@ -91,6 +105,7 @@ func (q *Queries) CreatePlayParticipant(ctx context.Context, arg CreatePlayParti
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvitedByUserID,
 	)
 	return i, err
 }
@@ -131,7 +146,7 @@ func (q *Queries) DeletePlayParticipantsByPlay(ctx context.Context, playID strin
 }
 
 const getPlayParticipantByID = `-- name: GetPlayParticipantByID :one
-SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
+SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at, invited_by_user_id FROM play_participants
 WHERE id = ?
 `
 
@@ -148,12 +163,13 @@ func (q *Queries) GetPlayParticipantByID(ctx context.Context, id int64) (PlayPar
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvitedByUserID,
 	)
 	return i, err
 }
 
 const getPlayParticipantByPlayAndUser = `-- name: GetPlayParticipantByPlayAndUser :one
-SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
+SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at, invited_by_user_id FROM play_participants
 WHERE play_id = ? AND user_id = ?
 `
 
@@ -175,6 +191,7 @@ func (q *Queries) GetPlayParticipantByPlayAndUser(ctx context.Context, arg GetPl
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvitedByUserID,
 	)
 	return i, err
 }
@@ -296,7 +313,7 @@ func (q *Queries) ListPlayParticipantStatesByUserAndPlays(ctx context.Context, a
 }
 
 const listPlayParticipantsByPlay = `-- name: ListPlayParticipantsByPlay :many
-SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
+SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at, invited_by_user_id FROM play_participants
 WHERE play_id = ?
 ORDER BY
     CASE status
@@ -304,7 +321,8 @@ ORDER BY
         WHEN 'added' THEN 2
         WHEN 'requested' THEN 3
         WHEN 'waitlisted' THEN 4
-        ELSE 5
+        WHEN 'invited' THEN 5
+        ELSE 6
     END,
     created_at ASC,
     id ASC
@@ -329,6 +347,7 @@ func (q *Queries) ListPlayParticipantsByPlay(ctx context.Context, playID string)
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InvitedByUserID,
 		); err != nil {
 			return nil, err
 		}
@@ -344,7 +363,7 @@ func (q *Queries) ListPlayParticipantsByPlay(ctx context.Context, playID string)
 }
 
 const listPlayParticipantsByPlayAndStatus = `-- name: ListPlayParticipantsByPlayAndStatus :many
-SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
+SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at, invited_by_user_id FROM play_participants
 WHERE play_id = ? AND status = ?
 ORDER BY created_at ASC, id ASC
 `
@@ -373,6 +392,7 @@ func (q *Queries) ListPlayParticipantsByPlayAndStatus(ctx context.Context, arg L
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InvitedByUserID,
 		); err != nil {
 			return nil, err
 		}
@@ -388,7 +408,7 @@ func (q *Queries) ListPlayParticipantsByPlayAndStatus(ctx context.Context, arg L
 }
 
 const listPlayParticipantsByUser = `-- name: ListPlayParticipantsByUser :many
-SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at FROM play_participants
+SELECT id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at, invited_by_user_id FROM play_participants
 WHERE user_id = ?
 ORDER BY created_at DESC, id DESC
 `
@@ -412,6 +432,7 @@ func (q *Queries) ListPlayParticipantsByUser(ctx context.Context, userID *string
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InvitedByUserID,
 		); err != nil {
 			return nil, err
 		}
@@ -509,7 +530,7 @@ SET
     status = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
-RETURNING id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at
+RETURNING id, play_id, user_id, guest_name, rating_code, rating_ord, status, created_at, updated_at, invited_by_user_id
 `
 
 type UpdatePlayParticipantStatusParams struct {
@@ -530,6 +551,7 @@ func (q *Queries) UpdatePlayParticipantStatus(ctx context.Context, arg UpdatePla
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InvitedByUserID,
 	)
 	return i, err
 }

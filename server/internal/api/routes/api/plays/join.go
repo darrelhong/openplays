@@ -99,11 +99,12 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 
 		status, ratingCode, ratingOrd := resolveJoinStatus(play, user, reservedCount)
 		participant, err := store.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
-			PlayID:     input.ID,
-			UserID:     &user.ID,
-			RatingCode: ratingCode,
-			RatingOrd:  ratingOrd,
-			Status:     status,
+			PlayID:          input.ID,
+			UserID:          &user.ID,
+			RatingCode:      ratingCode,
+			RatingOrd:       ratingOrd,
+			Status:          status,
+			InvitedByUserID: nil,
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to add participant")

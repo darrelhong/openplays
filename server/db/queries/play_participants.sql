@@ -1,8 +1,8 @@
 -- name: CreatePlayParticipant :one
 INSERT INTO play_participants (
-    play_id, user_id, guest_name, rating_code, rating_ord, status
+    play_id, user_id, guest_name, rating_code, rating_ord, status, invited_by_user_id
 ) VALUES (
-    ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?, ?
 )
 RETURNING *;
 
@@ -23,7 +23,8 @@ ORDER BY
         WHEN 'added' THEN 2
         WHEN 'requested' THEN 3
         WHEN 'waitlisted' THEN 4
-        ELSE 5
+        WHEN 'invited' THEN 5
+        ELSE 6
     END,
     created_at ASC,
     id ASC;
@@ -93,6 +94,10 @@ WHERE play_id = ? AND status = 'confirmed';
 -- name: CountReservedPlayParticipants :one
 SELECT COUNT(*) FROM play_participants
 WHERE play_id = ? AND status IN ('confirmed', 'added');
+
+-- name: CountInvitedPlayParticipants :one
+SELECT COUNT(*) FROM play_participants
+WHERE play_id = ? AND status = 'invited';
 
 -- name: UpdatePlayParticipantStatus :one
 UPDATE play_participants
