@@ -64,13 +64,15 @@ type PlayPublic struct {
 	AddedParticipants     []PlayParticipantPreviewPublic `json:"added_participants,omitempty"`
 	Requests              []PlayParticipantPreviewPublic `json:"requests,omitempty"`
 	Waitlist              []PlayParticipantPreviewPublic `json:"waitlist,omitempty"`
-	ViewerState           *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,added,requested,creator"`
+	Invited               []PlayParticipantPreviewPublic `json:"invited,omitempty"`
+	ViewerState           *string                        `json:"viewer_state,omitempty" enum:"not_joined,confirmed,waitlisted,added,requested,invited,creator"`
 	IsFavourited          *bool                          `json:"is_favourited,omitempty"`
 	CanManage             *bool                          `json:"can_manage,omitempty"`
 	ConfirmedCount        *int64                         `json:"confirmed_count,omitempty"`
 	AddedCount            *int64                         `json:"added_count,omitempty"`
 	RequestedCount        *int64                         `json:"requested_count,omitempty"`
 	WaitlistCount         *int64                         `json:"waitlist_count,omitempty"`
+	InvitedCount          *int64                         `json:"invited_count,omitempty"`
 	HistoryEvents         []PlayHistoryEventPublic       `json:"history_events,omitempty"`
 
 	distanceKm float64 `json:"-"`

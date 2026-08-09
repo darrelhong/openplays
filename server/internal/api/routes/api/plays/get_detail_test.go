@@ -824,6 +824,117 @@ func TestGetPlayDetail_RequestedViewerSeesOwnRequestWithViewerFlag(t *testing.T)
 	}
 }
 
+func TestGetPlayDetail_InvitedPrivacyAndViewerState(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	hostID := createRouteTestUser(t, ctx, queries, "detail-invited-host")
+	viewerID := createRouteTestUser(t, ctx, queries, "detail-invited-viewer")
+	inviteeID := createRouteTestUser(t, ctx, queries, "detail-invited-invitee")
+	otherInviteeID := createRouteTestUser(t, ctx, queries, "detail-invited-other")
+	playID := createUserPlay(t, ctx, queries, hostID, 4, ptrString("MB"), ptrString("HI"))
+	seedConfirmedParticipant(t, ctx, queries, playID, hostID)
+	for _, userID := range []string{inviteeID, otherInviteeID} {
+		if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+			PlayID: playID,
+			UserID: &userID,
+			Status: model.ParticipantInvited,
+		}); err != nil {
+			t.Fatalf("CreatePlayParticipant invited: %v", err)
+		}
+	}
+
+	type invitedRow struct {
+		DisplayName *string `json:"display_name"`
+		IsViewer    bool    `json:"is_viewer"`
+	}
+	type detailResponse struct {
+		Invited      []invitedRow `json:"invited"`
+		InvitedCount *int64       `json:"invited_count"`
+		ViewerState  *string      `json:"viewer_state"`
+		SlotsLeft    *int64       `json:"slots_left"`
+	}
+	getDetail := func(t *testing.T, authStore *fakeAuthStore) detailResponse {
+		t.Helper()
+		ts := setupGetDetailTest(authStore, queries)
+		defer ts.Close()
+		req, err := http.NewRequest(http.MethodGet, ts.URL+"/api/plays/"+playID, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if authStore.sessionErr == nil {
+			req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d, want 200", resp.StatusCode)
+		}
+		var out detailResponse
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		return out
+	}
+
+	anonymous := getDetail(t, &fakeAuthStore{sessionErr: context.Canceled})
+	if anonymous.InvitedCount == nil || *anonymous.InvitedCount != 2 {
+		t.Fatalf("anonymous invited_count = %v, want 2", anonymous.InvitedCount)
+	}
+	if len(anonymous.Invited) != 0 {
+		t.Fatalf("anonymous invited len = %d, want 0", len(anonymous.Invited))
+	}
+	if anonymous.SlotsLeft == nil || *anonymous.SlotsLeft != 3 {
+		t.Fatalf("anonymous slots_left = %v, want 3", anonymous.SlotsLeft)
+	}
+
+	nonHost := getDetail(t, sessionWithProfile(viewerID, nil))
+	if nonHost.InvitedCount == nil || *nonHost.InvitedCount != 2 {
+		t.Fatalf("non-host invited_count = %v, want 2", nonHost.InvitedCount)
+	}
+	if len(nonHost.Invited) != 0 {
+		t.Fatalf("non-host invited len = %d, want 0", len(nonHost.Invited))
+	}
+	if nonHost.SlotsLeft == nil || *nonHost.SlotsLeft != 3 {
+		t.Fatalf("non-host slots_left = %v, want 3", nonHost.SlotsLeft)
+	}
+
+	host := getDetail(t, sessionWithProfile(hostID, nil))
+	if host.InvitedCount == nil || *host.InvitedCount != 2 {
+		t.Fatalf("host invited_count = %v, want 2", host.InvitedCount)
+	}
+	if len(host.Invited) != 2 {
+		t.Fatalf("host invited len = %d, want 2", len(host.Invited))
+	}
+	if host.SlotsLeft == nil || *host.SlotsLeft != 3 {
+		t.Fatalf("host slots_left = %v, want 3", host.SlotsLeft)
+	}
+
+	invitee := getDetail(t, sessionWithProfile(inviteeID, nil))
+	if invitee.ViewerState == nil || *invitee.ViewerState != string(model.ParticipantInvited) {
+		t.Fatalf("invitee viewer_state = %v, want invited", invitee.ViewerState)
+	}
+	if invitee.InvitedCount == nil || *invitee.InvitedCount != 2 {
+		t.Fatalf("invitee invited_count = %v, want 2", invitee.InvitedCount)
+	}
+	if len(invitee.Invited) != 1 {
+		t.Fatalf("invitee invited len = %d, want 1", len(invitee.Invited))
+	}
+	if invitee.Invited[0].DisplayName == nil || *invitee.Invited[0].DisplayName != "Test "+inviteeID {
+		t.Fatalf("invitee display_name = %v, want own name", invitee.Invited[0].DisplayName)
+	}
+	if !invitee.Invited[0].IsViewer {
+		t.Fatal("invitee own row is_viewer = false, want true")
+	}
+	if invitee.SlotsLeft == nil || *invitee.SlotsLeft != 3 {
+		t.Fatalf("invitee slots_left = %v, want 3", invitee.SlotsLeft)
+	}
+}
+
 func TestGetPlayDetail_CancelledPlayIncludesCancellation(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

@@ -127,6 +127,8 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		item.WaitlistCount = &waitlistCount
 		requestedCount := int64(len(roster.Requested))
 		item.RequestedCount = &requestedCount
+		invitedCount := int64(len(roster.Invited))
+		item.InvitedCount = &invitedCount
 
 		// Added players hold reserved spots, so like confirmed players they are
 		// visible to everyone; is_viewer lets the UI scope self-serve actions
@@ -137,12 +139,16 @@ func RegisterGet(api huma.API, queries *db.Queries, optionalAuthMiddleware func(
 		if canManage {
 			item.Waitlist = roster.Waitlisted
 			item.Requests = roster.Requested
+			item.Invited = roster.Invited
 		} else if viewerID != nil {
 			if viewerState == "waitlisted" {
 				item.Waitlist = participantPreviewsForUser(roster.Waitlisted, *viewerID)
 			}
 			if viewerState == "requested" {
 				item.Requests = participantPreviewsForUser(roster.Requested, *viewerID)
+			}
+			if viewerState == "invited" {
+				item.Invited = participantPreviewsForUser(roster.Invited, *viewerID)
 			}
 		}
 
@@ -173,6 +179,7 @@ func viewerRosterState(roster playRosterPreviews) string {
 		{"added", roster.Added},
 		{"requested", roster.Requested},
 		{"waitlisted", roster.Waitlisted},
+		{"invited", roster.Invited},
 	}
 	for _, group := range groups {
 		for _, preview := range group.previews {

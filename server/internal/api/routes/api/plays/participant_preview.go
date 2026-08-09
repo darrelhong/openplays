@@ -54,6 +54,7 @@ type playRosterPreviews struct {
 	Added      []PlayParticipantPreviewPublic
 	Requested  []PlayParticipantPreviewPublic
 	Waitlisted []PlayParticipantPreviewPublic
+	Invited    []PlayParticipantPreviewPublic
 }
 
 // rosterPreviewsForPlay fetches every participant of a play in one query and
@@ -65,7 +66,7 @@ func rosterPreviewsForPlay(ctx context.Context, queries *db.Queries, playID stri
 		return playRosterPreviews{}, err
 	}
 
-	rowsByStatus := make(map[model.PlayParticipantStatus][]participantPreviewRow, 4)
+	rowsByStatus := make(map[model.PlayParticipantStatus][]participantPreviewRow, 5)
 	for _, row := range rows {
 		rowsByStatus[row.Status] = append(rowsByStatus[row.Status], playParticipantPreviewRow(row))
 	}
@@ -85,6 +86,7 @@ func rosterPreviewsForPlay(ctx context.Context, queries *db.Queries, playID stri
 		Added:      partition(model.ParticipantAdded),
 		Requested:  partition(model.ParticipantRequested),
 		Waitlisted: partition(model.ParticipantWaitlisted),
+		Invited:    partition(model.ParticipantInvited),
 	}
 
 	confirmed, err := appendMissingHostPreviews(ctx, queries, playID, sport, includeNames, roster.Confirmed, hostIDs)
