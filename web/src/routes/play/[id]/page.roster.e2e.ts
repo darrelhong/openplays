@@ -224,6 +224,60 @@ test('host removes a waitlisted player', async ({ page, context }) => {
 	await expect(page.getByText('Seed Low Intermediate')).toHaveCount(0);
 });
 
+test('host can open the invite players dialog', async ({ page, context }) => {
+	await signIn(context, 'seed-host');
+	mock.setPlay(makePlay({ can_manage: true, viewer_state: 'creator' }));
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await page.getByRole('button', { name: 'Invite players' }).click();
+	const dialog = page.getByRole('dialog');
+	await expect(dialog).toBeVisible();
+	await expect(dialog.getByRole('heading', { name: 'Invite a player' })).toBeVisible();
+});
+
+test('host can send an invite and the dialog closes', async ({ page, context }) => {
+	await signIn(context, 'seed-host');
+	mock.setPlay(makePlay({ can_manage: true, viewer_state: 'creator' }));
+	mock.on('GET', '/api/users/search', () => ({
+		json: {
+			items: [
+				{
+					id: 'seed-li',
+					display_name: 'Seed Low Intermediate',
+					username: 'seedli',
+					rating_code: 'LI'
+				}
+			]
+		}
+	}));
+	mock.action('POST', '/api/plays/play-1/invites', {
+		then: makePlay({ can_manage: true, viewer_state: 'creator' })
+	});
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+	await page.getByRole('button', { name: 'Invite players' }).click();
+
+	const dialog = page.getByRole('dialog');
+	const searchResponse = page.waitForResponse(
+		(response) =>
+			response.request().method() === 'GET' && response.url().includes('/play/play-1/invite-users')
+	);
+	await dialog.getByRole('combobox').fill('s');
+	await searchResponse;
+	await expect(page.getByText('Seed Low Intermediate', { exact: true })).toBeVisible();
+	await page.getByText('Seed Low Intermediate', { exact: true }).click();
+
+	const actionURL = page.url();
+	const actionResponse = page.waitForResponse(
+		(response) => response.request().method() === 'POST' && response.url().startsWith(actionURL)
+	);
+	await Promise.all([actionResponse, dialog.getByRole('button', { name: 'Send invite' }).click()]);
+	await expect(dialog).toBeHidden();
+});
+
 test('full game offers a join request even to eligible players', async ({ page, context }) => {
 	await signIn(context, 'seed-advanced');
 	mock.setPlay(makePlay({ slots_left: 0, viewer_state: 'not_joined' }));

@@ -533,6 +533,15 @@ func TestInvitePlayer_RejectsBlockedUserInEitherDirection(t *testing.T) {
 			if resp.StatusCode != http.StatusForbidden {
 				t.Fatalf("status = %d, want 403", resp.StatusCode)
 			}
+			var problem struct {
+				Detail string `json:"detail"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&problem); err != nil {
+				t.Fatalf("decode problem response: %v", err)
+			}
+			if problem.Detail != "cannot invite this player" {
+				t.Fatalf("detail = %q, want generic invite failure", problem.Detail)
+			}
 		})
 	}
 }

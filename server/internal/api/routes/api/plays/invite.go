@@ -108,7 +108,7 @@ func RegisterInviteParticipant(api huma.API, store InviteParticipantStore, authM
 			return nil, huma.Error500InternalServerError("failed to check user blocks")
 		}
 		if blocked {
-			return nil, huma.Error403Forbidden("cannot invite a blocked user")
+			return nil, huma.Error403Forbidden("cannot invite this player")
 		}
 
 		inviteeID := invitee.ID

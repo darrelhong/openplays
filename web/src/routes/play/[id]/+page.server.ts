@@ -66,6 +66,11 @@ function participantIDFrom(formData: FormData) {
 	return Number.isSafeInteger(participantID) && participantID > 0 ? participantID : null;
 }
 
+function invitedUserIDFrom(formData: FormData) {
+	const raw = formData.get('user_id');
+	return typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : null;
+}
+
 export const actions: Actions = {
 	favourite: favouritePlay,
 	unfavourite: unfavouritePlay,
@@ -169,6 +174,31 @@ export const actions: Actions = {
 		if (apiError) {
 			return fail(apiError.status ?? 500, {
 				error: apiError.detail ?? 'Failed to add player'
+			});
+		}
+
+		redirect(303, `/play/${id}`);
+	},
+	invitePlayer: async ({ params, request, cookies }) => {
+		const id = params.id;
+		const sessionToken = cookies.get('session');
+		if (!sessionToken) {
+			return fail(401, { error: 'Sign in to invite players' });
+		}
+
+		const userID = invitedUserIDFrom(await request.formData());
+		if (!userID) {
+			return fail(400);
+		}
+
+		const { error: apiError } = await api.POST('/api/plays/{id}/invites', {
+			headers: { Cookie: `session=${sessionToken}` },
+			params: { path: { id } },
+			body: { user_id: userID }
+		});
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to invite player'
 			});
 		}
 

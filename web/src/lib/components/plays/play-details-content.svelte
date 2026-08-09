@@ -19,6 +19,7 @@
 	} from '$lib/utils/formatting';
 	import { canDirectJoin, getPlayJoinLabel } from '$lib/utils/play-join-label';
 	import PlayFavouriteButton from './play-favourite-button.svelte';
+	import InvitePlayerField from './invite-player-field.svelte';
 	import PlayParticipantIdentity from './play-participant-identity.svelte';
 	import type { components } from '$lib/api/types.gen';
 	import type { Play } from './types';
@@ -526,7 +527,10 @@
 							</p>
 						</div>
 						{#if canManageActive}
-							<Button href={`/play/${play.id}/edit`} size="sm" variant="outline">Edit</Button>
+							<div class="flex flex-wrap gap-2 items-center">
+								<InvitePlayerField playId={play.id} sport={play.sport} {openSlots} />
+								<Button href={`/play/${play.id}/edit`} size="sm" variant="outline">Edit</Button>
+							</div>
 						{/if}
 					</div>
 
