@@ -310,6 +310,30 @@ test('invitee can accept an invitation', async ({ page, context }) => {
 	await expect(page.getByText('Confirmed').first()).toBeVisible();
 });
 
+test('player can copy the play link from Share', async ({ page, context }) => {
+	await signIn(context, 'seed-advanced');
+	mock.setPlay(makePlay({ viewer_state: 'not_joined' }));
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+		Object.defineProperty(navigator, 'clipboard', {
+			value: {
+				writeText: async (value: string) => {
+					window.localStorage.setItem('openplays-share-url', value);
+				}
+			},
+			configurable: true
+		});
+	});
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+
+	await expect(page.getByRole('button', { name: 'Link copied', exact: true })).toBeVisible();
+	const sharedURL = await page.evaluate(() => localStorage.getItem('openplays-share-url'));
+	expect(sharedURL).toBe(`${new URL(page.url()).origin}/play/play-1`);
+});
+
 test('full game offers a join request even to eligible players', async ({ page, context }) => {
 	await signIn(context, 'seed-advanced');
 	mock.setPlay(makePlay({ slots_left: 0, viewer_state: 'not_joined' }));

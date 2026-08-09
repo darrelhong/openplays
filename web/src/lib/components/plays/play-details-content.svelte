@@ -20,6 +20,7 @@
 	import { canDirectJoin, getPlayJoinLabel } from '$lib/utils/play-join-label';
 	import PlayFavouriteButton from './play-favourite-button.svelte';
 	import InvitePlayerField from './invite-player-field.svelte';
+	import PlayShareButton from './play-share-button.svelte';
 	import PlayParticipantIdentity from './play-participant-identity.svelte';
 	import type { components } from '$lib/api/types.gen';
 	import type { Play } from './types';
@@ -485,7 +486,10 @@
 			</div>
 			<div class="flex gap-3 items-start justify-between">
 				<h1 class="text-2xl font-semibold pe-6">{playTitle}</h1>
-				<PlayFavouriteButton {play} />
+				<div class="flex gap-2 items-center">
+					<PlayShareButton playId={play.id} title={playTitle} />
+					<PlayFavouriteButton {play} />
+				</div>
 			</div>
 			{#if play.description}
 				<p class="text-sm text-muted mb-2 mt-1 whitespace-pre-line">{play.description}</p>

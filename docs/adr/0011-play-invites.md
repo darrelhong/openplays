@@ -86,7 +86,7 @@ status and privacy rules while continuing to use the existing roster and event m
 11. Invitation notifications are feed and push notifications. Sending an invitation notifies the
     invitee with `play.invited`; acceptance and decline notify the hosts with their corresponding
     invitation notification kinds. Notification failures are discarded and never fail the roster
-    request. Revocation does not notify the invitee.
+    request.
 
 12. The existing play detail endpoint's visibility behavior is unchanged. In particular,
     `GET /api/plays/{id}` does not check `visibility`, so an unlisted play remains a guessable UUID
@@ -99,7 +99,7 @@ status and privacy rules while continuing to use the existing roster and event m
 
 An invitation already has the identity, rating snapshot, play relationship, lifecycle transitions,
 privacy rules, and activity history of a participant row. Reusing that row avoids duplicate state
-and lets acceptance, decline, and revocation compose with existing roster controls.
+and lets acceptance and decline compose with existing roster controls.
 
 ### Why invitations do not reserve capacity
 
