@@ -119,6 +119,89 @@ func TestSearchUsers_InvalidSportReturns422(t *testing.T) {
 	}
 }
 
+func TestSearchUsers_ExcludesSelfAndBlockedUsers(t *testing.T) {
+	ts, queries := setupSearchTest(t)
+	defer ts.Close()
+	ctx := context.Background()
+
+	searcher := createSearchTestUser(t, ctx, queries, "search-self", "Searcher", nil, nil)
+	blockedBySearcher := createSearchTestUser(t, ctx, queries, "blocked-by-searcher", "Blocked By Searcher", nil, nil)
+	blockedSearcher := createSearchTestUser(t, ctx, queries, "blocked-searcher", "Blocked Searcher", nil, nil)
+	visible := createSearchTestUser(t, ctx, queries, "visible-search-result", "Visible Search Result", nil, nil)
+	if err := queries.CreateBlock(ctx, db.CreateBlockParams{BlockerID: searcher.ID, BlockedID: blockedBySearcher.ID}); err != nil {
+		t.Fatalf("CreateBlock: %v", err)
+	}
+	if err := queries.CreateBlock(ctx, db.CreateBlockParams{BlockerID: blockedSearcher.ID, BlockedID: searcher.ID}); err != nil {
+		t.Fatalf("CreateBlock reverse: %v", err)
+	}
+	createSearchSession(t, ctx, queries, searcher.ID, "tok")
+
+	ids := searchUserIDs(t, ts, "tok", "/api/users/search?limit=25")
+	if _, ok := ids[searcher.ID]; ok {
+		t.Fatal("search results included the requesting user")
+	}
+	if _, ok := ids[blockedBySearcher.ID]; ok {
+		t.Fatal("search results included a user blocked by the requester")
+	}
+	if _, ok := ids[blockedSearcher.ID]; ok {
+		t.Fatal("search results included a user who blocked the requester")
+	}
+	if _, ok := ids[visible.ID]; !ok {
+		t.Fatal("search results omitted an unblocked active user")
+	}
+}
+
+func TestSearchUsers_ExcludesExistingPlayParticipants(t *testing.T) {
+	ts, queries := setupSearchTest(t)
+	defer ts.Close()
+	ctx := context.Background()
+
+	searcher := createSearchTestUser(t, ctx, queries, "search-play", "Play Searcher", nil, nil)
+	existing := createSearchTestUser(t, ctx, queries, "existing-play-user", "Existing Play User", nil, nil)
+	available := createSearchTestUser(t, ctx, queries, "available-play-user", "Available Play User", nil, nil)
+	playID := createProfileTestPlay(t, ctx, queries, "search-exclude-play", searcher.ID)
+	if _, err := queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID: playID,
+		UserID: &existing.ID,
+		Status: model.ParticipantInvited,
+	}); err != nil {
+		t.Fatalf("CreatePlayParticipant invited: %v", err)
+	}
+	createSearchSession(t, ctx, queries, searcher.ID, "tok")
+
+	ids := searchUserIDs(t, ts, "tok", "/api/users/search?limit=25&exclude_play_id="+playID)
+	if _, ok := ids[existing.ID]; ok {
+		t.Fatal("search results included a user who already has a participant row")
+	}
+	if _, ok := ids[available.ID]; !ok {
+		t.Fatal("search results omitted a user with no participant row")
+	}
+}
+
+func searchUserIDs(t *testing.T, ts *httptest.Server, token, path string) map[string]bool {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: token})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("search status = %d, want 200", resp.StatusCode)
+	}
+
+	var page users.SearchPage
+	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+		t.Fatalf("decode search response: %v", err)
+	}
+	ids := make(map[string]bool, len(page.Items))
+	for _, item := range page.Items {
+		ids[item.ID] = true
+	}
+	return ids
+}
+
 func createSearchTestUser(t *testing.T, ctx context.Context, queries *db.Queries, id, displayName string, username *string, sportsProfile *string) db.User {
 	t.Helper()
 

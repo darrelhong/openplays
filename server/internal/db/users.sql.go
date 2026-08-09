@@ -660,21 +660,39 @@ func (q *Queries) RestoreEmailOTPChallenge(ctx context.Context, arg RestoreEmail
 }
 
 const searchActiveUsers = `-- name: SearchActiveUsers :many
-SELECT id, display_name, username, photo_url, sports_profile
-FROM users
-WHERE status = 'active'
-  AND (
-    ?1 = ''
-    OR lower(display_name) LIKE '%' || lower(?1) || '%'
-    OR lower(COALESCE(username, '')) LIKE '%' || lower(?1) || '%'
+SELECT u.id, u.display_name, u.username, u.photo_url, u.sports_profile
+FROM users u
+WHERE u.status = 'active'
+  AND u.id <> ?1
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = ?1 AND ub.blocked_id = u.id)
+         OR (ub.blocker_id = u.id AND ub.blocked_id = ?1)
   )
-ORDER BY display_name ASC, id ASC
-LIMIT ?2
+  AND (
+    ?2 = ''
+    OR NOT EXISTS (
+        SELECT 1
+        FROM play_participants pp
+        WHERE pp.play_id = ?2
+          AND pp.user_id = u.id
+    )
+  )
+  AND (
+    ?3 = ''
+    OR lower(u.display_name) LIKE '%' || lower(?3) || '%'
+    OR lower(COALESCE(u.username, '')) LIKE '%' || lower(?3) || '%'
+  )
+ORDER BY u.display_name ASC, u.id ASC
+LIMIT ?4
 `
 
 type SearchActiveUsersParams struct {
-	Query interface{}
-	Limit int64
+	ExcludeUserID string
+	ExcludePlayID interface{}
+	Query         interface{}
+	Limit         int64
 }
 
 type SearchActiveUsersRow struct {
@@ -686,7 +704,12 @@ type SearchActiveUsersRow struct {
 }
 
 func (q *Queries) SearchActiveUsers(ctx context.Context, arg SearchActiveUsersParams) ([]SearchActiveUsersRow, error) {
-	rows, err := q.db.QueryContext(ctx, searchActiveUsers, arg.Query, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, searchActiveUsers,
+		arg.ExcludeUserID,
+		arg.ExcludePlayID,
+		arg.Query,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

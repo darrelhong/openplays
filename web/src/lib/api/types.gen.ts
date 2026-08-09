@@ -3218,6 +3218,8 @@ export interface operations {
 				sport?: 'badminton' | 'tennis' | 'football' | 'pickleball' | '';
 				/** @description Maximum users to return */
 				limit?: number;
+				/** @description Exclude users already participating in this play */
+				exclude_play_id?: string;
 			};
 			header?: never;
 			path?: never;

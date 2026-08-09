@@ -92,15 +92,31 @@ GROUP BY p.sport
 ORDER BY p.sport ASC;
 
 -- name: SearchActiveUsers :many
-SELECT id, display_name, username, photo_url, sports_profile
-FROM users
-WHERE status = 'active'
+SELECT u.id, u.display_name, u.username, u.photo_url, u.sports_profile
+FROM users u
+WHERE u.status = 'active'
+  AND u.id <> sqlc.arg('exclude_user_id')
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = sqlc.arg('exclude_user_id') AND ub.blocked_id = u.id)
+         OR (ub.blocker_id = u.id AND ub.blocked_id = sqlc.arg('exclude_user_id'))
+  )
+  AND (
+    sqlc.arg('exclude_play_id') = ''
+    OR NOT EXISTS (
+        SELECT 1
+        FROM play_participants pp
+        WHERE pp.play_id = sqlc.arg('exclude_play_id')
+          AND pp.user_id = u.id
+    )
+  )
   AND (
     sqlc.arg('query') = ''
-    OR lower(display_name) LIKE '%' || lower(sqlc.arg('query')) || '%'
-    OR lower(COALESCE(username, '')) LIKE '%' || lower(sqlc.arg('query')) || '%'
+    OR lower(u.display_name) LIKE '%' || lower(sqlc.arg('query')) || '%'
+    OR lower(COALESCE(u.username, '')) LIKE '%' || lower(sqlc.arg('query')) || '%'
   )
-ORDER BY display_name ASC, id ASC
+ORDER BY u.display_name ASC, u.id ASC
 LIMIT sqlc.arg('limit');
 
 -- name: UpdateUserProfile :one

@@ -9,14 +9,16 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
 )
 
 type SearchInput struct {
-	Query string `query:"q" doc:"Search by display name or username"`
-	Sport string `query:"sport" doc:"Sport for rating snapshot" enum:"badminton,tennis,football,pickleball,"`
-	Limit int64  `query:"limit" default:"10" minimum:"1" maximum:"25" doc:"Maximum users to return"`
+	Query         string `query:"q" doc:"Search by display name or username"`
+	Sport         string `query:"sport" doc:"Sport for rating snapshot" enum:"badminton,tennis,football,pickleball,"`
+	Limit         int64  `query:"limit" default:"10" minimum:"1" maximum:"25" doc:"Maximum users to return"`
+	ExcludePlayID string `query:"exclude_play_id" doc:"Exclude users already participating in this play"`
 }
 
 type UserSummary struct {
@@ -44,6 +46,11 @@ func RegisterSearch(api huma.API, store SearchStore) {
 		Path:        "/search",
 		Tags:        []string{"Users"},
 	}, func(ctx context.Context, input *SearchInput) (*SearchOutput, error) {
+		user := authmw.UserFromContext(ctx)
+		if user == nil {
+			return nil, huma.Error401Unauthorized("not authenticated")
+		}
+
 		sport := strings.TrimSpace(input.Sport)
 		if sport != "" && !slices.Contains(model.SportValues, sport) {
 			return nil, huma.Error422UnprocessableEntity(
@@ -51,8 +58,10 @@ func RegisterSearch(api huma.API, store SearchStore) {
 		}
 
 		rows, err := store.SearchActiveUsers(ctx, db.SearchActiveUsersParams{
-			Query: strings.TrimSpace(input.Query),
-			Limit: input.Limit,
+			Query:         strings.TrimSpace(input.Query),
+			Limit:         input.Limit,
+			ExcludeUserID: user.ID,
+			ExcludePlayID: strings.TrimSpace(input.ExcludePlayID),
 		})
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to search users")
