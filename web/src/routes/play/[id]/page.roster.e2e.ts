@@ -278,6 +278,38 @@ test('host can send an invite and the dialog closes', async ({ page, context }) 
 	await expect(dialog).toBeHidden();
 });
 
+test('host sees invited players without cancellation actions', async ({ page, context }) => {
+	await signIn(context, 'seed-host');
+	const invited = participantFor(li);
+	mock.setPlay(makePlay({ can_manage: true, viewer_state: 'creator', invited: [invited] }));
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await expect(page.getByRole('heading', { name: 'Invited' })).toBeVisible();
+	await expect(page.getByText("Awaiting player's response")).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Accept' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Decline' })).toHaveCount(0);
+});
+
+test('invitee can accept an invitation', async ({ page, context }) => {
+	await signIn(context, 'seed-advanced');
+	const invited = participantFor(advanced, { is_viewer: true });
+	mock.setPlay(makePlay({ viewer_state: 'invited', invited: [invited] }));
+	mock.action('POST', '/api/plays/play-1/invites/me/accept', {
+		then: makePlay({ viewer_state: 'confirmed', confirmed_participants: [HOST, invited] })
+	});
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await expect(page.getByText('Awaiting your response')).toBeVisible();
+	await confirmAction(page, 'Accept', 'Accept invitation');
+
+	await expect(page.getByRole('button', { name: 'Leave game' })).toBeVisible();
+	await expect(page.getByText('Confirmed').first()).toBeVisible();
+});
+
 test('full game offers a join request even to eligible players', async ({ page, context }) => {
 	await signIn(context, 'seed-advanced');
 	mock.setPlay(makePlay({ slots_left: 0, viewer_state: 'not_joined' }));

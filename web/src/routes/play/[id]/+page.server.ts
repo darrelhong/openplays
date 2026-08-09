@@ -179,6 +179,25 @@ export const actions: Actions = {
 
 		redirect(303, `/play/${id}`);
 	},
+	acceptInvite: async ({ params, cookies }) => {
+		const id = params.id;
+		const sessionToken = cookies.get('session');
+		if (!sessionToken) {
+			return fail(401, { error: 'Sign in to accept this invitation' });
+		}
+
+		const { error: apiError } = await api.POST('/api/plays/{id}/invites/me/accept', {
+			headers: { Cookie: `session=${sessionToken}` },
+			params: { path: { id } }
+		});
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to accept invitation'
+			});
+		}
+
+		redirect(303, `/play/${id}`);
+	},
 	invitePlayer: async ({ params, request, cookies }) => {
 		const id = params.id;
 		const sessionToken = cookies.get('session');

@@ -50,6 +50,7 @@
 		play.confirmed_participants ?? play.participant_preview ?? []
 	);
 	const addedParticipants = $derived(play.added_participants ?? []);
+	const invitedParticipants = $derived(play.invited ?? []);
 	const waitlist = $derived(play.waitlist ?? []);
 	const historyEvents = $derived(play.history_events ?? []);
 	const confirmedCount = $derived(play.confirmed_count ?? confirmedParticipants.length);
@@ -145,6 +146,10 @@
 
 {#snippet requestedBadge()}
 	<Badge variant="warning">Requested</Badge>
+{/snippet}
+
+{#snippet invitedBadge()}
+	<Badge variant="warning">Invited</Badge>
 {/snippet}
 
 {#snippet addParticipantDialog(participant: Participant)}
@@ -355,6 +360,48 @@
 	</li>
 {/snippet}
 
+{#snippet invitedPlayer(participant: Participant)}
+	<li class="py-2">
+		<div class="flex gap-3 items-center justify-between">
+			<PlayParticipantIdentity
+				{participant}
+				secondary={participant.is_viewer
+					? 'Awaiting your response'
+					: canManageActive
+						? "Awaiting player's response"
+						: undefined}
+			/>
+			<div class="shrink-0">
+				{@render invitedBadge()}
+			</div>
+		</div>
+
+		{#if participant.is_viewer && !hasEnded && !isCancelled}
+			<div class="ms-12 mt-2 flex flex-wrap gap-2 justify-end">
+				<ActionConfirmDialog
+					title="Accept invitation?"
+					action="?/acceptInvite"
+					confirmLabel="Accept invitation"
+				>
+					{#snippet trigger({ props })}
+						<Button type="button" size="xs" {...props}>Accept</Button>
+					{/snippet}
+				</ActionConfirmDialog>
+				<ActionConfirmDialog
+					title="Decline invitation?"
+					action="?/leave"
+					confirmLabel="Decline invitation"
+					confirmVariant="destructive"
+				>
+					{#snippet trigger({ props })}
+						<Button type="button" size="xs" variant="outline" {...props}>Decline</Button>
+					{/snippet}
+				</ActionConfirmDialog>
+			</div>
+		{/if}
+	</li>
+{/snippet}
+
 {#snippet openPlayerSlot()}
 	<li class="py-2 flex gap-3 items-center justify-between">
 		<div class="flex gap-3 min-w-0 items-center">
@@ -377,6 +424,8 @@
 					{#each participants as participant (participant.id)}
 						{#if kind === 'requests'}
 							{@render requestedPlayer(participant)}
+						{:else if kind === 'invited'}
+							{@render invitedPlayer(participant)}
 						{:else}
 							{@render waitlistPlayer(participant)}
 						{/if}
@@ -557,8 +606,9 @@
 						{/if}
 					</ul>
 
-					{#if canManageActive || requests.length > 0 || waitlist.length > 0}
+					{#if canManageActive || requests.length > 0 || waitlist.length > 0 || invitedParticipants.length > 0}
 						<div class="mt-4 space-y-4">
+							{@render rosterSection('Invited', invitedParticipants, 'invited')}
 							{#if requiresWaitlist}
 								{@render rosterSection('Waitlist', waitlist)}
 								{@render rosterSection('Requests', requests, 'requests')}
@@ -584,6 +634,8 @@
 								{@render waitlistBadge()}
 							{:else if viewerState === 'requested' || viewerState === 'waitlisted'}
 								{@render requestedBadge()}
+							{:else if viewerState === 'invited'}
+								{@render invitedBadge()}
 							{/if}
 						{:else if !user}
 							{#if showLoginButton}
@@ -619,6 +671,8 @@
 							</ActionConfirmDialog>
 						{:else if viewerState === 'added'}
 							{@render addedBadge()}
+						{:else if viewerState === 'invited'}
+							{@render invitedBadge()}
 						{:else if viewerState === 'requested' || viewerState === 'waitlisted'}
 							{@render requestedBadge()}
 							<ActionConfirmDialog
