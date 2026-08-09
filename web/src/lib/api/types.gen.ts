@@ -520,6 +520,46 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/plays/{id}/invites': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Invite a player to a play
+		 * @description Invite an active registered user to a user-created play. Requires the play host.
+		 */
+		post: operations['invite-play-participant'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/plays/{id}/invites/me/accept': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Accept a play invitation
+		 * @description Accept the authenticated user's invitation to a play.
+		 */
+		post: operations['accept-play-invite'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/plays/{id}/join': {
 		parameters: {
 			query?: never;
@@ -804,6 +844,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
 	schemas: {
+		AcceptInviteOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/AcceptInviteOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** Format: int64 */
+			slots_left?: number;
+			/** @enum {string} */
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested' | 'invited';
+		};
 		ChatConversationSummary: {
 			/**
 			 * Format: uri
@@ -862,7 +914,7 @@ export interface components {
 			/** Format: int64 */
 			slots_left?: number;
 			/** @enum {string} */
-			status: 'confirmed' | 'waitlisted' | 'added' | 'requested';
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested' | 'invited';
 		};
 		ContactMethod: {
 			type: string;
@@ -1141,7 +1193,27 @@ export interface components {
 			/** Format: int64 */
 			slots_left?: number;
 			/** @enum {string} */
-			status: 'confirmed' | 'waitlisted' | 'added' | 'requested';
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested' | 'invited';
+		};
+		InviteParticipantInputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/InviteParticipantInputBody.json
+			 */
+			readonly $schema?: string;
+			/** @description User ID to invite */
+			user_id: string;
+		};
+		InviteParticipantOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/InviteParticipantOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** @enum {string} */
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested' | 'invited';
 		};
 		JoinOutputBody: {
 			/**
@@ -1153,7 +1225,7 @@ export interface components {
 			/** Format: int64 */
 			slots_left?: number;
 			/** @enum {string} */
-			status: 'confirmed' | 'waitlisted' | 'added' | 'requested';
+			status: 'confirmed' | 'waitlisted' | 'added' | 'requested' | 'invited';
 		};
 		ListBody: {
 			/**
@@ -1286,6 +1358,9 @@ export interface components {
 				| 'participant.left_waitlist'
 				| 'participant.request_withdrawn'
 				| 'participant.removed'
+				| 'participant.invited'
+				| 'participant.invite_accepted'
+				| 'participant.invite_declined'
 				| 'play.cancelled';
 			/** Format: int64 */
 			id: number;
@@ -1344,6 +1419,9 @@ export interface components {
 			history_events?: components['schemas']['PlayHistoryEventPublic'][] | null;
 			host_name: string;
 			id: string;
+			invited?: components['schemas']['PlayParticipantPreviewPublic'][] | null;
+			/** Format: int64 */
+			invited_count?: number;
 			is_favourited?: boolean;
 			level_max?: string;
 			level_min?: string;
@@ -1389,7 +1467,14 @@ export interface components {
 			venue_name: string;
 			venue_postal_code?: string;
 			/** @enum {string} */
-			viewer_state?: 'not_joined' | 'confirmed' | 'waitlisted' | 'added' | 'requested' | 'creator';
+			viewer_state?:
+				| 'not_joined'
+				| 'confirmed'
+				| 'waitlisted'
+				| 'added'
+				| 'requested'
+				| 'invited'
+				| 'creator';
 			/**
 			 * @description Public games appear in discovery. Unlisted games are viewable by link only.
 			 * @enum {string}
@@ -2780,6 +2865,74 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'invite-play-participant': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody: {
+			content: {
+				'application/json': components['schemas']['InviteParticipantInputBody'];
+			};
+		};
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['InviteParticipantOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'accept-play-invite': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Play ID */
+				id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['AcceptInviteOutputBody'];
+				};
 			};
 			/** @description Error */
 			default: {

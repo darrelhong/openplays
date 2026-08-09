@@ -19,6 +19,7 @@
 		creator: 'Hosting',
 		confirmed: 'Going',
 		added: 'Pending',
+		invited: 'Invited',
 		requested: 'Requested',
 		waitlisted: requireWaitlist ? 'Waitlisted' : 'Requested',
 		not_joined: undefined
@@ -30,6 +31,7 @@
 		creator: 'info',
 		confirmed: 'success',
 		added: 'warning',
+		invited: 'warning',
 		requested: 'warning',
 		waitlisted: requireWaitlist ? 'outline' : 'warning',
 		not_joined: 'muted'
