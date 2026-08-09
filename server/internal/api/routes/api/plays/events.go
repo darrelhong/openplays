@@ -184,6 +184,12 @@ func playHistoryEventMessage(eventType model.PlayEventType, actorDisplayName, su
 		return fmt.Sprintf("%s withdrew their request", subject)
 	case model.PlayEventParticipantRemoved:
 		return fmt.Sprintf("%s was removed from the game", subject)
+	case model.PlayEventParticipantInvited:
+		return fmt.Sprintf("%s was invited to the game", subject)
+	case model.PlayEventParticipantInviteAccepted:
+		return fmt.Sprintf("%s accepted the invitation", subject)
+	case model.PlayEventParticipantInviteDeclined:
+		return fmt.Sprintf("%s declined the invitation", subject)
 	case model.PlayEventCancelled:
 		if actorDisplayName != nil {
 			return fmt.Sprintf("%s cancelled the game", actor)
@@ -214,6 +220,8 @@ func eventTypeForJoinStatus(status model.PlayParticipantStatus) model.PlayEventT
 
 func eventTypeForLeaveStatus(status model.PlayParticipantStatus, requireWaitlist bool) model.PlayEventType {
 	switch status {
+	case model.ParticipantInvited:
+		return model.PlayEventParticipantInviteDeclined
 	case model.ParticipantConfirmed:
 		return model.PlayEventParticipantLeftConfirmed
 	case model.ParticipantAdded:

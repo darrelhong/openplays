@@ -103,6 +103,9 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 				return nil, huma.Error409Conflict("host cannot be removed from roster")
 			}
 		}
+		if participant.Status == model.ParticipantInvited {
+			return nil, huma.Error409Conflict("invitations cannot be cancelled")
+		}
 
 		subject, err := subjectFromParticipant(ctx, store, participant)
 		if err != nil {

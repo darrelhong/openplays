@@ -38,6 +38,16 @@ type InviteParticipantStore interface {
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
+type AcceptInviteStore interface {
+	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
+	GetPlayParticipantByPlayAndUser(ctx context.Context, arg db.GetPlayParticipantByPlayAndUserParams) (db.PlayParticipant, error)
+	CountReservedPlayParticipants(ctx context.Context, playID string) (int64, error)
+	UpdatePlayParticipantStatus(ctx context.Context, arg db.UpdatePlayParticipantStatusParams) (db.PlayParticipant, error)
+	UpdatePlaySlotsLeft(ctx context.Context, id string) error
+	ListPlayHostUserIDsByPlay(ctx context.Context, playID string) ([]string, error)
+	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
+}
+
 func RegisterInviteParticipant(api huma.API, store InviteParticipantStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
 	huma.Register(api, huma.Operation{
 		OperationID: "invite-play-participant",
@@ -160,6 +170,112 @@ func RegisterInviteParticipant(api huma.API, store InviteParticipantStore, authM
 
 		out := &InviteParticipantOutput{}
 		out.Body.Status = model.ParticipantInvited
+		return out, nil
+	})
+}
+
+type AcceptInviteOutput struct {
+	Body struct {
+		Status    model.PlayParticipantStatus `json:"status"`
+		SlotsLeft *int64                      `json:"slots_left,omitempty"`
+	}
+}
+
+type AcceptInviteInput struct {
+	ID string `path:"id" doc:"Play ID"`
+}
+
+func RegisterAcceptInvite(api huma.API, store AcceptInviteStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
+	huma.Register(api, huma.Operation{
+		OperationID: "accept-play-invite",
+		Summary:     "Accept a play invitation",
+		Description: "Accept the authenticated user's invitation to a play.",
+		Method:      http.MethodPost,
+		Path:        "/{id}/invites/me/accept",
+		Tags:        []string{"Plays"},
+		Middlewares: huma.Middlewares{authMiddleware},
+	}, func(ctx context.Context, input *AcceptInviteInput) (*AcceptInviteOutput, error) {
+		user := authmw.UserFromContext(ctx)
+		if user == nil {
+			return nil, huma.Error401Unauthorized("not authenticated")
+		}
+
+		play, err := store.GetPlayByID(ctx, input.ID)
+		if err == sql.ErrNoRows {
+			return nil, huma.Error404NotFound("play not found")
+		}
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get play")
+		}
+		if play.CreatedBy == nil {
+			return nil, huma.Error422UnprocessableEntity("cannot accept invitations for imported plays")
+		}
+		if play.CancelledAt != nil {
+			return nil, huma.Error409Conflict("play is cancelled")
+		}
+		if err := requireRosterOpen(play); err != nil {
+			return nil, err
+		}
+		if play.MaxPlayers == nil {
+			return nil, huma.Error500InternalServerError("play is missing max_players")
+		}
+
+		participant, err := store.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
+			PlayID: input.ID,
+			UserID: &user.ID,
+		})
+		if err == sql.ErrNoRows {
+			return nil, huma.Error404NotFound("participant not found")
+		}
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to get participant")
+		}
+		if participant.Status != model.ParticipantInvited {
+			return nil, huma.Error409Conflict("participant is not invited")
+		}
+
+		reservedCount, err := store.CountReservedPlayParticipants(ctx, input.ID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to count participants")
+		}
+		status := resolveInviteAcceptStatus(play, reservedCount)
+		updated, err := store.UpdatePlayParticipantStatus(ctx, db.UpdatePlayParticipantStatusParams{
+			ID:     participant.ID,
+			Status: status,
+		})
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to accept invitation")
+		}
+
+		if err := store.UpdatePlaySlotsLeft(ctx, input.ID); err != nil {
+			return nil, huma.Error500InternalServerError("failed to update slots_left")
+		}
+		actorUserID, actorDisplayName := playEventActor(user)
+		participantID := participant.ID
+		if err := recordPlayEvent(ctx, store, db.CreatePlayEventParams{
+			PlayID:             input.ID,
+			EventType:          eventTypeForInviteAcceptStatus(status),
+			ActorUserID:        actorUserID,
+			ActorDisplayName:   actorDisplayName,
+			SubjectUserID:      actorUserID,
+			SubjectDisplayName: actorDisplayName,
+			ParticipantID:      &participantID,
+		}); err != nil {
+			return nil, huma.Error500InternalServerError("failed to record play event")
+		}
+
+		if hostUserIDs, err := store.ListPlayHostUserIDsByPlay(ctx, input.ID); err == nil {
+			_ = notifications.NotifyHostsInviteAccepted(ctx, notifier, notifications.PlaySnapshotFromDB(play), hostUserIDs, user.ID, user.DisplayName)
+		}
+
+		finalReservedCount := reservedCount
+		if status == model.ParticipantConfirmed {
+			finalReservedCount++
+		}
+		slots := deriveSlotsLeft(*play.MaxPlayers, finalReservedCount)
+		out := &AcceptInviteOutput{}
+		out.Body.Status = updated.Status
+		out.Body.SlotsLeft = &slots
 		return out, nil
 	})
 }

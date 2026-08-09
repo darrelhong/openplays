@@ -164,6 +164,29 @@ func resolveJoinStatus(play db.GetPlayByIDRow, user *auth.User, reservedCount in
 	return model.ParticipantAdded, ratingCode, ratingOrd
 }
 
+func resolveInviteAcceptStatus(play db.GetPlayByIDRow, reservedCount int64) model.PlayParticipantStatus {
+	if play.RequireWaitlist {
+		return model.ParticipantRequested
+	}
+	if reservedCount >= *play.MaxPlayers {
+		return model.ParticipantWaitlisted
+	}
+	return model.ParticipantConfirmed
+}
+
+func eventTypeForInviteAcceptStatus(status model.PlayParticipantStatus) model.PlayEventType {
+	switch status {
+	case model.ParticipantConfirmed:
+		return model.PlayEventParticipantInviteAccepted
+	case model.ParticipantWaitlisted:
+		return model.PlayEventParticipantMovedToWaitlist
+	case model.ParticipantRequested:
+		return model.PlayEventParticipantJoinRequested
+	default:
+		return model.PlayEventParticipantInviteAccepted
+	}
+}
+
 func userRating(sport model.Sport, user *auth.User) (*string, *int64) {
 	if user == nil || user.SportsProfile == nil {
 		return nil, nil

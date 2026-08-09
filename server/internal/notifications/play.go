@@ -95,6 +95,32 @@ func NotifyPlayerInvited(ctx context.Context, sender Sender, play PlaySnapshot, 
 	})
 }
 
+func NotifyHostsInviteAccepted(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
+	body := fmt.Sprintf("%s accepted your invitation", notificationName(playerName, "Someone"))
+	payload := Payload{
+		Title:  playNotificationTitle(play),
+		Body:   body,
+		URL:    "/play/" + play.ID,
+		Tag:    "play:" + play.ID + ":invite_accepted:" + playerUserID,
+		Kind:   "play.invite_accepted",
+		PlayID: play.ID,
+	}
+	return notifyHosts(ctx, sender, payload, hostUserIDs, playerUserID)
+}
+
+func NotifyHostsInviteDeclined(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
+	body := fmt.Sprintf("%s declined your invitation", notificationName(playerName, "Someone"))
+	payload := Payload{
+		Title:  playNotificationTitle(play),
+		Body:   body,
+		URL:    "/play/" + play.ID,
+		Tag:    "play:" + play.ID + ":invite_declined:" + playerUserID,
+		Kind:   "play.invite_declined",
+		PlayID: play.ID,
+	}
+	return notifyHosts(ctx, sender, payload, hostUserIDs, playerUserID)
+}
+
 func NotifyHostsPlayerJoined(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
 	body := fmt.Sprintf("%s joined the game", notificationName(playerName, "Someone"))
 	payload := Payload{

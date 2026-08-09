@@ -24,6 +24,7 @@ SELECT * FROM (
         'participant.joined',
         'participant.added',
         'participant.confirmed',
+        'participant.invite_accepted',
         'participant.left_confirmed',
         'participant.left_added',
         'play.cancelled',

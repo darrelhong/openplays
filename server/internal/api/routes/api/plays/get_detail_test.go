@@ -351,6 +351,67 @@ func equalStrings(a, b []string) bool {
 	return true
 }
 
+func TestGetPlayDetail_InviteHistoryPrivacy(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	hostID := createRouteTestUser(t, ctx, queries, "detail-invite-history-host")
+	playerID := createRouteTestUser(t, ctx, queries, "detail-invite-history-player")
+	inviteeID := createRouteTestUser(t, ctx, queries, "detail-invite-history-invitee")
+	outsiderID := createRouteTestUser(t, ctx, queries, "detail-invite-history-outsider")
+	playID := createUserPlay(t, ctx, queries, hostID, 4, nil, nil)
+	seedConfirmedParticipant(t, ctx, queries, playID, hostID)
+	seedConfirmedParticipant(t, ctx, queries, playID, playerID)
+	seedInvitedParticipant(t, ctx, queries, playID, inviteeID)
+
+	actorName := "Host"
+	subjectName := "Ada"
+	inviteEvents := []model.PlayEventType{
+		model.PlayEventParticipantInvited,
+		model.PlayEventParticipantInviteAccepted,
+		model.PlayEventParticipantInviteDeclined,
+	}
+	for _, eventType := range inviteEvents {
+		if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+			PlayID:             playID,
+			EventType:          eventType,
+			ActorUserID:        &hostID,
+			ActorDisplayName:   &actorName,
+			SubjectUserID:      &inviteeID,
+			SubjectDisplayName: &subjectName,
+		}); err != nil {
+			t.Fatalf("CreatePlayEvent %s: %v", eventType, err)
+		}
+	}
+
+	hostEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(hostID, nil), queries), playID)
+	if got := historyEventTypes(hostEvents); !equalStrings(got, []string{
+		string(model.PlayEventParticipantInvited),
+		string(model.PlayEventParticipantInviteAccepted),
+		string(model.PlayEventParticipantInviteDeclined),
+	}) {
+		t.Fatalf("host invite history event types = %v, want all invite events", got)
+	}
+	if hostEvents[0].ActorDisplayName == nil || *hostEvents[0].ActorDisplayName != actorName {
+		t.Fatalf("invited actor_display_name = %v, want host name", hostEvents[0].ActorDisplayName)
+	}
+
+	playerEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(playerID, nil), queries), playID)
+	if got := historyEventTypes(playerEvents); !equalStrings(got, []string{string(model.PlayEventParticipantInviteAccepted)}) {
+		t.Fatalf("participant invite history event types = %v, want accepted only", got)
+	}
+
+	inviteeEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(inviteeID, nil), queries), playID)
+	if len(inviteeEvents) != 0 {
+		t.Fatalf("pre-acceptance invitee history = %v, want none", inviteeEvents)
+	}
+	outsiderEvents := getHistoryEvents(t, setupGetDetailTest(sessionWithProfile(outsiderID, nil), queries), playID)
+	if len(outsiderEvents) != 0 {
+		t.Fatalf("outsider history = %v, want none", outsiderEvents)
+	}
+}
+
 func TestGetPlayDetail_ImportedPlayIncludesTimestamps(t *testing.T) {
 	sqlDB := testdb.New(t)
 	queries := db.New(sqlDB)

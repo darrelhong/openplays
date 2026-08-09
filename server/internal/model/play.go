@@ -144,7 +144,6 @@ const (
 	PlayEventParticipantInvited          PlayEventType = "participant.invited"
 	PlayEventParticipantInviteAccepted   PlayEventType = "participant.invite_accepted"
 	PlayEventParticipantInviteDeclined   PlayEventType = "participant.invite_declined"
-	PlayEventParticipantInviteRevoked    PlayEventType = "participant.invite_revoked"
 
 	PlayEventCancelled PlayEventType = "play.cancelled"
 )
@@ -168,7 +167,6 @@ func (e PlayEventType) Schema(r huma.Registry) *huma.Schema {
 		string(PlayEventParticipantInvited),
 		string(PlayEventParticipantInviteAccepted),
 		string(PlayEventParticipantInviteDeclined),
-		string(PlayEventParticipantInviteRevoked),
 		string(PlayEventCancelled),
 	}
 	return schema

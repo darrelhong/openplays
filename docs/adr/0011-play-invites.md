@@ -78,8 +78,8 @@ status and privacy rules while continuing to use the existing roster and event m
     - `waitlisted` → existing `participant.moved_to_waitlist`, host-only;
     - `requested` → existing `participant.join_requested`, host-only.
 
-    Declining records `participant.invite_declined`; host revocation records
-    `participant.invite_revoked`. Pending invitation events remain host-only. Only
+    Declining records `participant.invite_declined`. Hosts cannot cancel an outstanding invitation
+    through roster removal; the invitee must decline it. Pending invitation events remain host-only. Only
     `participant.invite_accepted` is added to participant-visible event queries because it means
     the player actually joined the roster.
 
@@ -166,8 +166,8 @@ actual roster membership is participant-visible.
 
 - Hosts can only invite registered users, and the invitee must act before the invitation changes the
   roster.
-- There is no expiry or revocation notification to the invitee; revocation is visible through the
-  host-controlled roster state.
+- There is no expiry or host cancellation notification; an outstanding invitation remains pending
+  until the invitee accepts or declines it.
 - The invitation cap and count-then-insert pattern are intentionally subject to the same
   concurrency limitations as existing roster mutations.
 - A require-waitlist invite still needs host review after the invitee accepts.
@@ -178,13 +178,13 @@ actual roster membership is participant-visible.
 
 - Add `invited_by_user_id` to `play_participants`; no status CHECK migration is needed because the
   status column is unconstrained.
-- Add `ParticipantInvited` and the four invitation event types to both the Go constants and the
+- Add `ParticipantInvited` and the three invitation event types to both the Go constants and the
   Huma schema enums so the OpenAPI contract includes them.
 - Keep `CountReservedPlayParticipants` and `IsPlayChatMember` unchanged: both already use only
   `confirmed` and `added`.
 - Add host-only invitation creation at `POST /api/plays/{id}/invites` and self-service acceptance
-  at `POST /api/plays/{id}/invites/me/accept`; reuse the existing leave and host-removal paths for
-  decline and revoke.
+  at `POST /api/plays/{id}/invites/me/accept`; reuse the existing leave path for decline and reject
+  host removal of invited rows.
 - Include invited rows only for hosts and the invitee in play details, while always exposing the
   aggregate invited count.
 - Existing My Games membership queries already include any participant row and pass through its

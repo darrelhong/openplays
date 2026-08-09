@@ -99,7 +99,11 @@ func RegisterLeave(api huma.API, store LeaveStore, authMiddleware func(huma.Cont
 				return nil, huma.Error500InternalServerError("failed to update slots_left")
 			}
 		}
-		if participant.Status == model.ParticipantConfirmed || participant.Status == model.ParticipantAdded {
+		if participant.Status == model.ParticipantInvited {
+			if hostUserIDs, err := store.ListPlayHostUserIDsByPlay(ctx, input.ID); err == nil {
+				_ = notifications.NotifyHostsInviteDeclined(ctx, notifier, notifications.PlaySnapshotFromDB(play), hostUserIDs, user.ID, user.DisplayName)
+			}
+		} else if participant.Status == model.ParticipantConfirmed || participant.Status == model.ParticipantAdded {
 			if hostUserIDs, err := store.ListPlayHostUserIDsByPlay(ctx, input.ID); err == nil {
 				_ = notifications.NotifyHostsPlayerLeft(ctx, notifier, notifications.PlaySnapshotFromDB(play), hostUserIDs, user.ID, user.DisplayName)
 			}

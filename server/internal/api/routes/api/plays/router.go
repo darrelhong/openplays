@@ -29,6 +29,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier not
 	RegisterFavourite(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterJoin(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterInviteParticipant(grp, queries, authmw.RequireAuth(api, svc), notifier)
+	RegisterAcceptInvite(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterLeave(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterConfirmParticipant(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterHostRosterManagement(grp, queries, authmw.RequireAuth(api, svc), notifier)

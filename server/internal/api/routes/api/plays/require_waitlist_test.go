@@ -95,6 +95,7 @@ func TestParticipantVisibleEventsIncludeJoinAndRequestEvents(t *testing.T) {
 		model.PlayEventParticipantJoined,
 		model.PlayEventParticipantAdded,
 		model.PlayEventParticipantConfirmed,
+		model.PlayEventParticipantInviteAccepted,
 		model.PlayEventParticipantLeftConfirmed,
 		model.PlayEventParticipantLeftAdded,
 	}
@@ -103,6 +104,8 @@ func TestParticipantVisibleEventsIncludeJoinAndRequestEvents(t *testing.T) {
 		model.PlayEventParticipantMovedToWaitlist,
 		model.PlayEventParticipantRequestWithdrawn,
 		model.PlayEventParticipantLeftWaitlist,
+		model.PlayEventParticipantInvited,
+		model.PlayEventParticipantInviteDeclined,
 	}
 	for _, eventType := range append(append([]model.PlayEventType{}, visible...), hostOnly...) {
 		if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{

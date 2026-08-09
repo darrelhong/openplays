@@ -127,6 +127,7 @@ SELECT id, play_id, event_type, actor_user_id, actor_display_name, subject_user_
         'participant.joined',
         'participant.added',
         'participant.confirmed',
+        'participant.invite_accepted',
         'participant.left_confirmed',
         'participant.left_added',
         'play.cancelled',
