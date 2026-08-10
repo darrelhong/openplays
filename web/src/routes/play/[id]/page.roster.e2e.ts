@@ -302,6 +302,28 @@ test('host can send an invite and the dialog closes', async ({ page, context }) 
 	await expect(dialog).toBeHidden();
 });
 
+test('invite picker shows suggestion and search failures', async ({ page, context }) => {
+	await signIn(context, 'seed-host');
+	mock.setPlay(makePlay({ can_manage: true, viewer_state: 'creator' }));
+	mock.on('GET', '/api/me/suggested-players', { status: 500 });
+	mock.on('GET', '/api/users/search', { status: 500 });
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+	await page.getByRole('button', { name: 'Invite players' }).click();
+
+	const dialog = page.getByRole('dialog');
+	await expect(page.getByText('Failed to load suggestions')).toBeVisible();
+
+	const searchResponse = page.waitForResponse(
+		(response) =>
+			response.request().method() === 'GET' && response.url().includes('/play/play-1/invite-users')
+	);
+	await dialog.getByRole('combobox').fill('s');
+	await searchResponse;
+	await expect(page.getByText('Failed to search users')).toBeVisible();
+});
+
 test('host sees invited players without cancellation actions', async ({ page, context }) => {
 	await signIn(context, 'seed-host');
 	const invited = participantFor(li);
@@ -314,6 +336,46 @@ test('host sees invited players without cancellation actions', async ({ page, co
 	await expect(page.getByText("Awaiting player's response")).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Accept' })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Decline' })).toHaveCount(0);
+});
+
+test('invite history is visible to the host but not a pending invitee', async ({
+	page,
+	context
+}) => {
+	const invited = participantFor(advanced);
+	mock.setPlay(
+		makePlay({
+			can_manage: true,
+			viewer_state: 'creator',
+			invited: [invited],
+			history_events: [
+				{
+					id: 1,
+					event_type: 'participant.invited',
+					message: 'Seed Advanced was invited to the game',
+					created_at: '2026-08-10T00:00:00Z',
+					relative_time: 'just now'
+				}
+			]
+		})
+	);
+	await signIn(context, 'seed-host');
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+	await expect(page.getByText('Seed Advanced was invited to the game')).toBeVisible();
+
+	mock.setPlay(
+		makePlay({ viewer_state: 'invited', invited: [participantFor(advanced, { is_viewer: true })] })
+	);
+	await signIn(context, 'seed-advanced');
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await expect(page.getByText('Seed Advanced was invited to the game')).toHaveCount(0);
+	await expect(page.getByRole('heading', { name: 'Activity' })).toHaveCount(0);
 });
 
 test('invitee can accept an invitation', async ({ page, context }) => {
@@ -332,6 +394,69 @@ test('invitee can accept an invitation', async ({ page, context }) => {
 
 	await expect(page.getByRole('button', { name: 'Leave game' })).toBeVisible();
 	await expect(page.getByText('Confirmed').first()).toBeVisible();
+});
+
+test('invitee can decline an invitation', async ({ page, context }) => {
+	await signIn(context, 'seed-advanced');
+	const invited = participantFor(advanced, { is_viewer: true });
+	mock.setPlay(makePlay({ viewer_state: 'invited', invited: [invited] }));
+	mock.action('DELETE', '/api/plays/play-1/participants/me', {
+		then: makePlay({ viewer_state: 'not_joined', invited: [] })
+	});
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await expect(page.getByText('Awaiting your response')).toBeVisible();
+	await confirmAction(page, 'Decline', 'Decline invitation');
+
+	await expect(page.getByText('Awaiting your response')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Join game' })).toBeVisible();
+});
+
+test('invitee accepting on a full game joins the waitlist', async ({ page, context }) => {
+	await signIn(context, 'seed-advanced');
+	const invited = participantFor(advanced, { is_viewer: true });
+	mock.setPlay(makePlay({ slots_left: 0, viewer_state: 'invited', invited: [invited] }));
+	mock.action('POST', '/api/plays/play-1/invites/me/accept', {
+		then: makePlay({
+			slots_left: 0,
+			viewer_state: 'waitlisted',
+			waitlist: [invited]
+		})
+	});
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await confirmAction(page, 'Accept', 'Accept invitation');
+
+	await expect(page.getByText('Requested').first()).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Withdraw request' })).toBeVisible();
+});
+
+test('invitee accepting a require-waitlist invitation creates a join request', async ({
+	page,
+	context
+}) => {
+	await signIn(context, 'seed-advanced');
+	const invited = participantFor(advanced, { is_viewer: true });
+	mock.setPlay(makePlay({ require_waitlist: true, viewer_state: 'invited', invited: [invited] }));
+	mock.action('POST', '/api/plays/play-1/invites/me/accept', {
+		then: makePlay({
+			require_waitlist: true,
+			viewer_state: 'requested',
+			requests: [invited]
+		})
+	});
+
+	await page.goto('/play/play-1');
+	await dismissPushPrompt(page);
+
+	await confirmAction(page, 'Accept', 'Accept invitation');
+
+	await expect(page.getByText('Requested').first()).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Withdraw request' })).toBeVisible();
 });
 
 test('player can copy the play link from Share', async ({ page, context }) => {
