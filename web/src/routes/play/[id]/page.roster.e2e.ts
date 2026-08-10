@@ -227,14 +227,36 @@ test('host removes a waitlisted player', async ({ page, context }) => {
 test('host can open the invite players dialog', async ({ page, context }) => {
 	await signIn(context, 'seed-host');
 	mock.setPlay(makePlay({ can_manage: true, viewer_state: 'creator' }));
+	mock.on('GET', '/api/me/suggested-players', {
+		json: {
+			items: [
+				{ id: 'suggested-player-1', display_name: 'Suggested Player', username: 'suggestedplayer' }
+			]
+		}
+	});
 
 	await page.goto('/play/play-1');
 	await dismissPushPrompt(page);
+
+	let inviteSubmitCount = 0;
+	page.on('request', (request) => {
+		if (request.method() === 'POST' && request.url().includes('?/invitePlayer')) {
+			inviteSubmitCount += 1;
+		}
+	});
 
 	await page.getByRole('button', { name: 'Invite players' }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toBeVisible();
 	await expect(dialog.getByRole('heading', { name: 'Invite a player' })).toBeVisible();
+	await expect(page.getByText('Suggested', { exact: true })).toBeVisible();
+	await dialog.getByRole('combobox').press('Escape');
+	await dialog
+		.locator('[data-slot="dialog-footer"]')
+		.getByRole('button', { name: 'Close' })
+		.click();
+	await expect(dialog).toBeHidden();
+	expect(inviteSubmitCount).toBe(0);
 });
 
 test('host can send an invite and the dialog closes', async ({ page, context }) => {
@@ -267,8 +289,10 @@ test('host can send an invite and the dialog closes', async ({ page, context }) 
 	);
 	await dialog.getByRole('combobox').fill('s');
 	await searchResponse;
+	await expect(page.getByText('Search results', { exact: true })).toBeVisible();
 	await expect(page.getByText('Seed Low Intermediate', { exact: true })).toBeVisible();
 	await page.getByText('Seed Low Intermediate', { exact: true }).click();
+	await expect(dialog.getByRole('combobox')).toHaveValue('Seed Low Intermediate (@seedli)');
 
 	const actionURL = page.url();
 	const actionResponse = page.waitForResponse(

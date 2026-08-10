@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "github.com/glebarez/sqlite"
 	"github.com/joho/godotenv"
@@ -119,6 +121,9 @@ func main() {
 		}
 		fmt.Printf("seeded %s (%s)\n", user.DisplayName, user.ID)
 	}
+	if err := seedInviteScenarios(ctx, queries); err != nil {
+		fatal("seed invite scenarios", err)
+	}
 }
 
 func upsertSeedUser(ctx context.Context, queries *db.Queries, user seedUser) error {
@@ -145,6 +150,220 @@ func upsertSeedUser(ctx context.Context, queries *db.Queries, user seedUser) err
 		SportsProfile: sportsProfile,
 	})
 	return err
+}
+
+type seedPlay struct {
+	ID              string
+	Name            string
+	Description     string
+	Venue           string
+	StartsAt        time.Time
+	EndsAt          time.Time
+	MaxPlayers      int64
+	SlotsLeft       int64
+	RequireWaitlist bool
+	ConfirmedUsers  []string
+	InvitedUsers    []string
+}
+
+// seedInviteScenarios creates stable local-only data for exercising the invite
+// picker, invite lifecycle, waitlist behavior, and suggested players.
+// Existing rows are preserved so rerunning seeddev is safe.
+func seedInviteScenarios(ctx context.Context, queries *db.Queries) error {
+	now := time.Now().UTC()
+	scenarios := []seedPlay{
+		{
+			ID:             "seed-past-teammates-1",
+			Name:           "Suggested players game 1",
+			Description:    "Seed data for the suggested-player picker.",
+			Venue:          "Seed Sports Hall 1",
+			StartsAt:       now.Add(-4 * time.Hour),
+			EndsAt:         now.Add(-2 * time.Hour),
+			MaxPlayers:     4,
+			SlotsLeft:      1,
+			ConfirmedUsers: []string{"seed-li", "seed-mi"},
+		},
+		{
+			ID:             "seed-past-teammates-2",
+			Name:           "Suggested players game 2",
+			Description:    "Seed data for suggested-player ranking.",
+			Venue:          "Seed Sports Hall 2",
+			StartsAt:       now.Add(-28 * time.Hour),
+			EndsAt:         now.Add(-26 * time.Hour),
+			MaxPlayers:     4,
+			SlotsLeft:      2,
+			ConfirmedUsers: []string{"seed-li"},
+		},
+		{
+			ID:           "seed-invite-open",
+			Name:         "Invite playground",
+			Description:  "Invite seed-advanced here, or invite another player.",
+			Venue:        "Seed Sports Hall 3",
+			StartsAt:     now.Add(24 * time.Hour),
+			EndsAt:       now.Add(26 * time.Hour),
+			MaxPlayers:   4,
+			SlotsLeft:    3,
+			InvitedUsers: []string{"seed-advanced"},
+		},
+		{
+			ID:             "seed-invite-full",
+			Name:           "Full invite playground",
+			Description:    "Accepting the pending invite lands on the waitlist.",
+			Venue:          "Seed Sports Hall 4",
+			StartsAt:       now.Add(48 * time.Hour),
+			EndsAt:         now.Add(50 * time.Hour),
+			MaxPlayers:     2,
+			SlotsLeft:      0,
+			ConfirmedUsers: []string{"seed-mi"},
+			InvitedUsers:   []string{"seed-li"},
+		},
+		{
+			ID:              "seed-invite-request",
+			Name:            "Request invite playground",
+			Description:     "Accepting the pending invite creates a join request.",
+			Venue:           "Seed Sports Hall 5",
+			StartsAt:        now.Add(72 * time.Hour),
+			EndsAt:          now.Add(74 * time.Hour),
+			MaxPlayers:      4,
+			SlotsLeft:       3,
+			RequireWaitlist: true,
+			InvitedUsers:    []string{"seed-tennis"},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		if err := ensureSeedPlay(ctx, queries, scenario); err != nil {
+			return fmt.Errorf("%s: %w", scenario.ID, err)
+		}
+		fmt.Printf("seeded play %s (%s)\n", scenario.ID, scenario.Name)
+	}
+	return nil
+}
+
+func ensureSeedPlay(ctx context.Context, queries *db.Queries, scenario seedPlay) error {
+	host := seedUserByID("seed-host")
+	play, err := queries.GetPlayByID(ctx, scenario.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		maxPlayers := scenario.MaxPlayers
+		slotsLeft := scenario.SlotsLeft
+		name := scenario.Name
+		description := scenario.Description
+		createdBy := host.ID
+		playRecord, createErr := queries.CreatePlay(ctx, db.CreatePlayParams{
+			ID:              scenario.ID,
+			ListingType:     model.ListingPlay,
+			Sport:           model.SportBadminton,
+			HostName:        host.DisplayName,
+			Name:            &name,
+			Description:     &description,
+			StartsAt:        scenario.StartsAt,
+			EndsAt:          scenario.EndsAt,
+			Timezone:        "Asia/Singapore",
+			Venue:           scenario.Venue,
+			Currency:        "SGD",
+			MaxPlayers:      &maxPlayers,
+			SlotsLeft:       &slotsLeft,
+			CreatedBy:       &createdBy,
+			Visibility:      model.PlayVisibilityPublic,
+			RequireWaitlist: scenario.RequireWaitlist,
+		})
+		if createErr != nil {
+			return createErr
+		}
+		play = db.GetPlayByIDRow{
+			ID:              playRecord.ID,
+			Sport:           playRecord.Sport,
+			CreatedBy:       playRecord.CreatedBy,
+			Name:            playRecord.Name,
+			HostName:        playRecord.HostName,
+			StartsAt:        playRecord.StartsAt,
+			EndsAt:          playRecord.EndsAt,
+			Timezone:        playRecord.Timezone,
+			Venue:           playRecord.Venue,
+			VenueName:       playRecord.Venue,
+			MaxPlayers:      playRecord.MaxPlayers,
+			SlotsLeft:       playRecord.SlotsLeft,
+			RequireWaitlist: playRecord.RequireWaitlist,
+		}
+	} else if err != nil {
+		return err
+	}
+
+	if _, err := queries.CreatePlayHost(ctx, db.CreatePlayHostParams{PlayID: scenario.ID, UserID: host.ID}); err != nil {
+		return err
+	}
+	if _, _, err := ensureSeedParticipant(ctx, queries, scenario.ID, host.ID, model.ParticipantConfirmed, nil); err != nil {
+		return err
+	}
+	for _, userID := range scenario.ConfirmedUsers {
+		if _, _, err := ensureSeedParticipant(ctx, queries, scenario.ID, userID, model.ParticipantConfirmed, nil); err != nil {
+			return err
+		}
+	}
+	for _, userID := range scenario.InvitedUsers {
+		participant, created, err := ensureSeedParticipant(ctx, queries, scenario.ID, userID, model.ParticipantInvited, &host.ID)
+		if err != nil {
+			return err
+		}
+		if created {
+			invitee := seedUserByID(userID)
+			if _, err := queries.CreatePlayEvent(ctx, db.CreatePlayEventParams{
+				PlayID:             scenario.ID,
+				EventType:          model.PlayEventParticipantInvited,
+				ActorUserID:        &host.ID,
+				ActorDisplayName:   &host.DisplayName,
+				SubjectUserID:      &invitee.ID,
+				SubjectDisplayName: &invitee.DisplayName,
+				ParticipantID:      &participant.ID,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	_ = play // The row is fetched above to make reruns idempotent.
+	return nil
+}
+
+func ensureSeedParticipant(ctx context.Context, queries *db.Queries, playID, userID string, status model.PlayParticipantStatus, invitedBy *string) (db.PlayParticipant, bool, error) {
+	userIDCopy := userID
+	participant, err := queries.GetPlayParticipantByPlayAndUser(ctx, db.GetPlayParticipantByPlayAndUserParams{
+		PlayID: playID,
+		UserID: &userIDCopy,
+	})
+	if err == nil {
+		return participant, false, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return db.PlayParticipant{}, false, err
+	}
+
+	user := seedUserByID(userID)
+	ratingCode := user.SportsProfile.LevelFor(model.SportBadminton)
+	var ratingOrd *int64
+	if ratingCode != nil {
+		if ord := model.LevelOrd(model.SportBadminton, *ratingCode); ord != nil {
+			value := int64(*ord)
+			ratingOrd = &value
+		}
+	}
+	participant, err = queries.CreatePlayParticipant(ctx, db.CreatePlayParticipantParams{
+		PlayID:          playID,
+		UserID:          &userIDCopy,
+		RatingCode:      ratingCode,
+		RatingOrd:       ratingOrd,
+		Status:          status,
+		InvitedByUserID: invitedBy,
+	})
+	return participant, true, err
+}
+
+func seedUserByID(id string) seedUser {
+	for _, user := range seedUsers {
+		if user.ID == id {
+			return user
+		}
+	}
+	panic("unknown seed user: " + id)
 }
 
 func migrationsDir() string {

@@ -2,13 +2,15 @@
 	import type { components } from '$lib/api/types.gen';
 
 	type UserSummary = components['schemas']['UserSummary'];
+	type ComboboxOption = { value: string; label: string; item: UserSummary };
 
 	const inviteSearchCache: Record<string, UserSummary[] | undefined> = {};
+	const suggestedPlayersCache: Record<string, UserSummary[] | undefined> = {};
 </script>
 
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import {
@@ -42,21 +44,49 @@
 	let selectedUser = $state<UserSummary | null>(null);
 	let dialogOpen = $state(false);
 	let comboboxOpen = $state(false);
+	let inputElement = $state<HTMLInputElement | null>(null);
 	let pendingSearch = $state(false);
 	let loading = $state(false);
 	let errorMessage = $state('');
 	let items = $state<UserSummary[]>([]);
+	let suggestedPlayers = $state<UserSummary[]>([]);
+	let suggestedPlayersLoading = $state(false);
+	let suggestedPlayersLoaded = $state(false);
+	let suggestedPlayersErrorMessage = $state('');
 	let searchedQuery = $state('');
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	let abortController: AbortController | undefined;
+	let suggestedPlayersAbortController: AbortController | undefined;
 	let activeSearchKey = '';
+	let activeSuggestedPlayersKey = '';
 
 	const normalizedInputQuery = $derived(normalizeSearchQuery(inputValue));
 	const hasSearchQuery = $derived(normalizedInputQuery.length >= 1);
+	const showingSuggestions = $derived(normalizedInputQuery.length === 0);
 	const hasSearchedCurrentQuery = $derived(searchedQuery === normalizedInputQuery);
 	const isSearching = $derived(pendingSearch || loading || !hasSearchedCurrentQuery);
-	const comboboxItems = $derived.by(() =>
-		items.map((item) => ({
+	const suggestedItems = $derived.by(() => {
+		if (showingSuggestions) return suggestedPlayers;
+		return suggestedPlayers.filter((item) => userMatchesQuery(item, normalizedInputQuery));
+	});
+	const searchItems = $derived.by(() => {
+		const suggestedIDs = new Set(suggestedItems.map((item) => item.id));
+		return items.filter((item) => !suggestedIDs.has(item.id));
+	});
+	const visibleItems = $derived([...suggestedItems, ...searchItems]);
+	const visibleLoading = $derived(
+		showingSuggestions ? suggestedPlayersLoading || !suggestedPlayersLoaded : isSearching
+	);
+	const visibleErrorMessage = $derived(
+		showingSuggestions ? suggestedPlayersErrorMessage : errorMessage
+	);
+	const pickerInputValue = $derived(
+		selectedUser
+			? `${selectedUser.display_name}${selectedUser.username ? ` (@${selectedUser.username})` : ''}`
+			: inputValue
+	);
+	const comboboxItems = $derived.by((): ComboboxOption[] =>
+		visibleItems.map((item) => ({
 			value: item.id,
 			label: item.display_name,
 			item
@@ -67,8 +97,23 @@
 		return query.trim().replace(/\s+/g, ' ').toLowerCase();
 	}
 
+	function userMatchesQuery(user: UserSummary, query: string) {
+		return (
+			user.display_name.toLowerCase().includes(query) ||
+			(user.username?.toLowerCase().includes(query) ?? false)
+		);
+	}
+
+	function toComboboxOption(item: UserSummary): ComboboxOption {
+		return { value: item.id, label: item.display_name, item };
+	}
+
 	function cacheKey(query: string) {
 		return `${playId}:${sport}:${query}`;
+	}
+
+	function suggestedPlayersCacheKey() {
+		return `${playId}:${sport}`;
 	}
 
 	function cachedResults(query: string) {
@@ -83,6 +128,51 @@
 		errorMessage = '';
 	}
 
+	async function loadSuggestedPlayers() {
+		const key = suggestedPlayersCacheKey();
+		const cached = suggestedPlayersCache[key];
+		if (cached) {
+			suggestedPlayers = cached;
+			suggestedPlayersLoaded = true;
+			suggestedPlayersErrorMessage = '';
+			return;
+		}
+		if (activeSuggestedPlayersKey === key && suggestedPlayersLoading) return;
+
+		suggestedPlayersAbortController?.abort();
+		const controller = new AbortController();
+		suggestedPlayersAbortController = controller;
+		activeSuggestedPlayersKey = key;
+		suggestedPlayersLoading = true;
+		suggestedPlayersLoaded = false;
+		suggestedPlayersErrorMessage = '';
+
+		const params = new URLSearchParams({ sport, limit: '10' });
+		try {
+			const response = await fetch(
+				`/play/${encodeURIComponent(playId)}/invite-users/suggested?${params.toString()}`,
+				{ signal: controller.signal }
+			);
+			if (!response.ok) throw new Error('Failed to load suggestions');
+			const data = (await response.json()) as { items?: UserSummary[] };
+			const nextItems = data.items ?? [];
+			suggestedPlayersCache[key] = nextItems;
+			suggestedPlayers = nextItems;
+			suggestedPlayersLoaded = true;
+		} catch (err) {
+			if ((err as DOMException).name !== 'AbortError') {
+				suggestedPlayersErrorMessage = 'Failed to load suggestions';
+				suggestedPlayers = [];
+				suggestedPlayersLoaded = true;
+			}
+		} finally {
+			if (suggestedPlayersAbortController === controller) {
+				suggestedPlayersLoading = false;
+				activeSuggestedPlayersKey = '';
+			}
+		}
+	}
+
 	function scheduleSearch(query: string) {
 		if (searchTimer) clearTimeout(searchTimer);
 		const normalizedQuery = normalizeSearchQuery(query);
@@ -92,8 +182,9 @@
 			pendingSearch = false;
 			loading = false;
 			comboboxOpen = false;
-			items = [];
+			items = suggestedPlayers;
 			searchedQuery = '';
+			void loadSuggestedPlayers();
 			return;
 		}
 
@@ -177,20 +268,32 @@
 			comboboxOpen = true;
 			if (!hasSearchedCurrentQuery || errorMessage) scheduleSearch(inputValue);
 		} else {
-			comboboxOpen = false;
-			items = [];
+			comboboxOpen = true;
+			items = suggestedPlayers;
+			void loadSuggestedPlayers();
 		}
 	}
 
-	function handleValueChange(nextValue: string | string[]) {
+	function handleDialogOpen(nextOpen: boolean) {
+		dialogOpen = nextOpen;
+		if (nextOpen) {
+			comboboxOpen = true;
+			void loadSuggestedPlayers();
+		}
+	}
+
+	async function handleValueChange(nextValue: string | string[]) {
 		if (Array.isArray(nextValue) || nextValue === '') return;
 		const selected = comboboxItems.find((item) => item.value === nextValue);
 		if (!selected) return;
+		const selectedInputValue = `${selected.item.display_name}${selected.item.username ? ` (@${selected.item.username})` : ''}`;
 		selectedValue = selected.value;
 		selectedUser = selected.item;
-		inputValue = selected.item.display_name;
-		searchedQuery = normalizeSearchQuery(inputValue);
+		inputValue = selectedInputValue;
+		searchedQuery = normalizeSearchQuery(selectedInputValue);
 		comboboxOpen = false;
+		await tick();
+		if (inputElement) inputElement.value = selectedInputValue;
 	}
 
 	function resetPicker() {
@@ -201,6 +304,7 @@
 		errorMessage = '';
 		items = [];
 		searchedQuery = '';
+		suggestedPlayersErrorMessage = '';
 	}
 
 	const handleInviteSubmit: SubmitFunction = () => {
@@ -216,11 +320,38 @@
 	onDestroy(() => {
 		if (searchTimer) clearTimeout(searchTimer);
 		abortController?.abort();
+		suggestedPlayersAbortController?.abort();
 		activeSearchKey = '';
+		activeSuggestedPlayersKey = '';
 	});
 </script>
 
-<Dialog.Root bind:open={dialogOpen}>
+{#snippet playerOption(option: ComboboxOption)}
+	<ComboboxPrimitive.Item
+		value={option.value}
+		label={option.label}
+		class="px-2 py-2 text-left outline-none rounded-md flex gap-3 w-full cursor-default select-none items-center data-[highlighted]:bg-accent"
+	>
+		<UserAvatar
+			src={option.item.photo_url}
+			nameForFallback={option.item.display_name}
+			className="h-9 w-9 text-xs"
+		/>
+		<span class="flex-1 min-w-0">
+			<span class="text-sm text-foreground font-medium block truncate">
+				{option.item.display_name}
+			</span>
+			<span class="text-xs text-muted-foreground block truncate">
+				{option.item.username ? `@${option.item.username}` : 'No username'}
+			</span>
+		</span>
+		{#if option.item.rating_code}
+			<RatingBadge value={option.item.rating_code} />
+		{/if}
+	</ComboboxPrimitive.Item>
+{/snippet}
+
+<Dialog.Root bind:open={dialogOpen} onOpenChange={handleDialogOpen}>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
 			<Button type="button" size="sm" variant="outline" {...props}>Invite players</Button>
@@ -245,7 +376,7 @@
 				<ComboboxRoot
 					type="single"
 					items={comboboxItems}
-					{inputValue}
+					inputValue={pickerInputValue}
 					bind:value={selectedValue}
 					bind:open={comboboxOpen}
 					onOpenChange={(nextOpen) => (comboboxOpen = nextOpen)}
@@ -253,44 +384,45 @@
 				>
 					<div class="relative">
 						<ComboboxInput
+							bind:ref={inputElement}
 							id="invite-player-input"
 							placeholder="Search by name or username"
 							oninput={handleInput}
 							onfocus={handleFocus}
 						/>
 					</div>
-					{#if hasSearchQuery}
+					{#if showingSuggestions || hasSearchQuery}
 						<ComboboxContent>
-							{#if isSearching}
+							{#if visibleLoading}
 								<p class="text-sm text-muted-foreground px-2 py-1.5">Searching...</p>
-							{:else if errorMessage}
-								<p class="text-sm text-destructive px-2 py-1.5">{errorMessage}</p>
-							{:else if items.length > 0}
-								{#each comboboxItems as option (option.value)}
-									<ComboboxPrimitive.Item
-										value={option.value}
-										label={option.label}
-										class="px-2 py-2 text-left outline-none rounded-md flex gap-3 w-full cursor-default select-none items-center data-[highlighted]:bg-accent"
-									>
-										<UserAvatar
-											src={option.item.photo_url}
-											nameForFallback={option.item.display_name}
-											className="h-9 w-9 text-xs"
-										/>
-										<span class="flex-1 min-w-0">
-											<span class="text-sm text-foreground font-medium block truncate">
-												{option.item.display_name}
-											</span>
-											<span class="text-xs text-muted-foreground block truncate">
-												{option.item.username ? `@${option.item.username}` : 'No username'}
-											</span>
-										</span>
-										{#if option.item.rating_code}
-											<RatingBadge value={option.item.rating_code} />
-										{/if}
-									</ComboboxPrimitive.Item>
-								{/each}
-							{:else}
+							{:else if visibleErrorMessage}
+								<p class="text-sm text-destructive px-2 py-1.5">{visibleErrorMessage}</p>
+							{:else if visibleItems.length > 0}
+								{#if suggestedItems.length > 0}
+									<ComboboxPrimitive.Group>
+										<ComboboxPrimitive.GroupHeading
+											class="text-xs text-muted font-medium px-2 py-1"
+										>
+											Suggested
+										</ComboboxPrimitive.GroupHeading>
+										{#each suggestedItems as item (item.id)}
+											{@render playerOption(toComboboxOption(item))}
+										{/each}
+									</ComboboxPrimitive.Group>
+								{/if}
+								{#if searchItems.length > 0}
+									<ComboboxPrimitive.Group>
+										<ComboboxPrimitive.GroupHeading
+											class="text-xs text-muted font-medium px-2 py-1"
+										>
+											Search results
+										</ComboboxPrimitive.GroupHeading>
+										{#each searchItems as item (item.id)}
+											{@render playerOption(toComboboxOption(item))}
+										{/each}
+									</ComboboxPrimitive.Group>
+								{/if}
+							{:else if !showingSuggestions}
 								<p class="text-sm text-muted-foreground px-2 py-1.5">No players found.</p>
 							{/if}
 						</ComboboxContent>

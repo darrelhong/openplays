@@ -370,6 +370,26 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/me/suggested-players': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List suggested players
+		 * @description Returns active players from the viewer's ended games, ranked by games played together. Requires authentication.
+		 */
+		get: operations['list-suggested-players'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/notifications/': {
 		parameters: {
 			query?: never;
@@ -2492,6 +2512,42 @@ export interface operations {
 				};
 				content: {
 					'application/json': components['schemas']['PagePlayPublic'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-suggested-players': {
+		parameters: {
+			query?: {
+				/** @description Sport for rating snapshot */
+				sport?: 'badminton' | 'tennis' | 'football' | 'pickleball' | '';
+				/** @description Maximum users to return */
+				limit?: number;
+				/** @description Exclude users already participating in this play */
+				exclude_play_id?: string;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['SearchPage'];
 				};
 			};
 			/** @description Error */
