@@ -28,6 +28,14 @@ export type Participant = {
 	is_viewer?: boolean;
 };
 
+export type HistoryEvent = {
+	id: number;
+	event_type: string;
+	message: string;
+	created_at: string;
+	relative_time: string;
+};
+
 export type Play = {
 	id: string;
 	created_by: string | null;
@@ -38,10 +46,13 @@ export type Play = {
 	added_participants: Participant[];
 	requests: Participant[];
 	waitlist: Participant[];
+	invited: Participant[];
+	history_events?: HistoryEvent[];
 	confirmed_count: number;
 	added_count: number;
 	requested_count: number;
 	waitlist_count: number;
+	invited_count: number;
 	slots_left: number;
 	[key: string]: unknown;
 };
@@ -167,16 +178,20 @@ export function makePlay(overrides: Partial<Play> = {}): Play {
 		added_participants: [],
 		requests: [],
 		waitlist: [],
+		invited: [],
+		history_events: [],
 		confirmed_count: 0,
 		added_count: 0,
 		requested_count: 0,
 		waitlist_count: 0,
+		invited_count: 0,
 		...overrides
 	};
 	play.confirmed_count = play.confirmed_participants.length;
 	play.added_count = play.added_participants.length;
 	play.requested_count = play.requests.length;
 	play.waitlist_count = play.waitlist.length;
+	play.invited_count = play.invited.length;
 	return play;
 }
 
