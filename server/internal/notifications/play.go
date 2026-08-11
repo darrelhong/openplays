@@ -95,6 +95,21 @@ func NotifyPlayerInvited(ctx context.Context, sender Sender, play PlaySnapshot, 
 	})
 }
 
+func NotifyPlayCancelled(ctx context.Context, sender Sender, play PlaySnapshot, recipientUserIDs []string) error {
+	if sender == nil {
+		return nil
+	}
+	payload := Payload{
+		Title:  playNotificationTitle(play),
+		Body:   "This game was cancelled",
+		URL:    "/play/" + play.ID,
+		Tag:    "play:" + play.ID + ":cancelled",
+		Kind:   "play.cancelled",
+		PlayID: play.ID,
+	}
+	return notifyUsers(ctx, sender, payload, recipientUserIDs)
+}
+
 func NotifyHostsInviteAccepted(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
 	body := fmt.Sprintf("%s accepted your invitation", notificationName(playerName, "Someone"))
 	payload := Payload{
@@ -168,6 +183,27 @@ func notifyHosts(ctx context.Context, sender Sender, payload Payload, hostUserID
 	var errs []error
 	for _, userID := range hostUserIDs {
 		if userID == "" || userID == excludeUserID {
+			continue
+		}
+		if _, ok := seen[userID]; ok {
+			continue
+		}
+		seen[userID] = struct{}{}
+		if err := sender.Notify(ctx, userID, payload); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func notifyUsers(ctx context.Context, sender Sender, payload Payload, userIDs []string) error {
+	if sender == nil {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(userIDs))
+	var errs []error
+	for _, userID := range userIDs {
+		if userID == "" {
 			continue
 		}
 		if _, ok := seen[userID]; ok {

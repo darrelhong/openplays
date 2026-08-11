@@ -10,6 +10,7 @@ import (
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 )
 
 type DeletePlayInput struct {
@@ -20,11 +21,12 @@ type DeletePlayStore interface {
 	GetPlayByID(ctx context.Context, id string) (db.GetPlayByIDRow, error)
 	GetPlayHost(ctx context.Context, arg db.GetPlayHostParams) (db.PlayHost, error)
 	CancelUserCreatedPlay(ctx context.Context, arg db.CancelUserCreatedPlayParams) (db.Play, error)
+	ListPlayRosterRecipientUserIDs(ctx context.Context, arg db.ListPlayRosterRecipientUserIDsParams) ([]string, error)
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
 // RegisterDelete registers DELETE /plays/{id}.
-func RegisterDelete(api huma.API, store DeletePlayStore, authMiddleware func(huma.Context, func(huma.Context))) {
+func RegisterDelete(api huma.API, store DeletePlayStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
 	huma.Register(api, huma.Operation{
 		OperationID: "delete-play",
 		Summary:     "Cancel a hosted play",
@@ -69,6 +71,17 @@ func RegisterDelete(api huma.API, store DeletePlayStore, authMiddleware func(hum
 				ActorDisplayName: actorDisplayName,
 			}); err != nil {
 				return nil, huma.Error500InternalServerError("failed to record play event")
+			}
+			if recipientIDs, err := store.ListPlayRosterRecipientUserIDs(ctx, db.ListPlayRosterRecipientUserIDsParams{
+				PlayID:        input.ID,
+				ExcludeUserID: user.ID,
+			}); err == nil {
+				_ = notifications.NotifyPlayCancelled(
+					ctx,
+					notifier,
+					notifications.PlaySnapshotFromDB(play),
+					recipientIDs,
+				)
 			}
 		}
 

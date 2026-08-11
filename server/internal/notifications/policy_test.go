@@ -19,6 +19,11 @@ func TestDeliveryPolicyForPlayKinds(t *testing.T) {
 			want: DeliveryPolicy{Feed: true, Push: true},
 		},
 		{
+			name: "play cancelled stores feed and push",
+			kind: "play.cancelled",
+			want: DeliveryPolicy{Feed: true, Push: true},
+		},
+		{
 			name: "unknown kinds default to feed and push",
 			kind: "custom.event",
 			want: DeliveryPolicy{Feed: true, Push: true},

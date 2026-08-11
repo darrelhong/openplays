@@ -189,7 +189,7 @@ SELECT EXISTS (
       )
 );
 
--- name: ListPlayChatRecipientUserIDs :many
+-- name: ListPlayRosterRecipientUserIDs :many
 SELECT ph.user_id
 FROM play_hosts ph
 WHERE ph.play_id = sqlc.arg('play_id')

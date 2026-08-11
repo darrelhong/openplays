@@ -224,7 +224,7 @@ func notifyChatMessage(ctx context.Context, store Store, notifier notifications.
 		if err != nil {
 			return err
 		}
-		recipients, err := store.ListPlayChatRecipientUserIDs(ctx, db.ListPlayChatRecipientUserIDsParams{
+		recipients, err := store.ListPlayRosterRecipientUserIDs(ctx, db.ListPlayRosterRecipientUserIDsParams{
 			PlayID:        *conversation.PlayID,
 			ExcludeUserID: senderID,
 		})

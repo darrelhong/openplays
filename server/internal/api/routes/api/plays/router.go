@@ -25,7 +25,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier not
 	// Protected (auth middleware on this operation only)
 	RegisterCreate(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterUpdate(grp, queries, authmw.RequireAuth(api, svc))
-	RegisterDelete(grp, queries, authmw.RequireAuth(api, svc))
+	RegisterDelete(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterFavourite(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterJoin(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterInviteParticipant(grp, queries, authmw.RequireAuth(api, svc), notifier)

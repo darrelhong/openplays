@@ -20,17 +20,22 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 	"openplays/server/internal/testdb"
 )
 
-func setupHostPlayManagementTest(authStore *fakeAuthStore, store *db.Queries) *httptest.Server {
+func setupHostPlayManagementTest(authStore *fakeAuthStore, store *db.Queries, notifiers ...notifications.Sender) *httptest.Server {
 	svc := auth.NewService(authStore)
+	var notifier notifications.Sender
+	if len(notifiers) > 0 {
+		notifier = notifiers[0]
+	}
 
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("test", "0.0.1"))
 	grp := huma.NewGroup(api, "/api/plays")
 	plays.RegisterUpdate(grp, store, authmw.RequireAuth(api, svc))
-	plays.RegisterDelete(grp, store, authmw.RequireAuth(api, svc))
+	plays.RegisterDelete(grp, store, authmw.RequireAuth(api, svc), notifier)
 
 	return httptest.NewServer(r)
 }
