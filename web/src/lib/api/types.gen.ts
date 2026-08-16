@@ -330,6 +330,66 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/me/follow-requests': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List follow requests
+		 * @description Returns pending requests to follow the authenticated user, newest first.
+		 */
+		get: operations['list-follow-requests'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/me/follow-requests/{user_id}/accept': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Accept a follow request
+		 * @description Accepts a pending request to follow the authenticated user.
+		 */
+		post: operations['accept-follow-request'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/me/follow-requests/{user_id}/decline': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		put?: never;
+		/**
+		 * Decline a follow request
+		 * @description Declines a pending request to follow the authenticated user.
+		 */
+		post: operations['decline-follow-request'];
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/me/plays': {
 		parameters: {
 			query?: never;
@@ -1395,6 +1455,24 @@ export interface components {
 			 */
 			total: number;
 		};
+		PageUserSummary: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/PageUserSummary.json
+			 */
+			readonly $schema?: string;
+			/** @description Whether there are more results after this page */
+			has_more: boolean;
+			items: components['schemas']['UserSummary'][] | null;
+			/** @description Opaque cursor; pass as cursor to get the next page */
+			next_cursor?: string;
+			/**
+			 * Format: int64
+			 * @description Total number of matching results across all pages
+			 */
+			total: number;
+		};
 		PlayHistoryEventPublic: {
 			actor_display_name?: string;
 			created_at: string;
@@ -1793,6 +1871,8 @@ export interface components {
 			email: string;
 			has_custom_avatar: boolean;
 			id: string;
+			/** Format: int64 */
+			pending_follow_request_count: number;
 			photo_url?: string;
 			profile_links?: components['schemas']['ProfileLinks'];
 			restrict_follow: boolean;
@@ -2482,6 +2562,100 @@ export interface operations {
 				content: {
 					'application/json': components['schemas']['PagePlayPublic'];
 				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-follow-requests': {
+		parameters: {
+			query?: {
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of requests per page */
+				limit?: number;
+			};
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PageUserSummary'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'accept-follow-request': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Follower user ID */
+				user_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'decline-follow-request': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Follower user ID */
+				user_id: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 			/** @description Error */
 			default: {

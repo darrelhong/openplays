@@ -32,3 +32,17 @@ func NotifyFollowRequested(ctx context.Context, sender Sender, followeeID, follo
 		Kind:  "follow.requested",
 	})
 }
+
+// NotifyFollowAccepted tells the requester that their pending follow was accepted.
+func NotifyFollowAccepted(ctx context.Context, sender Sender, followerID, followeeName, followeeUsername string) error {
+	if sender == nil || followerID == "" {
+		return nil
+	}
+	return sender.Notify(ctx, followerID, Payload{
+		Title: notificationName(followeeName, "Someone"),
+		Body:  "accepted your follow request",
+		URL:   "/" + followeeUsername,
+		Tag:   fmt.Sprintf("follow:accepted:%s", followerID),
+		Kind:  "follow.accepted",
+	})
+}

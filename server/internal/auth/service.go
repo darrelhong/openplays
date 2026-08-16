@@ -68,20 +68,21 @@ type EmailUserStore interface {
 
 // User is the public representation of a user.
 type User struct {
-	ID              string               `json:"id"`
-	Email           string               `json:"email"`
-	Username        *string              `json:"username,omitempty"`
-	DisplayName     string               `json:"display_name"`
-	PhotoURL        *string              `json:"photo_url,omitempty"`
-	HasCustomAvatar bool                 `json:"has_custom_avatar"`
-	Status          string               `json:"status"`
-	SportsProfile   *model.SportsProfile `json:"sports_profile,omitempty"`
-	ContactInfo     *string              `json:"contact_info,omitempty"`
-	Bio             *string              `json:"bio,omitempty"`
-	ProfileLinks    *model.ProfileLinks  `json:"profile_links,omitempty"`
-	RestrictFollow  bool                 `json:"restrict_follow"`
-	CreatedAt       string               `json:"created_at"`
-	UpdatedAt       string               `json:"updated_at"`
+	ID                        string               `json:"id"`
+	Email                     string               `json:"email"`
+	Username                  *string              `json:"username,omitempty"`
+	DisplayName               string               `json:"display_name"`
+	PhotoURL                  *string              `json:"photo_url,omitempty"`
+	HasCustomAvatar           bool                 `json:"has_custom_avatar"`
+	Status                    string               `json:"status"`
+	SportsProfile             *model.SportsProfile `json:"sports_profile,omitempty"`
+	ContactInfo               *string              `json:"contact_info,omitempty"`
+	Bio                       *string              `json:"bio,omitempty"`
+	ProfileLinks              *model.ProfileLinks  `json:"profile_links,omitempty"`
+	RestrictFollow            bool                 `json:"restrict_follow"`
+	PendingFollowRequestCount int64                `json:"pending_follow_request_count"`
+	CreatedAt                 string               `json:"created_at"`
+	UpdatedAt                 string               `json:"updated_at"`
 }
 
 // LoginResult is returned by Login on success.

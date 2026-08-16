@@ -7,7 +7,49 @@ package db
 
 import (
 	"context"
+	"time"
 )
+
+const acceptUserFollow = `-- name: AcceptUserFollow :execrows
+UPDATE user_follows
+SET status = 'accepted',
+    accepted_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE follower_id = ? AND followee_id = ? AND status = 'pending'
+`
+
+type AcceptUserFollowParams struct {
+	FollowerID string
+	FolloweeID string
+}
+
+func (q *Queries) AcceptUserFollow(ctx context.Context, arg AcceptUserFollowParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, acceptUserFollow, arg.FollowerID, arg.FolloweeID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const countPendingFollowRequests = `-- name: CountPendingFollowRequests :one
+SELECT COUNT(*)
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id AND u.status = 'active'
+WHERE uf.followee_id = ?
+  AND uf.status = 'pending'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = uf.followee_id AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = uf.followee_id)
+  )
+`
+
+func (q *Queries) CountPendingFollowRequests(ctx context.Context, followeeID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countPendingFollowRequests, followeeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createUserFollow = `-- name: CreateUserFollow :one
 INSERT INTO user_follows (follower_id, followee_id, status, accepted_at)
@@ -41,6 +83,24 @@ func (q *Queries) CreateUserFollow(ctx context.Context, arg CreateUserFollowPara
 		&i.AcceptedAt,
 	)
 	return i, err
+}
+
+const deletePendingUserFollow = `-- name: DeletePendingUserFollow :execrows
+DELETE FROM user_follows
+WHERE follower_id = ? AND followee_id = ? AND status = 'pending'
+`
+
+type DeletePendingUserFollowParams struct {
+	FollowerID string
+	FolloweeID string
+}
+
+func (q *Queries) DeletePendingUserFollow(ctx context.Context, arg DeletePendingUserFollowParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deletePendingUserFollow, arg.FollowerID, arg.FolloweeID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const deleteUserFollow = `-- name: DeleteUserFollow :exec
@@ -79,4 +139,77 @@ func (q *Queries) GetUserFollow(ctx context.Context, arg GetUserFollowParams) (U
 		&i.AcceptedAt,
 	)
 	return i, err
+}
+
+const listPendingFollowRequests = `-- name: ListPendingFollowRequests :many
+SELECT
+    uf.follower_id,
+    uf.created_at,
+    u.display_name,
+    u.username,
+    u.photo_url
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id AND u.status = 'active'
+WHERE uf.followee_id = ?1
+  AND uf.status = 'pending'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = uf.followee_id AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = uf.followee_id)
+  )
+  AND (?2 IS NULL
+    OR uf.created_at < ?2
+    OR (uf.created_at = ?2 AND uf.follower_id < ?3))
+ORDER BY uf.created_at DESC, uf.follower_id DESC
+LIMIT ?4
+`
+
+type ListPendingFollowRequestsParams struct {
+	FolloweeID       string
+	CursorCreatedAt  interface{}
+	CursorFollowerID *string
+	PageSize         int64
+}
+
+type ListPendingFollowRequestsRow struct {
+	FollowerID  string
+	CreatedAt   time.Time
+	DisplayName string
+	Username    *string
+	PhotoUrl    *string
+}
+
+func (q *Queries) ListPendingFollowRequests(ctx context.Context, arg ListPendingFollowRequestsParams) ([]ListPendingFollowRequestsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listPendingFollowRequests,
+		arg.FolloweeID,
+		arg.CursorCreatedAt,
+		arg.CursorFollowerID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingFollowRequestsRow
+	for rows.Next() {
+		var i ListPendingFollowRequestsRow
+		if err := rows.Scan(
+			&i.FollowerID,
+			&i.CreatedAt,
+			&i.DisplayName,
+			&i.Username,
+			&i.PhotoUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -14,8 +14,12 @@ type GetOutput struct {
 	Body auth.User
 }
 
+type PendingFollowRequestsStore interface {
+	CountPendingFollowRequests(ctx context.Context, followeeID string) (int64, error)
+}
+
 // RegisterGet registers GET /me.
-func RegisterGet(api huma.API) {
+func RegisterGet(api huma.API, stores ...PendingFollowRequestsStore) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-me",
 		Summary:     "Get current user",
@@ -28,6 +32,14 @@ func RegisterGet(api huma.API) {
 		if user == nil {
 			return nil, huma.Error401Unauthorized("not authenticated")
 		}
-		return &GetOutput{Body: *user}, nil
+		out := *user
+		if len(stores) > 0 {
+			count, err := stores[0].CountPendingFollowRequests(ctx, user.ID)
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to count follow requests")
+			}
+			out.PendingFollowRequestCount = count
+		}
+		return &GetOutput{Body: out}, nil
 	})
 }
