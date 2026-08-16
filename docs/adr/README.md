@@ -11,3 +11,4 @@
 - [0009 - Persist avatar object URLs with stable object keys](0009-avatar-object-urls.md)
 - [0010 - Email OTP passwordless login](0010-email-otp-passwordless-login.md)
 - [0011 - Host-invited players](0011-play-invites.md)
+- [0012 - User follows](0012-user-follows.md)

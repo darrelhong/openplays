@@ -174,28 +174,37 @@ type Session struct {
 }
 
 type User struct {
-	ID            string
-	Email         string
-	Username      *string
-	DisplayName   string
-	PhotoUrl      *string
-	GoogleID      *string
-	FacebookID    *string
-	Status        string
-	SportsProfile *string
-	ContactInfo   *string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	OauthPhotoUrl *string
-	AvatarKey     *string
-	Bio           *string
-	ProfileLinks  *string
+	ID             string
+	Email          string
+	Username       *string
+	DisplayName    string
+	PhotoUrl       *string
+	GoogleID       *string
+	FacebookID     *string
+	Status         string
+	SportsProfile  *string
+	ContactInfo    *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	OauthPhotoUrl  *string
+	AvatarKey      *string
+	Bio            *string
+	ProfileLinks   *string
+	RestrictFollow bool
 }
 
 type UserBlock struct {
 	BlockerID string
 	BlockedID string
 	CreatedAt time.Time
+}
+
+type UserFollow struct {
+	FollowerID string
+	FolloweeID string
+	Status     string
+	CreatedAt  time.Time
+	AcceptedAt *time.Time
 }
 
 type UserNotification struct {
