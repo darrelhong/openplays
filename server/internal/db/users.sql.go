@@ -301,19 +301,20 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, userID string) error {
 }
 
 const getActiveUserProfileByUsername = `-- name: GetActiveUserProfileByUsername :one
-SELECT id, display_name, username, photo_url, sports_profile, bio, profile_links
+SELECT id, display_name, username, photo_url, sports_profile, bio, profile_links, restrict_follow
 FROM users
 WHERE username = ? AND status = 'active'
 `
 
 type GetActiveUserProfileByUsernameRow struct {
-	ID            string
-	DisplayName   string
-	Username      *string
-	PhotoUrl      *string
-	SportsProfile *string
-	Bio           *string
-	ProfileLinks  *string
+	ID             string
+	DisplayName    string
+	Username       *string
+	PhotoUrl       *string
+	SportsProfile  *string
+	Bio            *string
+	ProfileLinks   *string
+	RestrictFollow bool
 }
 
 func (q *Queries) GetActiveUserProfileByUsername(ctx context.Context, username *string) (GetActiveUserProfileByUsernameRow, error) {
@@ -327,6 +328,7 @@ func (q *Queries) GetActiveUserProfileByUsername(ctx context.Context, username *
 		&i.SportsProfile,
 		&i.Bio,
 		&i.ProfileLinks,
+		&i.RestrictFollow,
 	)
 	return i, err
 }
@@ -368,6 +370,7 @@ SELECT
     u.bio,
     u.profile_links,
     u.avatar_key,
+    u.restrict_follow,
     u.created_at,
     u.updated_at
 FROM sessions s
@@ -376,24 +379,25 @@ WHERE s.token = ? AND s.expires_at > strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 `
 
 type GetSessionWithUserRow struct {
-	Token         string
-	UserID        string
-	ExpiresAt     time.Time
-	UserID2       string
-	Email         string
-	Username      *string
-	DisplayName   string
-	PhotoUrl      *string
-	GoogleID      *string
-	FacebookID    *string
-	Status        string
-	SportsProfile *string
-	ContactInfo   *string
-	Bio           *string
-	ProfileLinks  *string
-	AvatarKey     *string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	Token          string
+	UserID         string
+	ExpiresAt      time.Time
+	UserID2        string
+	Email          string
+	Username       *string
+	DisplayName    string
+	PhotoUrl       *string
+	GoogleID       *string
+	FacebookID     *string
+	Status         string
+	SportsProfile  *string
+	ContactInfo    *string
+	Bio            *string
+	ProfileLinks   *string
+	AvatarKey      *string
+	RestrictFollow bool
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (q *Queries) GetSessionWithUser(ctx context.Context, token string) (GetSessionWithUserRow, error) {
@@ -416,6 +420,7 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, token string) (GetSess
 		&i.Bio,
 		&i.ProfileLinks,
 		&i.AvatarKey,
+		&i.RestrictFollow,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -797,18 +802,20 @@ UPDATE users SET
     sports_profile = ?,
     bio = ?,
     profile_links = ?,
+    restrict_follow = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 RETURNING id, email, username, display_name, photo_url, google_id, facebook_id, status, sports_profile, contact_info, created_at, updated_at, oauth_photo_url, avatar_key, bio, profile_links, restrict_follow
 `
 
 type UpdateUserProfileParams struct {
-	DisplayName   string
-	Username      *string
-	SportsProfile *string
-	Bio           *string
-	ProfileLinks  *string
-	ID            string
+	DisplayName    string
+	Username       *string
+	SportsProfile  *string
+	Bio            *string
+	ProfileLinks   *string
+	RestrictFollow bool
+	ID             string
 }
 
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
@@ -818,6 +825,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.SportsProfile,
 		arg.Bio,
 		arg.ProfileLinks,
+		arg.RestrictFollow,
 		arg.ID,
 	)
 	var i User

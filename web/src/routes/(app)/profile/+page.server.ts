@@ -67,6 +67,7 @@ export const actions: Actions = {
 		const sportsProfile = sportsProfileFromFormData(formData);
 		const bio = String(formData.get('bio') ?? '').trim();
 		const profileLinks = profileLinksFromFormData(formData);
+		const restrictFollow = formData.get('restrict_follow') === 'true';
 		const profileForm = {
 			bio,
 			profileLinksForm: profileLinksToForm(profileLinks)
@@ -96,7 +97,8 @@ export const actions: Actions = {
 				username: username || undefined,
 				sports_profile: sportsProfile,
 				bio,
-				profile_links: profileLinks
+				profile_links: profileLinks,
+				restrict_follow: restrictFollow
 			}
 		});
 

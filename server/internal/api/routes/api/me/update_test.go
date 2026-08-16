@@ -39,6 +39,7 @@ func (f *fakeProfileStore) UpdateUserProfile(_ context.Context, arg db.UpdateUse
 	u.SportsProfile = arg.SportsProfile
 	u.Bio = arg.Bio
 	u.ProfileLinks = arg.ProfileLinks
+	u.RestrictFollow = arg.RestrictFollow
 	return u, nil
 }
 
@@ -119,6 +120,80 @@ func TestUpdateProfile_Success(t *testing.T) {
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+func TestUpdateProfile_CanEnableRestrictFollow(t *testing.T) {
+	now := time.Now()
+	profileStore := &fakeProfileStore{
+		updated: db.User{
+			ID: "user-1", Email: "test@test.com", Status: "active",
+			CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setup(activeSession(), profileStore)
+	defer ts.Close()
+
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(`{"display_name":"New Name","restrict_follow":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if !profileStore.lastArgs.RestrictFollow {
+		t.Fatal("stored restrict_follow = false, want true")
+	}
+	var out auth.User
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !out.RestrictFollow {
+		t.Fatal("response restrict_follow = false, want true")
+	}
+}
+
+func TestUpdateProfile_CanClearRestrictFollow(t *testing.T) {
+	now := time.Now()
+	authStore := activeSession()
+	authStore.sessionRow.RestrictFollow = true
+	profileStore := &fakeProfileStore{
+		updated: db.User{
+			ID: "user-1", Email: "test@test.com", Status: "active",
+			RestrictFollow: true, CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	ts := setup(authStore, profileStore)
+	defer ts.Close()
+
+	req, _ := http.NewRequest("PATCH", ts.URL+"/api/me/", strings.NewReader(`{"display_name":"New Name","restrict_follow":false}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if profileStore.lastArgs.RestrictFollow {
+		t.Fatal("stored restrict_follow = true, want false")
+	}
+	var out auth.User
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if out.RestrictFollow {
+		t.Fatal("response restrict_follow = true, want false")
 	}
 }
 

@@ -1682,6 +1682,8 @@ export interface components {
 			display_name: string;
 			/** @description Optional public profile identifiers */
 			profile_links?: components['schemas']['ProfileLinks'];
+			/** @description Require approval before new users can follow you */
+			restrict_follow?: boolean;
 			/** @description Self-rated sport levels */
 			sports_profile?: components['schemas']['SportsProfile'];
 			/** @description Optional unique handle */
@@ -1759,6 +1761,7 @@ export interface components {
 			id: string;
 			photo_url?: string;
 			profile_links?: components['schemas']['ProfileLinks'];
+			restrict_follow: boolean;
 			sports_profile?: components['schemas']['SportsProfile'];
 			status: string;
 			updated_at: string;

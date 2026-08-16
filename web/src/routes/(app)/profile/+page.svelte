@@ -6,6 +6,7 @@
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { PageData } from './$types';
 	import { FormField, TextInput, InputGroup } from '$lib/components/ui/form';
+	import { Checkbox } from '$lib/components/ui/checkbox/index';
 	import { Select } from '$lib/components/ui/select/index';
 	import * as Dialog from '$lib/components/ui/dialog/index';
 	import Button from '$lib/components/ui/button.svelte';
@@ -33,6 +34,7 @@
 	let tennisLevel = $state(formatTennisLevel(initialSportsProfileForm().tennisLevel));
 	let bio = $state(initialProfileForm().bio);
 	let profileLinks = $state({ ...initialProfileForm().profileLinksForm });
+	let restrictFollow = $state(initialUser().restrict_follow);
 	let addSportOpen = $state(false);
 	let avatarInput: HTMLInputElement;
 	let avatarPreview = $state<string>();
@@ -130,6 +132,7 @@
 		if (updatedUser) {
 			displayName = updatedUser.display_name;
 			username = updatedUser.username ?? username;
+			restrictFollow = updatedUser.restrict_follow;
 		}
 
 		const profileForm = page.form?.profileForm;
@@ -368,6 +371,24 @@
 						/>
 					</div>
 				{/if}
+			</section>
+
+			<section class="pt-4 border-t border-border flex flex-col gap-3">
+				<div>
+					<h2 class="text-sm text-foreground font-medium">Follow settings</h2>
+				</div>
+				<input type="hidden" name="restrict_follow" value={restrictFollow ? 'true' : 'false'} />
+				<Checkbox
+					bind:checked={restrictFollow}
+					class="items-start"
+					rootClass="mt-0.5"
+					labelClass="grid gap-0.5"
+				>
+					<span>Approve followers</span>
+					<span class="text-muted"
+						>New followers have to be approved before they can see your activity.</span
+					>
+				</Checkbox>
 			</section>
 
 			<section class="pt-4 border-t border-border flex flex-col gap-3">

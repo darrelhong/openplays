@@ -59,7 +59,7 @@ VALUES (
 RETURNING *;
 
 -- name: GetActiveUserProfileByUsername :one
-SELECT id, display_name, username, photo_url, sports_profile, bio, profile_links
+SELECT id, display_name, username, photo_url, sports_profile, bio, profile_links, restrict_follow
 FROM users
 WHERE username = ? AND status = 'active';
 
@@ -126,6 +126,7 @@ UPDATE users SET
     sports_profile = ?,
     bio = ?,
     profile_links = ?,
+    restrict_follow = ?,
     updated_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE id = ?
 RETURNING *;
@@ -176,6 +177,7 @@ SELECT
     u.bio,
     u.profile_links,
     u.avatar_key,
+    u.restrict_follow,
     u.created_at,
     u.updated_at
 FROM sessions s

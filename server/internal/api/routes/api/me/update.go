@@ -16,11 +16,12 @@ import (
 
 type UpdateInput struct {
 	Body struct {
-		DisplayName   string               `json:"display_name" required:"true" doc:"User's display name"`
-		Username      *string              `json:"username,omitempty" doc:"Optional unique handle"`
-		SportsProfile *model.SportsProfile `json:"sports_profile,omitempty" doc:"Self-rated sport levels"`
-		Bio           *string              `json:"bio,omitempty" doc:"Optional public bio, up to 500 characters"`
-		ProfileLinks  *model.ProfileLinks  `json:"profile_links,omitempty" doc:"Optional public profile identifiers"`
+		DisplayName    string               `json:"display_name" required:"true" doc:"User's display name"`
+		Username       *string              `json:"username,omitempty" doc:"Optional unique handle"`
+		SportsProfile  *model.SportsProfile `json:"sports_profile,omitempty" doc:"Self-rated sport levels"`
+		Bio            *string              `json:"bio,omitempty" doc:"Optional public bio, up to 500 characters"`
+		ProfileLinks   *model.ProfileLinks  `json:"profile_links,omitempty" doc:"Optional public profile identifiers"`
+		RestrictFollow *bool                `json:"restrict_follow,omitempty" doc:"Require approval before new users can follow you"`
 	}
 }
 
@@ -85,13 +86,19 @@ func RegisterUpdate(api huma.API, store ProfileStore) {
 			return nil, huma.Error422UnprocessableEntity(err.Error())
 		}
 
+		restrictFollow := user.RestrictFollow
+		if input.Body.RestrictFollow != nil {
+			restrictFollow = *input.Body.RestrictFollow
+		}
+
 		updated, err := store.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
-			DisplayName:   displayName,
-			Username:      username,
-			SportsProfile: sportsProfileRaw,
-			Bio:           bio,
-			ProfileLinks:  profileLinksRaw,
-			ID:            user.ID,
+			DisplayName:    displayName,
+			Username:       username,
+			SportsProfile:  sportsProfileRaw,
+			Bio:            bio,
+			ProfileLinks:   profileLinksRaw,
+			RestrictFollow: restrictFollow,
+			ID:             user.ID,
 		})
 		if err != nil {
 			if strings.Contains(err.Error(), "UNIQUE constraint failed") {

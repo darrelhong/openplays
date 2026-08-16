@@ -79,6 +79,7 @@ type User struct {
 	ContactInfo     *string              `json:"contact_info,omitempty"`
 	Bio             *string              `json:"bio,omitempty"`
 	ProfileLinks    *model.ProfileLinks  `json:"profile_links,omitempty"`
+	RestrictFollow  bool                 `json:"restrict_follow"`
 	CreatedAt       string               `json:"created_at"`
 	UpdatedAt       string               `json:"updated_at"`
 }
@@ -311,6 +312,7 @@ func MapUser(u db.User) User {
 		ContactInfo:     u.ContactInfo,
 		Bio:             u.Bio,
 		ProfileLinks:    profileLinks,
+		RestrictFollow:  u.RestrictFollow,
 		CreatedAt:       u.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       u.UpdatedAt.Format(time.RFC3339),
 	}
@@ -331,6 +333,7 @@ func mapSessionUser(s db.GetSessionWithUserRow) User {
 		ContactInfo:     s.ContactInfo,
 		Bio:             s.Bio,
 		ProfileLinks:    profileLinks,
+		RestrictFollow:  s.RestrictFollow,
 		CreatedAt:       s.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:       s.UpdatedAt.Format(time.RFC3339),
 	}
