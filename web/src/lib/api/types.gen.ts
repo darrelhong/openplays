@@ -1663,16 +1663,23 @@ export interface components {
 			readonly $schema?: string;
 			bio?: string;
 			display_name: string;
+			/** Format: int64 */
+			follower_count: number;
+			/** Format: int64 */
+			following_count: number;
 			id: string;
 			photo_url?: string;
 			profile_links?: components['schemas']['ProfileLinks'];
 			props: components['schemas']['PublicUserPropCount'][] | null;
 			rating?: components['schemas']['PublicUserRating'];
+			restrict_follow: boolean;
 			/** Format: int64 */
 			rostered_play_count: number;
 			sports: components['schemas']['PublicUserProfileSport'][] | null;
 			sports_profile?: components['schemas']['SportsProfile'];
 			username: string;
+			/** @enum {string} */
+			viewer_follow_state: 'none' | 'pending' | 'following';
 		};
 		PublicUserProfileSport: {
 			rating_code?: string;

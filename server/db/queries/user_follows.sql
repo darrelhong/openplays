@@ -19,3 +19,59 @@ WHERE follower_id = ? AND followee_id = ?;
 -- name: DeleteUserFollow :exec
 DELETE FROM user_follows
 WHERE follower_id = ? AND followee_id = ?;
+
+-- name: ListPendingFollowRequests :many
+SELECT
+    uf.follower_id,
+    uf.created_at,
+    u.display_name,
+    u.username,
+    u.photo_url
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id AND u.status = 'active'
+WHERE uf.followee_id = sqlc.arg('followee_id')
+  AND uf.status = 'pending'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = uf.followee_id AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = uf.followee_id)
+  )
+  AND (sqlc.narg('cursor_created_at') IS NULL
+    OR uf.created_at < sqlc.narg('cursor_created_at')
+    OR (uf.created_at = sqlc.narg('cursor_created_at') AND uf.follower_id < sqlc.narg('cursor_follower_id')))
+ORDER BY uf.created_at DESC, uf.follower_id DESC
+LIMIT sqlc.arg('page_size');
+
+-- name: CountPendingFollowRequests :one
+SELECT COUNT(*)
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id AND u.status = 'active'
+WHERE uf.followee_id = ?
+  AND uf.status = 'pending'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = uf.followee_id AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = uf.followee_id)
+  );
+
+-- name: AcceptUserFollow :execrows
+UPDATE user_follows
+SET status = 'accepted',
+    accepted_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
+WHERE follower_id = ? AND followee_id = ? AND status = 'pending';
+
+-- name: DeletePendingUserFollow :execrows
+DELETE FROM user_follows
+WHERE follower_id = ? AND followee_id = ? AND status = 'pending';
+
+-- name: CountAcceptedFollowers :one
+SELECT COUNT(*)
+FROM user_follows
+WHERE followee_id = ? AND status = 'accepted';
+
+-- name: CountAcceptedFollowing :one
+SELECT COUNT(*)
+FROM user_follows
+WHERE follower_id = ? AND status = 'accepted';

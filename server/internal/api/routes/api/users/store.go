@@ -19,4 +19,7 @@ type ProfileStore interface {
 	GetUserRatingAggregate(ctx context.Context, revieweeUserID string) (db.GetUserRatingAggregateRow, error)
 	ListUserRatingDistribution(ctx context.Context, revieweeUserID string) ([]db.ListUserRatingDistributionRow, error)
 	ListUserPropCounts(ctx context.Context, revieweeUserID string) ([]db.ListUserPropCountsRow, error)
+	CountAcceptedFollowers(ctx context.Context, followeeID string) (int64, error)
+	CountAcceptedFollowing(ctx context.Context, followerID string) (int64, error)
+	GetUserFollow(ctx context.Context, arg db.GetUserFollowParams) (db.UserFollow, error)
 }

@@ -30,6 +30,32 @@ func (q *Queries) AcceptUserFollow(ctx context.Context, arg AcceptUserFollowPara
 	return result.RowsAffected()
 }
 
+const countAcceptedFollowers = `-- name: CountAcceptedFollowers :one
+SELECT COUNT(*)
+FROM user_follows
+WHERE followee_id = ? AND status = 'accepted'
+`
+
+func (q *Queries) CountAcceptedFollowers(ctx context.Context, followeeID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAcceptedFollowers, followeeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAcceptedFollowing = `-- name: CountAcceptedFollowing :one
+SELECT COUNT(*)
+FROM user_follows
+WHERE follower_id = ? AND status = 'accepted'
+`
+
+func (q *Queries) CountAcceptedFollowing(ctx context.Context, followerID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAcceptedFollowing, followerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPendingFollowRequests = `-- name: CountPendingFollowRequests :one
 SELECT COUNT(*)
 FROM user_follows uf

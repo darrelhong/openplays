@@ -7,6 +7,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
 	"openplays/server/internal/usernames"
@@ -26,6 +27,10 @@ type PublicUserProfile struct {
 	ProfileLinks      *model.ProfileLinks      `json:"profile_links,omitempty"`
 	Sports            []PublicUserProfileSport `json:"sports"`
 	RosteredPlayCount int64                    `json:"rostered_play_count"`
+	FollowerCount     int64                    `json:"follower_count"`
+	FollowingCount    int64                    `json:"following_count"`
+	RestrictFollow    bool                     `json:"restrict_follow"`
+	ViewerFollowState string                   `json:"viewer_follow_state" enum:"none,pending,following"`
 	// Review reputation. The rating is an anonymous aggregate; props count
 	// under the sport they were earned in. Attributed shoutouts live on
 	// their own paginated endpoint (list-user-shoutouts).
@@ -86,8 +91,35 @@ func RegisterProfile(api huma.API, store ProfileStore) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to count user plays by sport")
 		}
+		followerCount, err := store.CountAcceptedFollowers(ctx, row.ID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to count followers")
+		}
+		followingCount, err := store.CountAcceptedFollowing(ctx, row.ID)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to count following")
+		}
 
-		profile := mapPublicUserProfile(row, count, sportCounts)
+		viewerFollowState := "none"
+		viewer := authmw.UserFromContext(ctx)
+		if viewer != nil {
+			follow, followErr := store.GetUserFollow(ctx, db.GetUserFollowParams{
+				FollowerID: viewer.ID,
+				FolloweeID: row.ID,
+			})
+			if followErr == nil {
+				switch follow.Status {
+				case "accepted":
+					viewerFollowState = "following"
+				case "pending":
+					viewerFollowState = "pending"
+				}
+			} else if followErr != sql.ErrNoRows {
+				return nil, huma.Error500InternalServerError("failed to get follow state")
+			}
+		}
+
+		profile := mapPublicUserProfile(row, count, sportCounts, followerCount, followingCount, viewerFollowState)
 		if err := hydrateReviewReputation(ctx, store, &profile); err != nil {
 			return nil, huma.Error500InternalServerError("failed to get user reviews")
 		}
@@ -130,7 +162,7 @@ func hydrateReviewReputation(ctx context.Context, store ProfileStore, profile *P
 	return nil
 }
 
-func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlayCount int64, sportCounts []db.CountRosteredPlaysByUserAndSportRow) PublicUserProfile {
+func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlayCount int64, sportCounts []db.CountRosteredPlaysByUserAndSportRow, followerCount, followingCount int64, viewerFollowState string) PublicUserProfile {
 	profile, _ := model.ParseSportsProfile(row.SportsProfile)
 	profileLinks, _ := model.ParseProfileLinks(row.ProfileLinks)
 	username := ""
@@ -147,6 +179,10 @@ func mapPublicUserProfile(row db.GetActiveUserProfileByUsernameRow, rosteredPlay
 		ProfileLinks:      profileLinks,
 		Sports:            publicUserProfileSports(profile, sportCounts),
 		RosteredPlayCount: rosteredPlayCount,
+		FollowerCount:     followerCount,
+		FollowingCount:    followingCount,
+		RestrictFollow:    row.RestrictFollow,
+		ViewerFollowState: viewerFollowState,
 	}
 }
 

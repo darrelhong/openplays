@@ -43,6 +43,13 @@ func TestGetUserProfile_ReturnsMinimalProfileAndRosterCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("update public profile details: %v", err)
 	}
+	if _, err := queries.CreateUserFollow(ctx, db.CreateUserFollowParams{
+		FollowerID: viewer.ID,
+		FolloweeID: target.ID,
+		Status:     "accepted",
+	}); err != nil {
+		t.Fatalf("create accepted follow: %v", err)
+	}
 
 	hostedPlayID := createProfileTestPlay(t, ctx, queries, "profile-play-hosted", target.ID)
 	confirmedPlayID := createProfileTestPlay(t, ctx, queries, "profile-play-confirmed", viewer.ID)
@@ -102,6 +109,18 @@ func TestGetUserProfile_ReturnsMinimalProfileAndRosterCount(t *testing.T) {
 	if raw["rostered_play_count"] != float64(2) {
 		t.Fatalf("rostered_play_count = %v, want 2", raw["rostered_play_count"])
 	}
+	if raw["follower_count"] != float64(1) {
+		t.Fatalf("follower_count = %v, want 1", raw["follower_count"])
+	}
+	if raw["following_count"] != float64(0) {
+		t.Fatalf("following_count = %v, want 0", raw["following_count"])
+	}
+	if raw["restrict_follow"] != false {
+		t.Fatalf("restrict_follow = %v, want false", raw["restrict_follow"])
+	}
+	if raw["viewer_follow_state"] != "following" {
+		t.Fatalf("viewer_follow_state = %v, want following", raw["viewer_follow_state"])
+	}
 	sports, ok := raw["sports"].([]any)
 	if !ok || len(sports) != 1 {
 		t.Fatalf("sports = %#v, want one sport summary", raw["sports"])
@@ -133,6 +152,87 @@ func TestGetUserProfile_NoAuthReturns401(t *testing.T) {
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", resp.StatusCode)
+	}
+}
+
+func TestGetUserProfile_PendingFollowStateAndPublicCounts(t *testing.T) {
+	ts, queries := setupSearchTest(t)
+	defer ts.Close()
+	ctx := context.Background()
+
+	viewer := createSearchTestUser(t, ctx, queries, "profile-pending-viewer", "Pending Viewer", strPtr("pending_viewer"), nil)
+	createSearchSession(t, ctx, queries, viewer.ID, "tok")
+	target := createSearchTestUser(t, ctx, queries, "profile-pending-target", "Pending Target", strPtr("pending_target"), nil)
+	acceptedFollower := createSearchTestUser(t, ctx, queries, "profile-accepted-follower", "Accepted Follower", strPtr("accepted_follower"), nil)
+	target, err := queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
+		ID:             target.ID,
+		DisplayName:    target.DisplayName,
+		Username:       target.Username,
+		RestrictFollow: true,
+	})
+	if err != nil {
+		t.Fatalf("restrict target: %v", err)
+	}
+	if _, err := queries.CreateUserFollow(ctx, db.CreateUserFollowParams{
+		FollowerID: viewer.ID, FolloweeID: target.ID, Status: "pending",
+	}); err != nil {
+		t.Fatalf("create pending follow: %v", err)
+	}
+	if _, err := queries.CreateUserFollow(ctx, db.CreateUserFollowParams{
+		FollowerID: acceptedFollower.ID, FolloweeID: target.ID, Status: "accepted",
+	}); err != nil {
+		t.Fatalf("create accepted follow: %v", err)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/users/pending_target", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var raw map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if raw["follower_count"] != float64(1) {
+		t.Fatalf("follower_count = %v, want 1 accepted follower", raw["follower_count"])
+	}
+	if raw["restrict_follow"] != true {
+		t.Fatalf("restrict_follow = %v, want true", raw["restrict_follow"])
+	}
+	if raw["viewer_follow_state"] != "pending" {
+		t.Fatalf("viewer_follow_state = %v, want pending", raw["viewer_follow_state"])
+	}
+}
+
+func TestGetUserProfile_AbsentFollowStateIsNone(t *testing.T) {
+	ts, queries := setupSearchTest(t)
+	defer ts.Close()
+	ctx := context.Background()
+	viewer := createSearchTestUser(t, ctx, queries, "profile-none-viewer", "None Viewer", strPtr("none_viewer"), nil)
+	createSearchSession(t, ctx, queries, viewer.ID, "tok")
+	createSearchTestUser(t, ctx, queries, "profile-none-target", "None Target", strPtr("none_target"), nil)
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/users/none_target", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var raw map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if raw["viewer_follow_state"] != "none" {
+		t.Fatalf("viewer_follow_state = %v, want none", raw["viewer_follow_state"])
 	}
 }
 
