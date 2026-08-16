@@ -39,5 +39,5 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, emailOTPSvc 
 		avatarRoutes = avatarService
 	}
 	meRouter.Register(grp, svc, queries, avatarRoutes)
-	usersRouter.Register(grp, queries, svc)
+	usersRouter.Register(grp, queries, svc, pushService)
 }

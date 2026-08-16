@@ -780,6 +780,30 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/users/{username}/follow': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		get?: never;
+		/**
+		 * Follow a user
+		 * @description Follow an active user or request to follow them when they require approval.
+		 */
+		put: operations['follow-user'];
+		post?: never;
+		/**
+		 * Unfollow a user
+		 * @description Remove the current user's follow or follow request.
+		 */
+		delete: operations['unfollow-user'];
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/users/{username}/shoutouts': {
 		parameters: {
 			query?: never;
@@ -1161,6 +1185,16 @@ export interface components {
 			readonly $schema?: string;
 			session_token: string;
 			user: components['schemas']['User'];
+		};
+		FollowOutputBody: {
+			/**
+			 * Format: uri
+			 * @description A URL to the JSON Schema for this object.
+			 * @example https://example.com/schemas/FollowOutputBody.json
+			 */
+			readonly $schema?: string;
+			/** @enum {string} */
+			status: 'accepted' | 'pending';
 		};
 		FormFile: {
 			ContentType: string;
@@ -3326,6 +3360,68 @@ export interface operations {
 				content: {
 					'application/json': components['schemas']['PublicUserProfile'];
 				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'follow-user': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Username */
+				username: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['FollowOutputBody'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'unfollow-user': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path: {
+				/** @description Username */
+				username: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description No Content */
+			204: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content?: never;
 			};
 			/** @description Error */
 			default: {

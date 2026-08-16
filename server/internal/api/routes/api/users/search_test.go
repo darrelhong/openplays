@@ -29,7 +29,7 @@ func setupSearchTest(t *testing.T) (*httptest.Server, *db.Queries) {
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("test", "0.0.1"))
 	grp := huma.NewGroup(api, "/api")
-	users.Register(grp, queries, svc)
+	users.Register(grp, queries, svc, nil)
 
 	return httptest.NewServer(r), queries
 }
