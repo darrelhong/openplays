@@ -17,4 +17,5 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier not
 	RegisterProfile(grp, queries)
 	RegisterShoutouts(grp, queries)
 	RegisterFollow(grp, queries, notifier)
+	RegisterFollowLists(grp, queries)
 }

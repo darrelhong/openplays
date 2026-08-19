@@ -77,6 +77,58 @@ func (q *Queries) CountPendingFollowRequests(ctx context.Context, followeeID str
 	return count, err
 }
 
+const countUserFollowers = `-- name: CountUserFollowers :one
+SELECT COUNT(*)
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id AND u.status = 'active'
+WHERE uf.followee_id = ?1
+  AND uf.status = 'accepted'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = ?2 AND ub.blocked_id = u.id)
+         OR (ub.blocker_id = u.id AND ub.blocked_id = ?2)
+  )
+`
+
+type CountUserFollowersParams struct {
+	ProfileUserID string
+	ViewerID      string
+}
+
+func (q *Queries) CountUserFollowers(ctx context.Context, arg CountUserFollowersParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserFollowers, arg.ProfileUserID, arg.ViewerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countUserFollowing = `-- name: CountUserFollowing :one
+SELECT COUNT(*)
+FROM user_follows uf
+JOIN users u ON u.id = uf.followee_id AND u.status = 'active'
+WHERE uf.follower_id = ?1
+  AND uf.status = 'accepted'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = ?2 AND ub.blocked_id = u.id)
+         OR (ub.blocker_id = u.id AND ub.blocked_id = ?2)
+  )
+`
+
+type CountUserFollowingParams struct {
+	ProfileUserID string
+	ViewerID      string
+}
+
+func (q *Queries) CountUserFollowing(ctx context.Context, arg CountUserFollowingParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserFollowing, arg.ProfileUserID, arg.ViewerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createUserFollow = `-- name: CreateUserFollow :one
 INSERT INTO user_follows (follower_id, followee_id, status, accepted_at)
 VALUES (
@@ -226,6 +278,162 @@ func (q *Queries) ListPendingFollowRequests(ctx context.Context, arg ListPending
 			&i.DisplayName,
 			&i.Username,
 			&i.PhotoUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserFollowers = `-- name: ListUserFollowers :many
+SELECT
+    u.id AS user_id,
+    u.display_name,
+    u.username,
+    u.photo_url,
+    u.sports_profile,
+    uf.created_at
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id AND u.status = 'active'
+WHERE uf.followee_id = ?1
+  AND uf.status = 'accepted'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = ?2 AND ub.blocked_id = u.id)
+         OR (ub.blocker_id = u.id AND ub.blocked_id = ?2)
+  )
+  AND (?3 IS NULL
+    OR uf.created_at < ?3
+    OR (uf.created_at = ?3 AND uf.follower_id < ?4))
+ORDER BY uf.created_at DESC, uf.follower_id DESC
+LIMIT ?5
+`
+
+type ListUserFollowersParams struct {
+	ProfileUserID   string
+	ViewerID        string
+	CursorCreatedAt interface{}
+	CursorUserID    *string
+	PageSize        int64
+}
+
+type ListUserFollowersRow struct {
+	UserID        string
+	DisplayName   string
+	Username      *string
+	PhotoUrl      *string
+	SportsProfile *string
+	CreatedAt     time.Time
+}
+
+func (q *Queries) ListUserFollowers(ctx context.Context, arg ListUserFollowersParams) ([]ListUserFollowersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUserFollowers,
+		arg.ProfileUserID,
+		arg.ViewerID,
+		arg.CursorCreatedAt,
+		arg.CursorUserID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserFollowersRow
+	for rows.Next() {
+		var i ListUserFollowersRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.DisplayName,
+			&i.Username,
+			&i.PhotoUrl,
+			&i.SportsProfile,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserFollowing = `-- name: ListUserFollowing :many
+SELECT
+    u.id AS user_id,
+    u.display_name,
+    u.username,
+    u.photo_url,
+    u.sports_profile,
+    uf.created_at
+FROM user_follows uf
+JOIN users u ON u.id = uf.followee_id AND u.status = 'active'
+WHERE uf.follower_id = ?1
+  AND uf.status = 'accepted'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = ?2 AND ub.blocked_id = u.id)
+         OR (ub.blocker_id = u.id AND ub.blocked_id = ?2)
+  )
+  AND (?3 IS NULL
+    OR uf.created_at < ?3
+    OR (uf.created_at = ?3 AND uf.followee_id < ?4))
+ORDER BY uf.created_at DESC, uf.followee_id DESC
+LIMIT ?5
+`
+
+type ListUserFollowingParams struct {
+	ProfileUserID   string
+	ViewerID        string
+	CursorCreatedAt interface{}
+	CursorUserID    *string
+	PageSize        int64
+}
+
+type ListUserFollowingRow struct {
+	UserID        string
+	DisplayName   string
+	Username      *string
+	PhotoUrl      *string
+	SportsProfile *string
+	CreatedAt     time.Time
+}
+
+func (q *Queries) ListUserFollowing(ctx context.Context, arg ListUserFollowingParams) ([]ListUserFollowingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUserFollowing,
+		arg.ProfileUserID,
+		arg.ViewerID,
+		arg.CursorCreatedAt,
+		arg.CursorUserID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserFollowingRow
+	for rows.Next() {
+		var i ListUserFollowingRow
+		if err := rows.Scan(
+			&i.UserID,
+			&i.DisplayName,
+			&i.Username,
+			&i.PhotoUrl,
+			&i.SportsProfile,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

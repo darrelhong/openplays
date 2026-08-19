@@ -864,6 +864,46 @@ export interface paths {
 		patch?: never;
 		trace?: never;
 	};
+	'/api/users/{username}/followers': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List a user's followers
+		 * @description Returns a paginated list visible to the profile owner or an accepted follower.
+		 */
+		get: operations['list-user-followers'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
+	'/api/users/{username}/following': {
+		parameters: {
+			query?: never;
+			header?: never;
+			path?: never;
+			cookie?: never;
+		};
+		/**
+		 * List users a person follows
+		 * @description Returns a paginated list visible to the profile owner or an accepted follower.
+		 */
+		get: operations['list-user-following'];
+		put?: never;
+		post?: never;
+		delete?: never;
+		options?: never;
+		head?: never;
+		patch?: never;
+		trace?: never;
+	};
 	'/api/users/{username}/shoutouts': {
 		parameters: {
 			query?: never;
@@ -3603,6 +3643,80 @@ export interface operations {
 					[name: string]: unknown;
 				};
 				content?: never;
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-user-followers': {
+		parameters: {
+			query?: {
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of users per page */
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Username */
+				username: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PageUserSummary'];
+				};
+			};
+			/** @description Error */
+			default: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/problem+json': components['schemas']['ErrorModel'];
+				};
+			};
+		};
+	};
+	'list-user-following': {
+		parameters: {
+			query?: {
+				/** @description Opaque cursor from previous page */
+				cursor?: string;
+				/** @description Number of users per page */
+				limit?: number;
+			};
+			header?: never;
+			path: {
+				/** @description Username */
+				username: string;
+			};
+			cookie?: never;
+		};
+		requestBody?: never;
+		responses: {
+			/** @description OK */
+			200: {
+				headers: {
+					[name: string]: unknown;
+				};
+				content: {
+					'application/json': components['schemas']['PageUserSummary'];
+				};
 			};
 			/** @description Error */
 			default: {
