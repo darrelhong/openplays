@@ -115,6 +115,58 @@ func (q *Queries) DeleteWebPushSubscription(ctx context.Context, arg DeleteWebPu
 	return err
 }
 
+const fanOutFollowerNotifications = `-- name: FanOutFollowerNotifications :exec
+INSERT INTO user_notifications (id, user_id, title, body, url, tag, kind, play_id)
+SELECT
+    lower(hex(randomblob(16))),
+    uf.follower_id,
+    ?1,
+    ?2,
+    ?3,
+    ?4,
+    ?5,
+    ?6
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id
+WHERE uf.followee_id = ?7
+  AND uf.status = 'accepted'
+  AND u.status = 'active'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = ?7 AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = ?7)
+  )
+`
+
+type FanOutFollowerNotificationsParams struct {
+	Title       string
+	Body        *string
+	Url         *string
+	Tag         *string
+	Kind        *string
+	PlayID      *string
+	ActorUserID string
+}
+
+// Writes one feed row per accepted follower of the actor in a single statement.
+// The recipient set and the insert are the same query, so a play with 500
+// followers costs one round trip instead of 500.
+// lower(hex(randomblob(16))) is intentionally a 32-character opaque TEXT
+// primary key, not a formatted UUID; notification IDs are opaque strings.
+func (q *Queries) FanOutFollowerNotifications(ctx context.Context, arg FanOutFollowerNotificationsParams) error {
+	_, err := q.db.ExecContext(ctx, fanOutFollowerNotifications,
+		arg.Title,
+		arg.Body,
+		arg.Url,
+		arg.Tag,
+		arg.Kind,
+		arg.PlayID,
+		arg.ActorUserID,
+	)
+	return err
+}
+
 const getWebPushVAPIDKeys = `-- name: GetWebPushVAPIDKeys :one
 SELECT id, public_key, private_key, created_at, updated_at FROM web_push_vapid_keys
 WHERE id = 1
@@ -131,6 +183,45 @@ func (q *Queries) GetWebPushVAPIDKeys(ctx context.Context) (WebPushVapidKey, err
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const listAcceptedFollowerIDs = `-- name: ListAcceptedFollowerIDs :many
+SELECT uf.follower_id
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id
+WHERE uf.followee_id = ?1
+  AND uf.status = 'accepted'
+  AND u.status = 'active'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = ?1 AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = ?1)
+  )
+ORDER BY uf.follower_id ASC
+`
+
+func (q *Queries) ListAcceptedFollowerIDs(ctx context.Context, actorUserID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listAcceptedFollowerIDs, actorUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var follower_id string
+		if err := rows.Scan(&follower_id); err != nil {
+			return nil, err
+		}
+		items = append(items, follower_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listUserNotifications = `-- name: ListUserNotifications :many

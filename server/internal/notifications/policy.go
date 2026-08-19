@@ -19,6 +19,11 @@ var deliveryPoliciesByKind = map[string]DeliveryPolicy{
 	"play.review_prompt":     {Feed: true, Push: true},
 	"play.cancelled":         {Feed: true, Push: true},
 	"chat.message":           {Feed: true, Push: true, DebounceFeed: true},
+	"follow.started":         {Feed: true, Push: true},
+	"follow.requested":       {Feed: true, Push: true},
+	"follow.accepted":        {Feed: true, Push: true},
+	"follow.play_hosted":     {Feed: true, Push: true},
+	"follow.play_joined":     {Feed: true, Push: true},
 }
 
 var defaultDeliveryPolicy = DeliveryPolicy{Feed: true, Push: true}

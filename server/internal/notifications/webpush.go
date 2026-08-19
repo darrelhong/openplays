@@ -68,6 +68,8 @@ type WebPushStore interface {
 	ListUserNotifications(ctx context.Context, arg db.ListUserNotificationsParams) ([]db.UserNotification, error)
 	MarkAllUserNotificationsRead(ctx context.Context, userID string) error
 	MarkUserNotificationsRead(ctx context.Context, arg db.MarkUserNotificationsReadParams) error
+	FanOutFollowerNotifications(ctx context.Context, arg db.FanOutFollowerNotificationsParams) error
+	ListAcceptedFollowerIDs(ctx context.Context, actorUserID string) ([]string, error)
 }
 
 type WebPushService struct {
@@ -212,6 +214,32 @@ func (s *WebPushService) Notify(ctx context.Context, userID string, payload Payl
 	}
 
 	return nil
+}
+
+func (s *WebPushService) FanOutFollowerNotifications(ctx context.Context, arg db.FanOutFollowerNotificationsParams) error {
+	if s == nil {
+		return nil
+	}
+	return s.store.FanOutFollowerNotifications(ctx, arg)
+}
+
+func (s *WebPushService) ListAcceptedFollowerIDs(ctx context.Context, actorUserID string) ([]string, error) {
+	if s == nil || actorUserID == "" {
+		return nil, nil
+	}
+	return s.store.ListAcceptedFollowerIDs(ctx, actorUserID)
+}
+
+func (s *WebPushService) DispatchFollowerPush(userID string, payload Payload) {
+	if s == nil || userID == "" {
+		return
+	}
+	message, err := json.Marshal(payload)
+	if err != nil {
+		slog.Warn("marshal follower push payload failed", "user_id", userID, "error", err)
+		return
+	}
+	s.dispatchPushAsync(userID, message)
 }
 
 func (s *WebPushService) dispatchPushAsync(userID string, message []byte) {

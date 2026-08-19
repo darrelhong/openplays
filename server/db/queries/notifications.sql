@@ -99,3 +99,46 @@ SET read_at = strftime('%Y-%m-%d %H:%M:%S+00:00', 'now')
 WHERE user_id = ?
   AND id IN (sqlc.slice('ids'))
   AND read_at IS NULL;
+
+-- name: FanOutFollowerNotifications :exec
+-- Writes one feed row per accepted follower of the actor in a single statement.
+-- The recipient set and the insert are the same query, so a play with 500
+-- followers costs one round trip instead of 500.
+-- lower(hex(randomblob(16))) is intentionally a 32-character opaque TEXT
+-- primary key, not a formatted UUID; notification IDs are opaque strings.
+INSERT INTO user_notifications (id, user_id, title, body, url, tag, kind, play_id)
+SELECT
+    lower(hex(randomblob(16))),
+    uf.follower_id,
+    sqlc.arg('title'),
+    sqlc.narg('body'),
+    sqlc.narg('url'),
+    sqlc.narg('tag'),
+    sqlc.arg('kind'),
+    sqlc.narg('play_id')
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id
+WHERE uf.followee_id = sqlc.arg('actor_user_id')
+  AND uf.status = 'accepted'
+  AND u.status = 'active'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = sqlc.arg('actor_user_id') AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = sqlc.arg('actor_user_id'))
+  );
+
+-- name: ListAcceptedFollowerIDs :many
+SELECT uf.follower_id
+FROM user_follows uf
+JOIN users u ON u.id = uf.follower_id
+WHERE uf.followee_id = sqlc.arg('actor_user_id')
+  AND uf.status = 'accepted'
+  AND u.status = 'active'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM user_blocks ub
+      WHERE (ub.blocker_id = sqlc.arg('actor_user_id') AND ub.blocked_id = uf.follower_id)
+         OR (ub.blocker_id = uf.follower_id AND ub.blocked_id = sqlc.arg('actor_user_id'))
+  )
+ORDER BY uf.follower_id ASC;

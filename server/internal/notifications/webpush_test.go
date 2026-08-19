@@ -169,3 +169,11 @@ func (s *blockingWebPushStore) MarkAllUserNotificationsRead(context.Context, str
 func (s *blockingWebPushStore) MarkUserNotificationsRead(context.Context, db.MarkUserNotificationsReadParams) error {
 	panic("unexpected MarkUserNotificationsRead call")
 }
+
+func (s *blockingWebPushStore) FanOutFollowerNotifications(context.Context, db.FanOutFollowerNotificationsParams) error {
+	panic("unexpected FanOutFollowerNotifications call")
+}
+
+func (s *blockingWebPushStore) ListAcceptedFollowerIDs(context.Context, string) ([]string, error) {
+	panic("unexpected ListAcceptedFollowerIDs call")
+}

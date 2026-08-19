@@ -43,3 +43,23 @@ func TestDeliveryPolicyForPlayKinds(t *testing.T) {
 		})
 	}
 }
+
+func TestFollowDeliveryPoliciesAreExplicit(t *testing.T) {
+	for _, kind := range []string{
+		"follow.started",
+		"follow.requested",
+		"follow.accepted",
+		"follow.play_hosted",
+		"follow.play_joined",
+	} {
+		t.Run(kind, func(t *testing.T) {
+			policy, ok := deliveryPoliciesByKind[kind]
+			if !ok {
+				t.Fatalf("delivery policy for %q is not explicitly registered", kind)
+			}
+			if policy != (DeliveryPolicy{Feed: true, Push: true}) {
+				t.Fatalf("delivery policy for %q = %+v, want feed and push", kind, policy)
+			}
+		})
+	}
+}
