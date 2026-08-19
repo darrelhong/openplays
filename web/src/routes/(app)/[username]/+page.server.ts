@@ -44,6 +44,44 @@ export const load: PageServerLoad = async ({ params, cookies, url }) => {
 };
 
 export const actions: Actions = {
+	follow: async ({ params, cookies, locals }) => {
+		const sessionToken = cookies.get('session');
+		if (!sessionToken || !locals.user) {
+			return fail(401, { error: 'Sign in to follow users' });
+		}
+
+		const { error: apiError } = await api.PUT('/api/users/{username}/follow', {
+			headers: { Cookie: `session=${sessionToken}` },
+			params: { path: { username: params.username } }
+		});
+
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to follow user'
+			});
+		}
+
+		return { success: true };
+	},
+	unfollow: async ({ params, cookies, locals }) => {
+		const sessionToken = cookies.get('session');
+		if (!sessionToken || !locals.user) {
+			return fail(401, { error: 'Sign in to unfollow users' });
+		}
+
+		const { error: apiError } = await api.DELETE('/api/users/{username}/follow', {
+			headers: { Cookie: `session=${sessionToken}` },
+			params: { path: { username: params.username } }
+		});
+
+		if (apiError) {
+			return fail(apiError.status ?? 500, {
+				error: apiError.detail ?? 'Failed to unfollow user'
+			});
+		}
+
+		return { success: true };
+	},
 	message: async ({ params, cookies, locals }) => {
 		const sessionToken = cookies.get('session');
 		if (!sessionToken || !locals.user) {

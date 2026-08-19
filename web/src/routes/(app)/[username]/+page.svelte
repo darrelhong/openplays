@@ -10,6 +10,7 @@
 	import { SPORTS } from '$lib/consts/index';
 	import { formatDistance } from '$lib/utils/format-distance';
 	import { PROFILE_LINK_PROVIDERS, profileLinkUrl } from '$lib/utils/profile-links';
+	import { getFollowButtonState } from '$lib/utils/profile-follow';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form?: ActionData } = $props();
@@ -19,6 +20,13 @@
 	const isOwnProfile = $derived(data.user.id === profile.id);
 	const shoutouts = $derived(data.shoutouts.items ?? []);
 	const onShoutoutPage = $derived(page.url.searchParams.has('cursor'));
+	const followButton = $derived(
+		getFollowButtonState({
+			viewerFollowState: profile.viewer_follow_state,
+			restrictFollow: profile.restrict_follow
+		})
+	);
+	const canViewFollowLists = $derived(isOwnProfile || profile.viewer_follow_state === 'following');
 	const socialLinks = $derived(
 		PROFILE_LINK_PROVIDERS.flatMap((provider) => {
 			const identifier = profile.profile_links?.[provider.key];
@@ -98,9 +106,14 @@
 				</div>
 			</div>
 			{#if !isOwnProfile}
-				<form method="POST" action="?/message" use:enhance>
-					<Button type="submit" size="sm">Message</Button>
-				</form>
+				<div class="flex shrink-0 gap-2">
+					<form method="POST" action="?/message" use:enhance>
+						<Button type="submit" size="sm">Message</Button>
+					</form>
+					<form method="POST" action={`?/${followButton.action}`} use:enhance>
+						<Button type="submit" size="sm" variant="outline">{followButton.label}</Button>
+					</form>
+				</div>
 			{/if}
 		</div>
 
@@ -131,9 +144,36 @@
 			</ul>
 		{/if}
 
-		<div class="mt-6 py-4 border-y border-border">
-			<p class="text-sm text-muted">Games</p>
-			<p class="text-lg text-foreground font-semibold">{profile.rostered_play_count}</p>
+		<div class="mt-6 py-4 text-start border-y border-border flex gap-8 items-center justify-start">
+			<div class="min-w-14">
+				<p class="text-lg text-foreground font-semibold">{profile.rostered_play_count}</p>
+				<p class="text-xs text-muted">Games</p>
+			</div>
+			{#if canViewFollowLists}
+				<a
+					href={resolve(`/${profile.username}/followers`)}
+					class="rounded-sm min-w-20 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+				>
+					<p class="text-lg text-foreground font-semibold">{profile.follower_count}</p>
+					<p class="text-xs text-muted hover:text-foreground hover:underline">Followers</p>
+				</a>
+				<a
+					href={resolve(`/${profile.username}/following`)}
+					class="rounded-sm min-w-20 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+				>
+					<p class="text-lg text-foreground font-semibold">{profile.following_count}</p>
+					<p class="text-xs text-muted hover:text-foreground hover:underline">Following</p>
+				</a>
+			{:else}
+				<div class="min-w-14">
+					<p class="text-lg text-foreground font-semibold">{profile.follower_count}</p>
+					<p class="text-xs text-muted">Followers</p>
+				</div>
+				<div class="min-w-14">
+					<p class="text-lg text-foreground font-semibold">{profile.following_count}</p>
+					<p class="text-xs text-muted">Following</p>
+				</div>
+			{/if}
 		</div>
 
 		<section class="mt-5">
