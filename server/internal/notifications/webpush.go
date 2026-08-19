@@ -216,21 +216,45 @@ func (s *WebPushService) Notify(ctx context.Context, userID string, payload Payl
 	return nil
 }
 
-func (s *WebPushService) FanOutFollowerNotifications(ctx context.Context, arg db.FanOutFollowerNotificationsParams) error {
-	if s == nil {
+// NotifyFollowers stores one feed row for every eligible follower and then
+// dispatches push notifications. The work is detached from the request so a
+// large follower list does not delay the caller.
+func (s *WebPushService) NotifyFollowers(_ context.Context, actorUserID string, payload Payload) error {
+	if s == nil || actorUserID == "" {
 		return nil
 	}
-	return s.store.FanOutFollowerNotifications(ctx, arg)
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), webPushSendTimeout)
+		defer cancel()
+
+		if err := s.store.FanOutFollowerNotifications(ctx, db.FanOutFollowerNotificationsParams{
+			ActorUserID: actorUserID,
+			Title:       payload.Title,
+			Body:        optionalString(payload.Body),
+			Url:         optionalString(payload.URL),
+			Tag:         optionalString(payload.Tag),
+			Kind:        optionalString(payload.Kind),
+			PlayID:      optionalString(payload.PlayID),
+		}); err != nil {
+			slog.Warn("follower notification fan-out failed", "actor_user_id", actorUserID, "error", err)
+			return
+		}
+
+		followerIDs, err := s.store.ListAcceptedFollowerIDs(ctx, actorUserID)
+		if err != nil {
+			slog.Warn("list followers for push fan-out failed", "actor_user_id", actorUserID, "error", err)
+			return
+		}
+		for _, followerID := range followerIDs {
+			s.dispatchFollowerPush(followerID, payload)
+		}
+	}()
+
+	return nil
 }
 
-func (s *WebPushService) ListAcceptedFollowerIDs(ctx context.Context, actorUserID string) ([]string, error) {
-	if s == nil || actorUserID == "" {
-		return nil, nil
-	}
-	return s.store.ListAcceptedFollowerIDs(ctx, actorUserID)
-}
-
-func (s *WebPushService) DispatchFollowerPush(userID string, payload Payload) {
+func (s *WebPushService) dispatchFollowerPush(userID string, payload Payload) {
 	if s == nil || userID == "" {
 		return
 	}

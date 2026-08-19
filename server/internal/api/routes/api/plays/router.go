@@ -11,7 +11,7 @@ import (
 
 // Register registers play endpoints.
 // Public: /plays list and get. Protected: /plays mutations and /me/plays.
-func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier notifications.Sender) {
+func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier notifications.Notifier) {
 	grp := huma.NewGroup(api, "/plays")
 
 	RegisterMyList(api, queries, authmw.RequireAuth(api, svc))
@@ -23,7 +23,7 @@ func Register(api huma.API, queries *db.Queries, svc *auth.Service, notifier not
 	RegisterGet(grp, queries, authmw.OptionalAuth(api, svc))
 
 	// Protected (auth middleware on this operation only)
-	RegisterCreate(grp, queries, authmw.RequireAuth(api, svc))
+	RegisterCreate(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterUpdate(grp, queries, authmw.RequireAuth(api, svc))
 	RegisterDelete(grp, queries, authmw.RequireAuth(api, svc), notifier)
 	RegisterFavourite(grp, queries, authmw.RequireAuth(api, svc))

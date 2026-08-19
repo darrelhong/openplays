@@ -110,6 +110,22 @@ func NotifyPlayCancelled(ctx context.Context, sender Sender, play PlaySnapshot, 
 	return notifyUsers(ctx, sender, payload, recipientUserIDs)
 }
 
+// NotifyFollowersPlayHosted tells accepted followers when a user hosts a
+// public play. Unlisted plays intentionally never call this helper.
+func NotifyFollowersPlayHosted(ctx context.Context, sender FollowerNotifier, actorUserID, actorName string, play PlaySnapshot) error {
+	if sender == nil || actorUserID == "" || play.ID == "" {
+		return nil
+	}
+	return sender.NotifyFollowers(ctx, actorUserID, Payload{
+		Title:  playNotificationTitle(play),
+		Body:   fmt.Sprintf("%s is hosting a game", notificationName(actorName, "Someone")),
+		URL:    "/play/" + play.ID,
+		Tag:    "follow:hosted:" + play.ID,
+		Kind:   "follow.play_hosted",
+		PlayID: play.ID,
+	})
+}
+
 func NotifyHostsInviteAccepted(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
 	body := fmt.Sprintf("%s accepted your invitation", notificationName(playerName, "Someone"))
 	payload := Payload{

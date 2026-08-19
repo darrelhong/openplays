@@ -11,11 +11,17 @@ import (
 	"openplays/server/internal/testdb"
 )
 
-func TestFanOutToFollowersWritesOnceAndPushesEachFollower(t *testing.T) {
-	sender := &recordingFollowerFanOutSender{
+func TestNotifyFollowersWritesOnceAndPushesEachFollower(t *testing.T) {
+	store := &recordingFollowerStore{
 		followerIDs: []string{"follower-1", "follower-2"},
 		fanoutDone:  make(chan struct{}),
 		pushDone:    make(chan struct{}),
+	}
+	service := &WebPushService{
+		publicKey:  "public-key",
+		privateKey: "private-key",
+		subscriber: "mailto:dev@openplays.app",
+		store:      store,
 	}
 	payload := Payload{
 		Title:  "Alice is hosting a game",
@@ -26,28 +32,30 @@ func TestFanOutToFollowersWritesOnceAndPushesEachFollower(t *testing.T) {
 		PlayID: "play-1",
 	}
 
-	FanOutToFollowers(sender, "actor-1", payload)
+	if err := service.NotifyFollowers(context.Background(), "actor-1", payload); err != nil {
+		t.Fatalf("NotifyFollowers: %v", err)
+	}
 
 	select {
-	case <-sender.fanoutDone:
+	case <-store.fanoutDone:
 	case <-time.After(time.Second):
 		t.Fatal("fan-out did not run")
 	}
 	select {
-	case <-sender.pushDone:
+	case <-store.pushDone:
 	case <-time.After(time.Second):
 		t.Fatal("push fan-out did not complete")
 	}
 
-	sender.mu.Lock()
-	defer sender.mu.Unlock()
-	if sender.fanoutCalls != 1 {
-		t.Fatalf("fan-out calls = %d, want 1", sender.fanoutCalls)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.fanoutCalls != 1 {
+		t.Fatalf("fan-out calls = %d, want 1", store.fanoutCalls)
 	}
-	if sender.fanout.ActorUserID != "actor-1" || sender.fanout.Title != payload.Title || sender.fanout.Kind == nil || *sender.fanout.Kind != payload.Kind {
-		t.Fatalf("fan-out params = %+v, want actor and payload", sender.fanout)
+	if store.fanout.ActorUserID != "actor-1" || store.fanout.Title != payload.Title || store.fanout.Kind == nil || *store.fanout.Kind != payload.Kind {
+		t.Fatalf("fan-out params = %+v, want actor and payload", store.fanout)
 	}
-	got := append([]string(nil), sender.pushedIDs...)
+	got := append([]string(nil), store.pushedIDs...)
 	sort.Strings(got)
 	if want := []string{"follower-1", "follower-2"}; !equalStrings(got, want) {
 		t.Fatalf("push recipients = %v, want %v", got, want)
@@ -123,7 +131,8 @@ func TestFanOutFollowerNotificationsFiltersRecipients(t *testing.T) {
 	}
 }
 
-type recordingFollowerFanOutSender struct {
+type recordingFollowerStore struct {
+	blockingWebPushStore
 	mu          sync.Mutex
 	followerIDs []string
 	fanout      db.FanOutFollowerNotificationsParams
@@ -133,7 +142,7 @@ type recordingFollowerFanOutSender struct {
 	pushDone    chan struct{}
 }
 
-func (s *recordingFollowerFanOutSender) FanOutFollowerNotifications(_ context.Context, arg db.FanOutFollowerNotificationsParams) error {
+func (s *recordingFollowerStore) FanOutFollowerNotifications(_ context.Context, arg db.FanOutFollowerNotificationsParams) error {
 	s.mu.Lock()
 	s.fanout = arg
 	s.fanoutCalls++
@@ -142,17 +151,18 @@ func (s *recordingFollowerFanOutSender) FanOutFollowerNotifications(_ context.Co
 	return nil
 }
 
-func (s *recordingFollowerFanOutSender) ListAcceptedFollowerIDs(context.Context, string) ([]string, error) {
+func (s *recordingFollowerStore) ListAcceptedFollowerIDs(context.Context, string) ([]string, error) {
 	return s.followerIDs, nil
 }
 
-func (s *recordingFollowerFanOutSender) DispatchFollowerPush(userID string, _ Payload) {
+func (s *recordingFollowerStore) ListWebPushSubscriptionsByUser(_ context.Context, userID string) ([]db.WebPushSubscription, error) {
 	s.mu.Lock()
 	s.pushedIDs = append(s.pushedIDs, userID)
 	if len(s.pushedIDs) == len(s.followerIDs) {
 		close(s.pushDone)
 	}
 	s.mu.Unlock()
+	return nil, nil
 }
 
 func stringPtr(value string) *string {

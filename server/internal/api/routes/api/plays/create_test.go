@@ -21,6 +21,7 @@ import (
 	"openplays/server/internal/auth"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 	"openplays/server/internal/testdb"
 )
 
@@ -96,15 +97,33 @@ func (f *fakeAuthStore) RefreshSession(_ context.Context, _ db.RefreshSessionPar
 	return nil
 }
 
-func setupCreateTest(authStore *fakeAuthStore, playStore plays.CreatePlayStore) *httptest.Server {
+func setupCreateTest(authStore *fakeAuthStore, playStore plays.CreatePlayStore, fanOut ...notifications.FollowerNotifier) *httptest.Server {
 	svc := auth.NewService(authStore)
 
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("test", "0.0.1"))
 	grp := huma.NewGroup(api, "/api/plays")
-	plays.RegisterCreate(grp, playStore, authmw.RequireAuth(api, svc))
+	var notifier notifications.FollowerNotifier
+	if len(fanOut) > 0 {
+		notifier = fanOut[0]
+	}
+	plays.RegisterCreate(grp, playStore, authmw.RequireAuth(api, svc), notifier)
 
 	return httptest.NewServer(r)
+}
+
+type recordingCreateFanOutSender struct {
+	calls chan createFanOutCall
+}
+
+type createFanOutCall struct {
+	actorUserID string
+	payload     notifications.Payload
+}
+
+func (s *recordingCreateFanOutSender) NotifyFollowers(_ context.Context, actorUserID string, payload notifications.Payload) error {
+	s.calls <- createFanOutCall{actorUserID: actorUserID, payload: payload}
+	return nil
 }
 
 func activeSession() *fakeAuthStore {
@@ -213,6 +232,72 @@ func TestCreatePlay_CanCreateUnlisted(t *testing.T) {
 	}
 	if out.Visibility != model.PlayVisibilityUnlisted {
 		t.Fatalf("response visibility = %q, want unlisted", out.Visibility)
+	}
+}
+
+func TestCreatePlay_FanOutsHostedNotificationOnlyForPublicPlay(t *testing.T) {
+	tests := []struct {
+		name       string
+		visibility string
+		wantCall   bool
+	}{
+		{name: "public", visibility: "public", wantCall: true},
+		{name: "unlisted", visibility: "unlisted", wantCall: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notifier := &recordingCreateFanOutSender{calls: make(chan createFanOutCall, 1)}
+			playStore := &fakeCreatePlayStore{
+				play: db.Play{
+					ID: "play-1", ListingType: model.ListingPlay, Currency: "SGD",
+					Timezone: "Asia/Singapore", CreatedAt: time.Now(), UpdatedAt: time.Now(),
+				},
+			}
+			ts := setupCreateTest(activeSession(), playStore, notifier)
+			defer ts.Close()
+
+			body := fmt.Sprintf(`{"sport":"badminton","venue":"SBH","name":"Saturday Social","visibility":"%s","starts_at":"%s","duration_minutes":120,"timezone":"Asia/Singapore","currency":"SGD","max_players":4}`,
+				tt.visibility, futureStart().Format(time.RFC3339))
+			req, _ := http.NewRequest("POST", ts.URL+"/api/plays/", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("status = %d, want 200", resp.StatusCode)
+			}
+
+			select {
+			case call := <-notifier.calls:
+				if !tt.wantCall {
+					t.Fatal("unlisted play triggered follower fan-out")
+				}
+				if call.actorUserID != "user-1" || call.payload.Title != "Saturday Social" {
+					t.Fatalf("fan-out identity = actor %q, title %q", call.actorUserID, call.payload.Title)
+				}
+				if call.payload.Body != "Test User is hosting a game" {
+					t.Fatalf("fan-out body = %q, want hosted copy", call.payload.Body)
+				}
+				playID := playStore.lastHostArgs.PlayID
+				if call.payload.URL != "/play/"+playID {
+					t.Fatalf("fan-out URL = %q, want play URL", call.payload.URL)
+				}
+				if call.payload.Tag != "follow:hosted:"+playID {
+					t.Fatalf("fan-out tag = %q, want hosted tag", call.payload.Tag)
+				}
+				if call.payload.Kind != "follow.play_hosted" {
+					t.Fatalf("fan-out kind = %q, want hosted kind", call.payload.Kind)
+				}
+			case <-time.After(500 * time.Millisecond):
+				if tt.wantCall {
+					t.Fatal("public play did not trigger follower fan-out")
+				}
+			}
+		})
 	}
 }
 

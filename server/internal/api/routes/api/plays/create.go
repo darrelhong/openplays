@@ -12,6 +12,7 @@ import (
 	"openplays/server/internal/api/authmw"
 	"openplays/server/internal/db"
 	"openplays/server/internal/model"
+	"openplays/server/internal/notifications"
 )
 
 type CreateInput struct {
@@ -44,7 +45,7 @@ type CreateOutput struct {
 }
 
 // RegisterCreate registers POST /plays/ (protected via per-operation middleware).
-func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(huma.Context, func(huma.Context))) {
+func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(huma.Context, func(huma.Context)), fanOut notifications.FollowerNotifier) {
 	huma.Register(api, huma.Operation{
 		OperationID: "create-play",
 		Summary:     "Create a play",
@@ -202,6 +203,12 @@ func RegisterCreate(api huma.API, store CreatePlayStore, authMiddleware func(hum
 			ActorDisplayName: actorDisplayName,
 		}); err != nil {
 			return nil, huma.Error500InternalServerError("failed to record play event")
+		}
+		if visibility == model.PlayVisibilityPublic {
+			_ = notifications.NotifyFollowersPlayHosted(
+				ctx, fanOut, user.ID, user.DisplayName,
+				notifications.PlaySnapshot{ID: play.ID, Name: play.Name, VenueName: play.Venue},
+			)
 		}
 		play.SlotsLeft = &slotsLeft
 		createdAt, updatedAt := publicPlayTimestamps(play.CreatedBy, play.CreatedAt, play.UpdatedAt)
