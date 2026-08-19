@@ -124,6 +124,9 @@ func main() {
 	if err := seedInviteScenarios(ctx, queries); err != nil {
 		fatal("seed invite scenarios", err)
 	}
+	if err := seedFollowScenarios(ctx, queries); err != nil {
+		fatal("seed follow scenarios", err)
+	}
 }
 
 func upsertSeedUser(ctx context.Context, queries *db.Queries, user seedUser) error {
@@ -237,6 +240,47 @@ func seedInviteScenarios(ctx context.Context, queries *db.Queries) error {
 		}
 		fmt.Printf("seeded play %s (%s)\n", scenario.ID, scenario.Name)
 	}
+	return nil
+}
+
+// seedFollowScenarios creates enough accepted followers for exercising the
+// paginated follower list from the seed-host account. Existing rows are
+// preserved so rerunning seeddev is safe.
+func seedFollowScenarios(ctx context.Context, queries *db.Queries) error {
+	host := seedUserByID("seed-host")
+	for i := 1; i <= 25; i++ {
+		id := fmt.Sprintf("seed-follower-%02d", i)
+		username := fmt.Sprintf("pagefollower%02d", i)
+		user := seedUser{
+			ID:          id,
+			Email:       id + "@example.test",
+			DisplayName: fmt.Sprintf("Pagination Follower %02d", i),
+			Username:    username,
+			GoogleID:    "dev-" + id,
+		}
+		if err := upsertSeedUser(ctx, queries, user); err != nil {
+			return err
+		}
+
+		_, err := queries.GetUserFollow(ctx, db.GetUserFollowParams{
+			FollowerID: user.ID,
+			FolloweeID: host.ID,
+		})
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if _, err := queries.CreateUserFollow(ctx, db.CreateUserFollowParams{
+			FollowerID: user.ID,
+			FolloweeID: host.ID,
+			Status:     "accepted",
+		}); err != nil {
+			return err
+		}
+	}
+	fmt.Println("seeded 25 accepted followers for seed-host")
 	return nil
 }
 
