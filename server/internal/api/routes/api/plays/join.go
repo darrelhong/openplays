@@ -35,7 +35,7 @@ type JoinStore interface {
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
-func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
+func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Notifier) {
 	huma.Register(api, huma.Operation{
 		OperationID: "join-play",
 		Summary:     "Join a play",
@@ -134,6 +134,11 @@ func RegisterJoin(api huma.API, store JoinStore, authMiddleware func(huma.Contex
 				// Pending joins are requests on classic and require-waitlist plays alike
 				_ = notifications.NotifyHostsJoinRequested(ctx, notifier, playSnapshot, hostUserIDs, user.ID, user.DisplayName)
 			}
+		}
+		if status == model.ParticipantAdded && play.Visibility == model.PlayVisibilityPublic {
+			// This is the entry into the public roster. Do not repeat it from
+			// confirm_participant when added becomes confirmed.
+			_ = notifications.NotifyFollowersPlayerJoined(ctx, notifier, notifications.PlaySnapshotFromDB(play), user.ID, user.DisplayName)
 		}
 
 		finalReservedCount := reservedCount

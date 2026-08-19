@@ -22,9 +22,9 @@ import (
 	"openplays/server/internal/testdb"
 )
 
-func setupHostRosterTest(authStore *fakeAuthStore, store *db.Queries, notifiers ...notifications.Sender) *httptest.Server {
+func setupHostRosterTest(authStore *fakeAuthStore, store *db.Queries, notifiers ...notifications.Notifier) *httptest.Server {
 	svc := auth.NewService(authStore)
-	var notifier notifications.Sender
+	var notifier notifications.Notifier
 	if len(notifiers) > 0 {
 		notifier = notifiers[0]
 	}
@@ -79,6 +79,16 @@ func TestHostAddWaitlistedParticipant_NotifiesAddedPlayer(t *testing.T) {
 	}
 	if call.payload.URL != "/play/"+playID {
 		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
+	if len(notifier.followerCalls) != 1 {
+		t.Fatalf("follower notification calls = %d, want 1", len(notifier.followerCalls))
+	}
+	followerCall := notifier.followerCalls[0]
+	if followerCall.actorUserID != waitlistedID || followerCall.payload.Kind != "follow.play_joined" {
+		t.Fatalf("follower notification = %+v, want added player joined", followerCall)
+	}
+	if followerCall.payload.Tag != "follow:joined:"+waitlistedID+":"+playID {
+		t.Fatalf("follower notification tag = %q, want joined tag", followerCall.payload.Tag)
 	}
 }
 

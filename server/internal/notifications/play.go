@@ -126,6 +126,23 @@ func NotifyFollowersPlayHosted(ctx context.Context, sender FollowerNotifier, act
 	})
 }
 
+// NotifyFollowersPlayerJoined tells accepted followers when a player enters
+// the public roster. Added and confirmed are the same public-roster event; a
+// later added-to-confirmed transition must not emit a second notification.
+func NotifyFollowersPlayerJoined(ctx context.Context, sender FollowerNotifier, play PlaySnapshot, playerUserID, playerName string) error {
+	if sender == nil || playerUserID == "" || play.ID == "" {
+		return nil
+	}
+	return sender.NotifyFollowers(ctx, playerUserID, Payload{
+		Title:  playNotificationTitle(play),
+		Body:   fmt.Sprintf("%s joined the game", notificationName(playerName, "Someone")),
+		URL:    "/play/" + play.ID,
+		Tag:    fmt.Sprintf("follow:joined:%s:%s", playerUserID, play.ID),
+		Kind:   "follow.play_joined",
+		PlayID: play.ID,
+	})
+}
+
 func NotifyHostsInviteAccepted(ctx context.Context, sender Sender, play PlaySnapshot, hostUserIDs []string, playerUserID, playerName string) error {
 	body := fmt.Sprintf("%s accepted your invitation", notificationName(playerName, "Someone"))
 	payload := Payload{

@@ -34,7 +34,7 @@ type ConfirmParticipantStore interface {
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
-func RegisterConfirmParticipant(api huma.API, store ConfirmParticipantStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
+func RegisterConfirmParticipant(api huma.API, store ConfirmParticipantStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Notifier) {
 	huma.Register(api, huma.Operation{
 		OperationID: "confirm-play-participant",
 		Summary:     "Confirm an added play spot",

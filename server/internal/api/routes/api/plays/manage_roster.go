@@ -43,7 +43,7 @@ type HostRosterStore interface {
 	CreatePlayEvent(ctx context.Context, arg db.CreatePlayEventParams) (db.PlayEvent, error)
 }
 
-func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
+func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Notifier) {
 	huma.Register(api, huma.Operation{
 		OperationID: "accept-play-participant",
 		Summary:     "Add a waitlisted or requested participant",
@@ -54,12 +54,13 @@ func RegisterHostRosterManagement(api huma.API, store HostRosterStore, authMiddl
 		Middlewares: huma.Middlewares{authMiddleware},
 	}, func(ctx context.Context, input *AcceptParticipantInput) (*HostRosterOutput, error) {
 		return applyRosterTransition(ctx, store, notifier, input.ID, input.ParticipantID, rosterTransitionSpec{
-			allowedFrom:     []model.PlayParticipantStatus{model.ParticipantWaitlisted, model.ParticipantRequested},
-			conflictMessage: "participant is not waitlisted or requested",
-			toStatus:        model.ParticipantAdded,
-			eventType:       model.PlayEventParticipantAdded,
-			reservesSlot:    true,
-			notify:          notifications.NotifyPlayerAdded,
+			allowedFrom:           []model.PlayParticipantStatus{model.ParticipantWaitlisted, model.ParticipantRequested},
+			conflictMessage:       "participant is not waitlisted or requested",
+			toStatus:              model.ParticipantAdded,
+			eventType:             model.PlayEventParticipantAdded,
+			reservesSlot:          true,
+			notifyFollowersJoined: true,
+			notify:                notifications.NotifyPlayerAdded,
 		})
 	})
 
@@ -152,11 +153,12 @@ type rosterTransitionSpec struct {
 	eventType       model.PlayEventType
 	// reservesSlot transitions consume roster capacity: they require an open
 	// slot and refresh the play's stored slots_left
-	reservesSlot bool
-	notify       func(ctx context.Context, notifier notifications.Sender, play notifications.PlaySnapshot, playerUserID string) error
+	reservesSlot          bool
+	notifyFollowersJoined bool
+	notify                func(ctx context.Context, notifier notifications.Sender, play notifications.PlaySnapshot, playerUserID string) error
 }
 
-func applyRosterTransition(ctx context.Context, store HostRosterStore, notifier notifications.Sender, playID string, participantID int64, spec rosterTransitionSpec) (*HostRosterOutput, error) {
+func applyRosterTransition(ctx context.Context, store HostRosterStore, notifier notifications.Notifier, playID string, participantID int64, spec rosterTransitionSpec) (*HostRosterOutput, error) {
 	play, participant, err := loadHostRosterTarget(ctx, store, playID, participantID)
 	if err != nil {
 		return nil, err
@@ -220,6 +222,15 @@ func applyRosterTransition(ctx context.Context, store HostRosterStore, notifier 
 	}
 	if subject.UserID != nil {
 		_ = spec.notify(ctx, notifier, notifications.PlaySnapshotFromDB(play), *subject.UserID)
+		if spec.notifyFollowersJoined && play.Visibility == model.PlayVisibilityPublic {
+			// This is the entry into the public roster. Do not repeat it from
+			// confirm_participant when added becomes confirmed.
+			playerName := ""
+			if subject.DisplayName != nil {
+				playerName = *subject.DisplayName
+			}
+			_ = notifications.NotifyFollowersPlayerJoined(ctx, notifier, notifications.PlaySnapshotFromDB(play), *subject.UserID, playerName)
+		}
 	}
 
 	slots := deriveSlotsLeft(*play.MaxPlayers, reservedCount)

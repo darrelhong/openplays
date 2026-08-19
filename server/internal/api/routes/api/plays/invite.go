@@ -185,7 +185,7 @@ type AcceptInviteInput struct {
 	ID string `path:"id" doc:"Play ID"`
 }
 
-func RegisterAcceptInvite(api huma.API, store AcceptInviteStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Sender) {
+func RegisterAcceptInvite(api huma.API, store AcceptInviteStore, authMiddleware func(huma.Context, func(huma.Context)), notifier notifications.Notifier) {
 	huma.Register(api, huma.Operation{
 		OperationID: "accept-play-invite",
 		Summary:     "Accept a play invitation",
@@ -266,6 +266,9 @@ func RegisterAcceptInvite(api huma.API, store AcceptInviteStore, authMiddleware 
 
 		if hostUserIDs, err := store.ListPlayHostUserIDsByPlay(ctx, input.ID); err == nil {
 			_ = notifications.NotifyHostsInviteAccepted(ctx, notifier, notifications.PlaySnapshotFromDB(play), hostUserIDs, user.ID, user.DisplayName)
+		}
+		if status == model.ParticipantConfirmed && play.Visibility == model.PlayVisibilityPublic {
+			_ = notifications.NotifyFollowersPlayerJoined(ctx, notifier, notifications.PlaySnapshotFromDB(play), user.ID, user.DisplayName)
 		}
 
 		finalReservedCount := reservedCount

@@ -15,14 +15,28 @@ type notificationCall struct {
 	payload notifications.Payload
 }
 
+type followerNotificationCall struct {
+	actorUserID string
+	payload     notifications.Payload
+}
+
 type fakeNotificationSender struct {
-	calls []notificationCall
+	calls         []notificationCall
+	followerCalls []followerNotificationCall
 }
 
 func (f *fakeNotificationSender) Notify(_ context.Context, userID string, payload notifications.Payload) error {
 	f.calls = append(f.calls, notificationCall{
 		userID:  userID,
 		payload: payload,
+	})
+	return nil
+}
+
+func (f *fakeNotificationSender) NotifyFollowers(_ context.Context, actorUserID string, payload notifications.Payload) error {
+	f.followerCalls = append(f.followerCalls, followerNotificationCall{
+		actorUserID: actorUserID,
+		payload:     payload,
 	})
 	return nil
 }

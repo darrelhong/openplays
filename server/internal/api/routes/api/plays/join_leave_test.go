@@ -24,9 +24,9 @@ import (
 	"openplays/server/internal/testdb"
 )
 
-func setupJoinLeaveTest(authStore *fakeAuthStore, store *db.Queries, notifiers ...notifications.Sender) *httptest.Server {
+func setupJoinLeaveTest(authStore *fakeAuthStore, store *db.Queries, notifiers ...notifications.Notifier) *httptest.Server {
 	svc := auth.NewService(authStore)
-	var notifier notifications.Sender
+	var notifier notifications.Notifier
 	if len(notifiers) > 0 {
 		notifier = notifiers[0]
 	}
@@ -86,6 +86,9 @@ func TestJoinPlay_PendingJoinNotifiesHostsAsRequest(t *testing.T) {
 	}
 	if call.payload.URL != "/play/"+playID {
 		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
+	if len(notifier.followerCalls) != 0 {
+		t.Fatalf("pending join follower notification calls = %d, want 0", len(notifier.followerCalls))
 	}
 	// Classic pending joins record the same request event as require-waitlist joins
 	if got := latestPlayEventType(t, ctx, queries, playID); got != model.PlayEventParticipantJoinRequested {
@@ -154,6 +157,51 @@ func TestJoinPlay_AddsPendingSelfConfirmWhenRatingMatchesAndSpaceExists(t *testi
 	}
 	if call.payload.URL != "/play/"+playID {
 		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
+	if len(notifier.followerCalls) != 1 {
+		t.Fatalf("follower notification calls = %d, want 1", len(notifier.followerCalls))
+	}
+	followerCall := notifier.followerCalls[0]
+	if followerCall.actorUserID != joinerID || followerCall.payload.Kind != "follow.play_joined" {
+		t.Fatalf("follower notification = %+v, want joiner joined", followerCall)
+	}
+	if followerCall.payload.Tag != "follow:joined:"+joinerID+":"+playID {
+		t.Fatalf("follower notification tag = %q, want joined tag", followerCall.payload.Tag)
+	}
+}
+
+func TestJoinPlay_UnlistedDoesNotNotifyFollowers(t *testing.T) {
+	sqlDB := testdb.New(t)
+	queries := db.New(sqlDB)
+	ctx := context.Background()
+
+	creatorID := createRouteTestUser(t, ctx, queries, "creator-unlisted-join")
+	joinerID := createRouteTestUser(t, ctx, queries, "joiner-unlisted-join")
+	playID := createUserPlay(t, ctx, queries, creatorID, 3, ptrString("MB"), ptrString("HI"))
+	if _, err := sqlDB.ExecContext(ctx, `UPDATE plays SET visibility = 'unlisted' WHERE id = ?`, playID); err != nil {
+		t.Fatalf("mark play unlisted: %v", err)
+	}
+	seedConfirmedParticipant(t, ctx, queries, playID, creatorID)
+	if err := queries.UpdatePlaySlotsLeft(ctx, playID); err != nil {
+		t.Fatalf("UpdatePlaySlotsLeft: %v", err)
+	}
+
+	notifier := &fakeNotificationSender{}
+	ts := setupJoinLeaveTest(sessionWithProfile(joinerID, ptrString(`{"badminton":{"level":"HB"}}`)), queries, notifier)
+	defer ts.Close()
+
+	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/plays/"+playID+"/join", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "tok"})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if len(notifier.followerCalls) != 0 {
+		t.Fatalf("unlisted follower notification calls = %d, want 0", len(notifier.followerCalls))
 	}
 }
 
@@ -617,6 +665,9 @@ func TestConfirmParticipant_ChangesAddedToConfirmed(t *testing.T) {
 	}
 	if call.payload.URL != "/play/"+playID {
 		t.Fatalf("notification url = %q, want /play/%s", call.payload.URL, playID)
+	}
+	if len(notifier.followerCalls) != 0 {
+		t.Fatalf("confirmed participant follower notification calls = %d, want 0", len(notifier.followerCalls))
 	}
 }
 

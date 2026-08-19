@@ -25,9 +25,9 @@ import (
 	"openplays/server/internal/testdb"
 )
 
-func setupInviteTest(authStore *fakeAuthStore, queries *db.Queries, notifiers ...notifications.Sender) *httptest.Server {
+func setupInviteTest(authStore *fakeAuthStore, queries *db.Queries, notifiers ...notifications.Notifier) *httptest.Server {
 	svc := auth.NewService(authStore)
-	var notifier notifications.Sender
+	var notifier notifications.Notifier
 	if len(notifiers) > 0 {
 		notifier = notifiers[0]
 	}
@@ -287,6 +287,19 @@ func TestAcceptInvite_PlacementAndEvents(t *testing.T) {
 			}
 			if gotEvent := latestPlayEventType(t, ctx, queries, playID); gotEvent != tc.wantEvent {
 				t.Fatalf("event type = %q, want %q", gotEvent, tc.wantEvent)
+			}
+			wantFollowerCall := tc.wantStatus == model.ParticipantConfirmed
+			if got := len(notifier.followerCalls); (got == 1) != wantFollowerCall {
+				t.Fatalf("follower notification calls = %d, want %t", got, wantFollowerCall)
+			}
+			if wantFollowerCall {
+				call := notifier.followerCalls[0]
+				if call.actorUserID != inviteeID || call.payload.Kind != "follow.play_joined" {
+					t.Fatalf("follower notification = %+v, want invitee joined", call)
+				}
+				if call.payload.Tag != "follow:joined:"+inviteeID+":"+playID {
+					t.Fatalf("follower notification tag = %q, want joined tag", call.payload.Tag)
+				}
 			}
 			if len(notifier.calls) != 1 || notifier.calls[0].userID != hostID {
 				t.Fatalf("notification calls = %#v, want one host notification", notifier.calls)
