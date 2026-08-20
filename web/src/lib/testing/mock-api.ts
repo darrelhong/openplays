@@ -64,6 +64,8 @@ export type SeedUser = {
 	display_name: string;
 	photo_url?: string;
 	status: string;
+	restrict_follow: boolean;
+	pending_follow_request_count: number;
 	sports_profile: Record<string, { level: string }>;
 	created_at: string;
 	updated_at: string;
@@ -81,6 +83,8 @@ export const SEED_USERS: Record<string, SeedUser> = {
 		username: 'seedadvanced',
 		display_name: 'Seed Advanced',
 		status: 'active',
+		restrict_follow: false,
+		pending_follow_request_count: 0,
 		sports_profile: { badminton: { level: 'A' } },
 		created_at: '2026-05-26T09:02:17Z',
 		updated_at: '2026-05-26T09:02:17Z',
@@ -92,6 +96,8 @@ export const SEED_USERS: Record<string, SeedUser> = {
 		username: 'seedhost',
 		display_name: 'Seed Host',
 		status: 'active',
+		restrict_follow: false,
+		pending_follow_request_count: 0,
 		sports_profile: { badminton: { level: 'HB' }, tennis: { level: '3.5' } },
 		created_at: '2026-05-26T09:02:17Z',
 		updated_at: '2026-05-26T09:02:17Z',
@@ -103,6 +109,8 @@ export const SEED_USERS: Record<string, SeedUser> = {
 		username: 'seedli',
 		display_name: 'Seed Low Intermediate',
 		status: 'active',
+		restrict_follow: false,
+		pending_follow_request_count: 0,
 		sports_profile: { badminton: { level: 'LI' } },
 		created_at: '2026-05-26T09:02:17Z',
 		updated_at: '2026-05-26T09:02:17Z',
