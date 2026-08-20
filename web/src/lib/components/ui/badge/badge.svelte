@@ -2,7 +2,7 @@
 	import { cn } from '$lib/utils/cn';
 	import type { ClassValue, SvelteHTMLElements } from 'svelte/elements';
 
-	type Variant = 'surface' | 'muted' | 'outline' | 'info' | 'success' | 'warning';
+	type Variant = 'surface' | 'pill' | 'muted' | 'outline' | 'info' | 'success' | 'warning';
 	type Size = 'xs' | 'sm';
 
 	type Props = Omit<SvelteHTMLElements['span'], 'class'> & {
@@ -15,6 +15,7 @@
 
 	const variantClasses: Record<Variant, string> = {
 		surface: 'text-foreground border border-border bg-card/70',
+		pill: 'text-contrast-surface-foreground border border-contrast-surface-border bg-contrast-surface shadow-sm',
 		muted: 'text-muted border border-border bg-card/70',
 		outline: 'text-muted border border-border bg-background',
 		info: 'text-sky-700 border border-sky-300/60 bg-sky-100/40 dark:text-sky-300 dark:border-sky-700/60 dark:bg-sky-900/20',

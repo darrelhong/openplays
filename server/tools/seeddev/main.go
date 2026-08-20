@@ -20,21 +20,23 @@ import (
 )
 
 type seedUser struct {
-	ID            string
-	Email         string
-	DisplayName   string
-	Username      string
-	GoogleID      string
-	SportsProfile *model.SportsProfile
+	ID             string
+	Email          string
+	DisplayName    string
+	Username       string
+	GoogleID       string
+	SportsProfile  *model.SportsProfile
+	RestrictFollow bool
 }
 
 var seedUsers = []seedUser{
 	{
-		ID:          "seed-host",
-		Email:       "seed-host@example.test",
-		DisplayName: "Seed Host",
-		Username:    "seedhost",
-		GoogleID:    "dev-seed-host",
+		ID:             "seed-host",
+		Email:          "seed-host@example.test",
+		DisplayName:    "Seed Host",
+		Username:       "seedhost",
+		GoogleID:       "dev-seed-host",
+		RestrictFollow: true,
 		SportsProfile: &model.SportsProfile{
 			Badminton: &model.SportLevelProfile{Level: strPtr("HB")},
 			Tennis:    &model.SportLevelProfile{Level: strPtr("3.5")},
@@ -147,10 +149,11 @@ func upsertSeedUser(ctx context.Context, queries *db.Queries, user seedUser) err
 	}
 	username := user.Username
 	_, err = queries.UpdateUserProfile(ctx, db.UpdateUserProfileParams{
-		ID:            created.ID,
-		DisplayName:   user.DisplayName,
-		Username:      &username,
-		SportsProfile: sportsProfile,
+		ID:             created.ID,
+		DisplayName:    user.DisplayName,
+		Username:       &username,
+		SportsProfile:  sportsProfile,
+		RestrictFollow: user.RestrictFollow,
 	})
 	return err
 }
@@ -244,18 +247,35 @@ func seedInviteScenarios(ctx context.Context, queries *db.Queries) error {
 }
 
 // seedFollowScenarios creates enough accepted followers for exercising the
-// paginated follower list from the seed-host account. Existing rows are
-// preserved so rerunning seeddev is safe.
+// paginated follower list from the seed-host account, plus pending follow
+// requests for the follow-request inbox. Existing rows are preserved so
+// rerunning seeddev is safe.
 func seedFollowScenarios(ctx context.Context, queries *db.Queries) error {
 	host := seedUserByID("seed-host")
-	for i := 1; i <= 25; i++ {
-		id := fmt.Sprintf("seed-follower-%02d", i)
-		username := fmt.Sprintf("pagefollower%02d", i)
+	if err := seedFollowBatch(ctx, queries, host.ID, 25,
+		"seed-follower-", "pagefollower", "Pagination Follower", "accepted"); err != nil {
+		return err
+	}
+	fmt.Println("seeded 25 accepted followers for seed-host")
+
+	if err := seedFollowBatch(ctx, queries, host.ID, 12,
+		"seed-follow-request-", "followrequest", "Follow Requester", "pending"); err != nil {
+		return err
+	}
+	fmt.Println("seeded 12 pending follow requests for seed-host")
+	return nil
+}
+
+// seedFollowBatch creates count users who follow the host with the given
+// status, skipping pairs that already have a row so reruns are safe.
+func seedFollowBatch(ctx context.Context, queries *db.Queries, hostID string, count int, idPrefix, usernamePrefix, displayNamePrefix, status string) error {
+	for i := 1; i <= count; i++ {
+		id := fmt.Sprintf("%s%02d", idPrefix, i)
 		user := seedUser{
 			ID:          id,
 			Email:       id + "@example.test",
-			DisplayName: fmt.Sprintf("Pagination Follower %02d", i),
-			Username:    username,
+			DisplayName: fmt.Sprintf("%s %02d", displayNamePrefix, i),
+			Username:    fmt.Sprintf("%s%02d", usernamePrefix, i),
 			GoogleID:    "dev-" + id,
 		}
 		if err := upsertSeedUser(ctx, queries, user); err != nil {
@@ -264,7 +284,7 @@ func seedFollowScenarios(ctx context.Context, queries *db.Queries) error {
 
 		_, err := queries.GetUserFollow(ctx, db.GetUserFollowParams{
 			FollowerID: user.ID,
-			FolloweeID: host.ID,
+			FolloweeID: hostID,
 		})
 		if err == nil {
 			continue
@@ -274,13 +294,12 @@ func seedFollowScenarios(ctx context.Context, queries *db.Queries) error {
 		}
 		if _, err := queries.CreateUserFollow(ctx, db.CreateUserFollowParams{
 			FollowerID: user.ID,
-			FolloweeID: host.ID,
-			Status:     "accepted",
+			FolloweeID: hostID,
+			Status:     status,
 		}); err != nil {
 			return err
 		}
 	}
-	fmt.Println("seeded 25 accepted followers for seed-host")
 	return nil
 }
 

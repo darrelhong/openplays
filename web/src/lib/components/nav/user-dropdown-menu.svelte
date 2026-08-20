@@ -3,12 +3,13 @@
 	import { goto } from '$app/navigation';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index';
 	import UserAvatar from '$lib/components/ui/avatar/user-avatar.svelte';
+	import { Badge } from '$lib/components/ui/badge';
+	import type { components } from '$lib/api/types.gen';
 
-	type UserMenuUser = {
-		photo_url?: string;
-		username?: string;
-		display_name: string;
-	};
+	type UserMenuUser = Pick<
+		components['schemas']['User'],
+		'photo_url' | 'username' | 'display_name' | 'pending_follow_request_count'
+	>;
 
 	let { user }: { user: UserMenuUser } = $props();
 
@@ -20,6 +21,10 @@
 
 	function goToProfile() {
 		goto(resolve('/profile'));
+	}
+
+	function goToFollowRequests() {
+		goto(resolve('/profile/follow-requests'));
 	}
 
 	function goToMyGames() {
@@ -63,6 +68,15 @@
 			<DropdownMenu.Item onSelect={goToFavourites}>Favourites</DropdownMenu.Item>
 
 			<DropdownMenu.Item onSelect={goToProfile}>Profile</DropdownMenu.Item>
+
+			{#if user.pending_follow_request_count > 0}
+				<DropdownMenu.Item onSelect={goToFollowRequests}>
+					<span class="flex flex-1 gap-4 items-center justify-between">
+						Follow requests
+						<Badge variant="pill">{user.pending_follow_request_count}</Badge>
+					</span>
+				</DropdownMenu.Item>
+			{/if}
 
 			<DropdownMenu.Item onSelect={goToCreate}>Create Game</DropdownMenu.Item>
 

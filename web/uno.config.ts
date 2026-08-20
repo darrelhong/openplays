@@ -15,6 +15,11 @@ export default defineConfig({
 				DEFAULT: 'var(--color-card)',
 				foreground: 'var(--color-card-foreground)'
 			},
+			contrast: {
+				surface: 'var(--color-contrast-surface)',
+				'surface-foreground': 'var(--color-contrast-surface-foreground)',
+				'surface-border': 'var(--color-contrast-surface-border)'
+			},
 			border: 'var(--color-border)',
 			input: {
 				DEFAULT: 'var(--color-input)',

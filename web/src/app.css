@@ -18,6 +18,9 @@
 		--color-muted-foreground: oklch(0.444 0.011 73.639); /* stone-600 */
 		--color-card: oklch(1 0 0); /* white */
 		--color-card-foreground: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-contrast-surface: var(--color-primary); /* high-contrast utility surface */
+		--color-contrast-surface-foreground: var(--color-primary-foreground);
+		--color-contrast-surface-border: var(--color-primary);
 		--color-border: oklch(0.923 0.003 48.717); /* stone-200 */
 		--color-input: oklch(1 0 0); /* white — stands out against stone-50 page bg */
 		--color-input-border: oklch(0.869 0.005 56.366); /* stone-300 */
@@ -43,6 +46,9 @@
 		--color-muted-foreground: oklch(0.553 0.013 58.071); /* stone-500 */
 		--color-card: oklch(0.268 0.007 34.298); /* stone-800 */
 		--color-card-foreground: oklch(0.985 0.001 106.423); /* stone-50 */
+		--color-contrast-surface: oklch(1 0 0); /* white high-contrast surface */
+		--color-contrast-surface-foreground: oklch(0.216 0.006 56.043); /* stone-900 */
+		--color-contrast-surface-border: oklch(0.709 0.01 56.259); /* stone-400 */
 		--color-border: oklch(0.374 0.01 67.558); /* stone-700 */
 		--color-input: oklch(0.268 0.007 34.298); /* stone-800 — stands out against stone-900 page bg */
 		--color-input-border: oklch(0.444 0.011 73.639); /* stone-600 */
