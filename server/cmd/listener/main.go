@@ -153,7 +153,7 @@ func main() {
 
 	// Start promo ticker (posts to group at fixed hours, skips 12am-7am)
 	promoSender := telegramutils.NewMessageSender(client)
-	promo := listener.NewPromoTicker(queries, promoSender, cfg.TelegramGroupUsername, "https://openplays.app", 2, cfg.TelegramGroupTimezone)
+	promo := listener.NewPromoTicker(queries, promoSender, cfg.TelegramGroupUsername, "https://openplays.app", 3, cfg.TelegramGroupTimezone)
 	go promo.Run(ctx)
 
 	slog.Info("listening for messages",

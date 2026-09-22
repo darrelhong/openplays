@@ -135,7 +135,7 @@ func (t *PromoTicker) post(ctx context.Context) {
 	}
 
 	msg := fmt.Sprintf(
-		"Manage your games on OpenPlays! Now with waitlists, invites and follow features. See all %d games on %s\n\nCreate an account to try it out now!",
+		"Host and find games on OpenPlays. Manage waitlists, invites and more. See all %d available games at %s.",
 		count, t.siteURL,
 	)
 
