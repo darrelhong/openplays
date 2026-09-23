@@ -65,12 +65,23 @@ func (r *Resolver) Resolve(ctx context.Context, rawVenue *string) *Resolved {
 		}
 	}
 
-	// 3. Fuzzy match against all venue names
+	// 3. Fuzzy match against all venue names.
+	//
+	// Only a unique winner is cached. When several venues tie on the winning
+	// score the choice is arbitrary (it used to fall to whichever row came
+	// first in the database), and caching that guess is how one bad match
+	// turned into 150+ plays filed at the wrong venue. Ties fall through to the
+	// geocoder instead, which resolves by address rather than by name overlap.
 	if candidates := r.loadCandidates(ctx); len(candidates) > 0 {
-		if m := FuzzyMatch(*rawVenue, candidates); m != nil {
-			slog.Info("venue fuzzy matched", "raw", *rawVenue, "matched", m.Name, "venue_id", m.ID, "score_pct", m.Score*100)
-			r.upsertAlias(ctx, alias, m.ID)
-			return &Resolved{ID: m.ID, Name: m.Name}
+		if m, ties := fuzzyMatchDetailed(*rawVenue, candidates); m != nil {
+			if ties > 1 {
+				slog.Warn("venue fuzzy match ambiguous, not caching",
+					"raw", *rawVenue, "candidates_tied", ties, "best_guess", m.Name, "best_guess_id", m.ID)
+			} else {
+				slog.Info("venue fuzzy matched", "raw", *rawVenue, "matched", m.Name, "venue_id", m.ID, "score_pct", m.Score*100)
+				r.upsertAlias(ctx, alias, m.ID)
+				return &Resolved{ID: m.ID, Name: m.Name}
+			}
 		}
 	}
 

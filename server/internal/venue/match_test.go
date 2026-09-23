@@ -60,7 +60,8 @@ func TestFuzzyMatch(t *testing.T) {
 		// "sports hall" normalised to "sport hall"
 		{"Yishun Sports Hall", 8},
 
-		// Too vague -- should not match
+		// Too vague -- should not match (initialism expansion is deliberately not
+		// attempted here; it belongs in the alias table, not in fuzzy scoring)
 		{"SBH", 0},
 		{"", 0},
 	}
@@ -85,24 +86,89 @@ func TestFuzzyMatch(t *testing.T) {
 	}
 }
 
-func TestWordOverlap(t *testing.T) {
+// TestTokensMatch pins down the token comparison. The previous implementation
+// used strings.Contains in both directions, which made "sengkang" match "kang"
+// and scored "SENGKANG S/HALL" at 1.00 against Yio Chu Kang Sport Hall.
+func TestTokensMatch(t *testing.T) {
 	tests := []struct {
-		input     string
-		candidate string
-		want      float64
+		a, b string
+		want bool
 	}{
-		{"canberra sport hall", "bukit canberra sport hall", 1.0},     // 3/3
-		{"hougang secondary school", "hougang secondary school", 1.0}, // 3/3
-		{"canberra hall", "bukit canberra sport hall", 1.0},           // 2/2
-		{"foo bar baz", "bukit canberra sport hall", 0.0},             // 0/3
+		// exact
+		{"sengkang", "sengkang", true},
+		{"hougang", "hougang", true},
+
+		// legitimate prefixes over enough of the word
+		{"canberra", "canberra", true},
+		{"badminton", "badminton", true},
+		{"yio", "yio", true},
+
+		// the regression: "kang" is a substring of "sengkang" but not a prefix
+		{"sengkang", "kang", false},
+		{"seng", "sengkang", false}, // prefix, but 4/8 = 0.5 < 0.6 ratio
+		{"sengk", "sengkang", true}, // prefix, 5/8 = 0.625 >= 0.6 ratio
+
+		// "jurong" must not absorb "jurongville" (different venue)
+		{"jurong", "jurongville", false},
+
+		// short tokens never prefix-match
+		{"cc", "community", false},
+		{"sh", "sport", false},
+
+		// unrelated
+		{"sengkang", "clementi", false},
+	}
+	for _, tt := range tests {
+		if got := tokensMatch(tt.a, tt.b); got != tt.want {
+			t.Errorf("tokensMatch(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
+
+// TestFuzzyMatch_Ambiguity guards the fix that stopped "SENGKANG S/HALL"
+// resolving to Yio Chu Kang: ties must be reported, not silently won by
+// whichever candidate happens to come first.
+func TestFuzzyMatch_Ambiguity(t *testing.T) {
+	candidates := []Candidate{
+		{ID: 30, Name: "Sengkang Sport Hall"},
+		{ID: 46, Name: "Yio Chu Kang Sport Hall"},
+		{ID: 25, Name: "Choa Chu Kang Sport Hall"},
 	}
 
-	for _, tt := range tests {
-		iw := wordSet(tt.input)
-		cw := wordSet(tt.candidate)
-		got := wordOverlap(iw, cw)
-		if got != tt.want {
-			t.Errorf("wordOverlap(%q, %q) = %.2f, want %.2f", tt.input, tt.candidate, got, tt.want)
-		}
+	m, ties := fuzzyMatchDetailed("SENGKANG S/HALL", candidates)
+	if m == nil {
+		t.Fatal("expected a match for SENGKANG S/HALL")
+	}
+	if m.ID != 30 {
+		t.Errorf("matched %d (%s), want 30 (Sengkang Sport Hall)", m.ID, m.Name)
+	}
+	if ties != 1 {
+		t.Errorf("ties = %d, want 1 (a unique winner)", ties)
+	}
+
+	// Candidate order must not change the answer.
+	reversed := []Candidate{candidates[2], candidates[1], candidates[0]}
+	m2, _ := fuzzyMatchDetailed("SENGKANG S/HALL", reversed)
+	if m2 == nil || m2.ID != 30 {
+		t.Errorf("reversed order matched %+v, want id 30", m2)
+	}
+}
+
+// TestFuzzyMatch_GenericOnlyInputMakesNoClaim covers inputs that carry no
+// identifying information: they must not resolve to a venue just because the
+// generic words line up.
+func TestFuzzyMatch_GenericOnlyInputMakesNoClaim(t *testing.T) {
+	candidates := []Candidate{
+		{ID: 1, Name: "Hougang Sport Hall"},
+		{ID: 2, Name: "Yishun Sport Hall"},
+	}
+	// "s/hall" expands to "sport hall"; with no real name there is nothing to
+	// distinguish venue 1 from venue 2.
+	m, ties := fuzzyMatchDetailed("S/Hall", candidates)
+	if m == nil {
+		t.Fatal("expected a match (threshold is met) so the caller can see the tie")
+	}
+	if ties < 2 {
+		t.Errorf("ties = %d, want >= 2 so the caller treats it as ambiguous", ties)
 	}
 }
