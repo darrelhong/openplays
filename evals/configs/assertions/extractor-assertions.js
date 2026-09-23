@@ -1,20 +1,49 @@
 const fs = require('fs');
 const path = require('path');
 
-function loadExpected(expected) {
-  let items;
+/**
+ * Resolve `context.vars.expected` to an array of expected listings.
+ *
+ * Every failure path throws. This is deliberate and important: previously a
+ * missing or malformed `expected` silently became `[]`, which made an empty
+ * model response compare equal to an empty fixture and score a *passing* 1.0.
+ * A typo'd fixture path could therefore turn the whole suite green while the
+ * extractor returned nothing. A test harness that can pass on absent ground
+ * truth is worse than no harness — it manufactures false confidence.
+ *
+ * Known-good inputs are: a JSON array, a JSON array as a string, or a
+ * `file://` path to a fixture containing a JSON array.
+ */
+function loadExpected(expected, assertionName = 'assertion') {
+  const fail = (why) => {
+    throw new Error(
+      `[${assertionName}] cannot resolve expected fixtures: ${why}. ` +
+        `Got: ${JSON.stringify(expected)?.slice(0, 200)}`,
+    );
+  };
 
+  if (expected === undefined || expected === null) {
+    fail('`expected` is missing from the test vars');
+  }
+
+  let items;
   if (Array.isArray(expected)) {
     items = expected;
   } else if (typeof expected !== 'string') {
-    return [];
+    fail(`expected must be an array or file:// string, got ${typeof expected}`);
   } else {
     const trimmed = expected.trim();
 
-    if (trimmed.startsWith('[')) {
-      items = JSON.parse(trimmed);
+    if (trimmed === '') {
+      fail('`expected` is an empty string');
+    } else if (trimmed.startsWith('[')) {
+      try {
+        items = JSON.parse(trimmed);
+      } catch (err) {
+        fail(`inline expected is not valid JSON: ${err.message}`);
+      }
     } else if (!trimmed.startsWith('file://')) {
-      return [];
+      fail('expected must start with "[" or "file://"');
     } else {
       const relativePath = trimmed.slice('file://'.length);
       const candidatePaths = [
@@ -23,17 +52,20 @@ function loadExpected(expected) {
         path.resolve(__dirname, '..', '..', path.basename(relativePath)),
       ];
 
-      items = null;
-      for (const candidatePath of candidatePaths) {
-        if (fs.existsSync(candidatePath)) {
-          items = JSON.parse(fs.readFileSync(candidatePath, 'utf8'));
-          break;
-        }
+      const found = candidatePaths.find((candidatePath) => fs.existsSync(candidatePath));
+      if (!found) {
+        fail(`fixture file not found (tried ${candidatePaths.join(', ')})`);
       }
-      if (!items) {
-        throw new Error(`Unable to load expected fixture: ${trimmed}`);
+      try {
+        items = JSON.parse(fs.readFileSync(found, 'utf8'));
+      } catch (err) {
+        fail(`fixture ${found} is not valid JSON: ${err.message}`);
       }
     }
+  }
+
+  if (!Array.isArray(items)) {
+    fail('fixture must contain a JSON array of listings');
   }
 
   // Sort expected the same way the canonicalizer sorts output
@@ -62,9 +94,39 @@ function loadExpected(expected) {
   );
 }
 
+/**
+ * Assertions must only ever see the canonical array produced by the transform.
+ *
+ * When the transform throws (malformed model JSON — the truncation case that
+ * occurred in a live run), promptfoo leaves the 
+ * raw provider output in place and hands *that* to the assertions. A string
+ * silently "works" for a surprising number of these checks because
+ * `output.length` and `output.map` behave like an array's, producing nonsense
+ * such as "expected 1 listings, got 92" (the string's character count). The
+ * resulting "hard structure checks failed (count=0)" sends triage looking for a
+ * model bug when the real fault is a transform crash.
+ *
+ * Failing closed with an explicit reason keeps the two distinct.
+ */
+function requireCanonicalArray(output, assertionName) {
+  if (Array.isArray(output)) {
+    return output;
+  }
+  const seen =
+    typeof output === 'string'
+      ? `a string of ${output.length} chars (starts ${JSON.stringify(output.slice(0, 60))})`
+      : `${output === null ? 'null' : typeof output}`;
+  throw new Error(
+    `[${assertionName}] expected the transform to produce an array of listings, got ${seen}. ` +
+      'This usually means the model returned malformed JSON and the transform threw; ' +
+      'check the run log for a parse error rather than reading the metric as a model failure.',
+  );
+}
+
 module.exports = {
   listingCountMatches: (output, context) => {
-    const expected = loadExpected(context.vars.expected);
+    const expected = loadExpected(context.vars.expected, 'listingCountMatches');
+    requireCanonicalArray(output, 'listingCountMatches');
     return {
       pass: Array.isArray(output) && Array.isArray(expected) && output.length === expected.length,
       score: Array.isArray(output) && Array.isArray(expected) && output.length === expected.length ? 1 : 0,
@@ -73,7 +135,8 @@ module.exports = {
   },
 
   structureMatches: (output, context) => {
-    const expected = loadExpected(context.vars.expected);
+    const expected = loadExpected(context.vars.expected, 'structureMatches');
+    requireCanonicalArray(output, 'structureMatches');
     const makeKey = (item) =>
       [item?.date ?? '', item?.start_time ?? '', item?.end_time ?? '', (item?.venue ?? '').toLowerCase(), item?.level_min ?? '', item?.level_max ?? ''].join('|');
     const actualKeys = (Array.isArray(output) ? output : []).map(makeKey);
@@ -87,36 +150,125 @@ module.exports = {
   },
 
   courtsMatch: (output, context) => {
-    const expected = loadExpected(context.vars.expected);
-    const actual = (Array.isArray(output) ? output : []).map((item) => item?.courts ?? null);
-    const wanted = (Array.isArray(expected) ? expected : []).map((item) => item?.courts ?? null);
-    const pass = JSON.stringify(actual) === JSON.stringify(wanted);
+    const expected = loadExpected(context.vars.expected, 'courtsMatch');
+    requireCanonicalArray(output, 'courtsMatch');
+    // Same tier-identity reasoning as feesMatch: compare the court count of each
+    // tier rather than the tier at each sorted position, so a level_min error in
+    // one tier cannot manufacture a courts failure elsewhere.
+    const tierKey = (item) =>
+      [
+        item?.date ?? '',
+        item?.start_time ?? '',
+        item?.end_time ?? '',
+        (item?.venue ?? '').toLowerCase(),
+        (item?.level_raw ?? '').trim().toLowerCase(),
+      ].join('|');
+    const indexCourts = (items) => {
+      const map = new Map();
+      for (const item of items) map.set(tierKey(item), item?.courts ?? null);
+      return map;
+    };
+    const actual = indexCourts(Array.isArray(output) ? output : []);
+    const wanted = indexCourts(Array.isArray(expected) ? expected : []);
+
+    const mismatches = [];
+    for (const [key, wantedCourts] of wanted) {
+      if (actual.get(key) !== wantedCourts) {
+        mismatches.push({ tier: key, expected: wantedCourts, got: actual.get(key) ?? null });
+      }
+    }
+    const pass = mismatches.length === 0;
     return {
       pass,
       score: pass ? 1 : 0,
-      reason: pass ? 'courts match' : `expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`,
+      reason: pass ? 'courts match' : `courts mismatch on ${mismatches.length} tier(s): ${JSON.stringify(mismatches.slice(0, 3))}`,
+      metadata: { mismatches },
     };
   },
 
   feesMatch: (output, context) => {
-    const expected = loadExpected(context.vars.expected);
+    const expected = loadExpected(context.vars.expected, 'feesMatch');
+    requireCanonicalArray(output, 'feesMatch');
     const pick = (item) => ({
       fee_cents: item?.fee_cents ?? null,
       fee_male_cents: item?.fee_male_cents ?? null,
       fee_female_cents: item?.fee_female_cents ?? null,
     });
-    const actual = (Array.isArray(output) ? output : []).map(pick);
-    const wanted = (Array.isArray(expected) ? expected : []).map(pick);
-    const pass = JSON.stringify(actual) === JSON.stringify(wanted);
+    // Compare fees against the tier they belong to, not against the tier at the
+    // same sorted position.
+    //
+    // The output and fixtures are both sorted by date|time|venue|level_min|...
+    // so any error in level_min reorders the arrays. Under a positional compare
+    // that single level error also fabricated fee mismatches: a live run reported
+    // fees=0 on a response whose 22 fee values were all correct, and fixing the
+    // one level code turned both metrics green. A metrics report must not
+    // multiply one mistake into three - it misdirects triage.
+    //
+    // Tier identity is (date, start, end, venue, level_raw). level_raw is the
+    // level text as written, so it stays correct even when the model maps it to
+    // the wrong code - which is exactly the error structure is there to catch.
+    const tierKey = (item) =>
+      [
+        item?.date ?? '',
+        item?.start_time ?? '',
+        item?.end_time ?? '',
+        (item?.venue ?? '').toLowerCase(),
+        (item?.level_raw ?? '').trim().toLowerCase(),
+      ].join('|');
+
+    const indexTiers = (items) => {
+      const map = new Map();
+      for (const item of items) {
+        const key = tierKey(item);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(pick(item));
+      }
+      return map;
+    };
+
+    const actualTiers = indexTiers(Array.isArray(output) ? output : []);
+    const wantedTiers = indexTiers(Array.isArray(expected) ? expected : []);
+
+    // Keys present on one side only mean the tier itself is missing or extra.
+    // Report that explicitly rather than as a fee difference.
+    const missingTiers = [...wantedTiers.keys()].filter((k) => !actualTiers.has(k));
+    const extraTiers = [...actualTiers.keys()].filter((k) => !wantedTiers.has(k));
+    const unexpectedTiers = [...new Set([...missingTiers, ...extraTiers])].length > 0;
+
+    const feeMismatches = [];
+    for (const [key, wanted] of wantedTiers) {
+      const actual = actualTiers.get(key);
+      if (!actual) continue;
+      const norm = (rows) => JSON.stringify(rows.slice().sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))));
+      if (norm(actual) !== norm(wanted)) {
+        feeMismatches.push({ tier: key, expected: wanted, got: actual });
+      }
+    }
+
+    const pass = !unexpectedTiers && feeMismatches.length === 0;
+    let reason;
+    if (pass) {
+      reason = 'fees match';  
+    } else if (unexpectedTiers) {
+      reason =
+        `tier set differs, so fees cannot be compared: ` +
+        `${missingTiers.length} expected tier(s) missing, ${extraTiers.length} unexpected. ` +
+        `missing=${JSON.stringify(missingTiers.slice(0, 3))} unexpected=${JSON.stringify(extraTiers.slice(0, 3))}`;
+    } else {
+      reason = `fee mismatch on ${feeMismatches.length} tier(s): ${JSON.stringify(feeMismatches.slice(0, 3))}`;
+    }
+
     return {
       pass,
       score: pass ? 1 : 0,
-      reason: pass ? 'fees match' : `expected ${JSON.stringify(wanted)}, got ${JSON.stringify(actual)}`,
+      reason,
+      metadata: { feeMismatches, missingTiers, extraTiers },
     };
   },
 
   contactsMatch: (output, context) => {
-    const expected = loadExpected(context.vars.expected);
+    const expected = loadExpected(context.vars.expected, 'contactsMatch');
+    requireCanonicalArray(output, 'contactsMatch');
     const normalizeContacts = (contacts) =>
       [...new Set((Array.isArray(contacts) ? contacts : [])
         .map((contact) => contact?.value ?? null)
@@ -139,7 +291,8 @@ module.exports = {
   },
 
   normalizationMatches: (output, context) => {
-    const expected = loadExpected(context.vars.expected);
+    const expected = loadExpected(context.vars.expected, 'normalizationMatches');
+    requireCanonicalArray(output, 'normalizationMatches');
     const equivalentGenderPref = (actual, wanted) => {
       const normalizedActual = actual ?? null;
       const normalizedWanted = wanted ?? null;

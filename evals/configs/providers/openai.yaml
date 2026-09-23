@@ -1,0 +1,75 @@
+# OpenAI providers.
+#
+# Uses the explicit `openai:chat:` endpoint prefix rather than a bare model ID.
+# The extractor under test (server/internal/listener/pipeline/extractor.go)
+# speaks Chat Completions, so the eval should exercise the same endpoint the
+# production code calls.
+#
+# Auth: promptfoo reads OPENAI_API_KEY from the environment. Pass it with
+#   npm run eval -- --env-file .env      (the npm script already does this)
+#
+# ---------------------------------------------------------------------------
+# Why `omitDefaults` + `passthrough` are needed for gpt-6-luna
+# ---------------------------------------------------------------------------
+# Verified against a local mock server by capturing the actual request body.
+#
+# promptfoo decides "is this a reasoning model?" by matching the model NAME:
+# it accepts `gpt-5*` and `gpt-6-astra`, but not `gpt-6-luna`. For a model it
+# doesn't recognise as a reasoning model it falls back to the non-reasoning
+# path and sends, for gpt-6-luna:
+#
+#   { "max_tokens": 1024, "temperature": 0 }     <- both rejected by reasoning models
+#
+# and silently drops `reasoning_effort`. The `isReasoningModel: true` config
+# escape hatch does NOT work here: the OpenAiChatCompletionProvider overrides
+# isReasoningModel() without checking it.
+#
+# Measured behaviour:
+#
+#   reasoning_effort: none                  -> max_tokens:1024, temp:0, effort dropped
+#   isReasoningModel: true                  -> max_tokens:1024, temp:0, effort dropped
+#   max_completion_tokens: 4096             -> still also sends max_tokens:1024
+#   omitDefaults: true                      -> all defaults suppressed
+#   omitDefaults + passthrough{...}         -> exactly the passthrough body  [CHOSEN]
+#
+# `passthrough` is spread last into the request body, so it both merges and
+# overrides. With omitDefaults it produces a minimal, correct body:
+#
+#   { "model": "gpt-6-luna", "max_completion_tokens": 4096,
+#     "reasoning_effort": "none" }            (no temperature, no max_tokens)
+#
+# If promptfoo later learns that gpt-6-luna is a reasoning model, this config
+# still works — omitDefaults simply stops being load-bearing.
+
+- id: openai:chat:gpt-6-luna
+  label: GPT-6 Luna (no reasoning)
+  config:
+    omitDefaults: true
+    passthrough:
+      # The eval's largest fixture is 22 listings, which measures out at ~5.3k
+      # tokens (~733 chars per listing, ~3 chars per token). 4096 truncated it
+      # mid-object: finish_reason "length", 17 of 22 listings, unterminated JSON.
+      # A truncated response still bills its output tokens and is a total loss,
+      # so ample headroom is cheaper in expectation than a tight cap.
+      max_completion_tokens: 8192
+      # Extraction is structured output, not deliberation. Reasoning tokens
+      # bill as output, so 'none' is both cheaper and appropriate here.
+      reasoning_effort: none
+
+# A/B: does low reasoning improve the hard-gate metrics? Costs more per call.
+# - id: openai:chat:gpt-6-luna
+#   label: GPT-6 Luna (low reasoning)
+#   config:
+#     omitDefaults: true
+#     passthrough:
+#       max_completion_tokens: 8192
+#       reasoning_effort: low
+
+# Baseline for comparison.
+# - id: openai:chat:gpt-5.4-nano
+#   label: GPT-5.4 Nano
+#   config:
+#     omitDefaults: true
+#     passthrough:
+#       max_completion_tokens: 4096
+#       reasoning_effort: none

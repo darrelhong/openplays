@@ -6,15 +6,37 @@ Evaluates how well different LLM models extract structured badminton session lis
 
 ```bash
 npm install
-cp .env.example .env  # add your GOOGLE_API_KEY
+cp .env.example .env   # then fill in GOOGLE_API_KEY and/or OPENAI_API_KEY
 ```
 
 ## Run
 
 ```bash
-npx promptfoo eval
-npx promptfoo view   # open web UI to compare results
+npm run eval              # both provider groups
+npm run eval:google       # Gemini only
+npm run eval:openai       # OpenAI only (gpt-6-luna)
+npm run eval:view         # open web UI to compare results
 ```
+
+`npm run eval` passes `--env-file .env`, so the keys never need to be exported
+into your shell. To check config without spending anything:
+
+```bash
+npm run eval:validate
+```
+
+## API keys
+
+Keys live in `evals/.env`, which is gitignored. `.env.example` is committed and
+lists the variables:
+
+| Variable | Used by |
+| --- | --- |
+| `GOOGLE_API_KEY` | `configs/providers/google.yaml` (Gemini) |
+| `OPENAI_API_KEY` | `configs/providers/openai.yaml` (gpt-6-luna) |
+
+Set only the ones you need — a provider whose key is missing produces ERROR
+results for its rows, which is visible in the output rather than silent.
 
 ## Structure
 
@@ -26,6 +48,7 @@ evals/
     default-test.yaml           # shared test settings (transform + scoring)
     providers/
       google.yaml               # model definitions (Gemini variants)
+      openai.yaml               # model definitions (gpt-6-luna, OpenAI)
     assertions/
       extractor-assertions.js   # 6 named assertion functions
       extractor-scoring.js      # composite pass/fail scoring
@@ -62,4 +85,18 @@ Six metrics per test case:
 
 ## Adding a Provider
 
-Add model definitions to `configs/providers/google.yaml` or create a new provider file and reference it in `promptfooconfig.yaml` under `providers:`.
+Add model definitions to an existing file in `configs/providers/` or create a new
+one and reference it in `promptfooconfig.yaml` under `providers:`.
+
+### Notes on the OpenAI provider
+
+`configs/providers/openai.yaml` uses the explicit `openai:chat:<model>` endpoint
+prefix, matching what `server/internal/listener/pipeline/extractor.go` actually
+calls (Chat Completions), rather than a bare model ID which may route to the
+Responses API.
+
+`gpt-6-luna` is a reasoning model, so no `temperature` is set — reasoning models
+reject it. Reasoning tokens are billed as output, and for a structured extraction
+task they are mostly wasted work, so `reasoning_effort: none` is the default
+here. Commented entries in that file let you A/B `low` reasoning and the
+`gpt-5.4-nano` baseline against it.

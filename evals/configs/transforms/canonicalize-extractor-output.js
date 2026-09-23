@@ -1,22 +1,32 @@
 module.exports = {
   canonicalizeExtractorOutput: (output) => {
+    // Mirrors cleanJSONResponse() in server/internal/listener/pipeline/extractor.go.
+    //
+    // This is deliberately a faithful port, not a lenient parser. The eval exists
+    // to predict production: if it repairs output that production rejects, it
+    // reports green on a run that fails in the listener, and no one finds out
+    // until a Telegram message silently produces nothing. If it were stricter, it
+    // would penalise models for output production handles fine.
+    //
+    // So: strip a ``` fence, trim, and hand the rest to JSON.parse. No array
+    // slicing, no brace balancing, no trailing-comma repair. If the model emits
+    // malformed JSON we want a loud failure here, and the guard belongs in the
+    // token cap or the prompt — not in the parser.
     const normalizeJsonText = (rawOutput) => {
       let text = String(rawOutput ?? '').trim();
 
-      const fencedMatch = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-      if (fencedMatch) {
-        text = fencedMatch[1].trim();
-      }
-
-      if (!text.startsWith('[')) {
-        const arrayStart = text.indexOf('[');
-        const arrayEnd = text.lastIndexOf(']');
-        if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
-          text = text.slice(arrayStart, arrayEnd + 1);
+      if (text.startsWith('```')) {
+        const newlineIdx = text.indexOf('\n');
+        if (newlineIdx !== -1) {
+          text = text.slice(newlineIdx + 1);
+        }
+        const fenceEnd = text.lastIndexOf('```');
+        if (fenceEnd !== -1) {
+          text = text.slice(0, fenceEnd);
         }
       }
 
-      return text;
+      return text.trim();
     };
 
     const canonicalContacts = (contacts) =>
@@ -56,9 +66,21 @@ module.exports = {
       contacts: canonicalContacts(item?.contacts),
     });
 
-    const parsed = JSON.parse(normalizeJsonText(output));
+    // Mirrors parseResponse(): array first, then a single-object fallback.
+    // Production accepts a bare object when the model returns one listing
+    // unwrapped, so the eval must accept it too.
+    const normalized = normalizeJsonText(output);
+    let parsed;
+    try {
+      parsed = JSON.parse(normalized);
+    } catch (err) {
+      throw new Error(`parse LLM JSON output: ${err.message} (raw: ${normalized.slice(0, 200)})`);
+    }
     if (!Array.isArray(parsed)) {
-      throw new Error('Expected model output to be a JSON array');
+      if (parsed === null || typeof parsed !== 'object') {
+        throw new Error(`parse LLM JSON output: expected an array or object, got ${typeof parsed}`);
+      }
+      parsed = [parsed];
     }
 
     return parsed

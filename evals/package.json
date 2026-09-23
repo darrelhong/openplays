@@ -4,13 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "eval": "promptfoo eval --env-file .env",
+    "eval:view": "promptfoo view",
+    "eval:validate": "promptfoo validate -c promptfooconfig.yaml && node --test configs/transforms/*.test.js configs/assertions/*.test.js",
+    "eval:google": "promptfoo eval --env-file .env --filter-providers google",
+    "eval:openai": "promptfoo eval --env-file .env --filter-providers openai",
+    "test": "node --test configs/transforms/*.test.js configs/assertions/*.test.js",
+    "eval:openai:nocache": "promptfoo eval --env-file .env --filter-providers openai --no-cache"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "npm@11.6.2",
   "dependencies": {
-    "promptfoo": "^0.121.9"
+    "promptfoo": "^0.123.1"
   }
 }

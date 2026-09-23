@@ -5,6 +5,7 @@ prompts:
 
 providers:
   - file://configs/providers/google.yaml
+  - file://configs/providers/openai.yaml
 
 defaultTest: file://configs/default-test.yaml
 
