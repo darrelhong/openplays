@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 
@@ -82,6 +83,17 @@ func LoadConfig() (*Config, error) {
 	if rl := os.Getenv("LLM_MAX_REQ_PER_MIN"); rl != "" {
 		if v, err := strconv.Atoi(rl); err == nil && v > 0 {
 			llmCfg.RateLimit = v
+		}
+	}
+	// LLM_REASONING_EFFORT lets a deployment target a model that rejects the
+	// parameter (older/local builds). Set it to an empty string deliberately to
+	// omit reasoning_effort altogether.
+	if effort, ok := os.LookupEnv("LLM_REASONING_EFFORT"); ok {
+		llmCfg.ReasoningEffort = strings.TrimSpace(effort)
+	}
+	if mct := os.Getenv("LLM_MAX_COMPLETION_TOKENS"); mct != "" {
+		if v, err := strconv.Atoi(mct); err == nil && v > 0 {
+			llmCfg.MaxCompletionTokens = v
 		}
 	}
 

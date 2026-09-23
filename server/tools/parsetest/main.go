@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -23,11 +24,13 @@ import (
 //
 // Env vars:
 //
-//	LLM_BASE_URL  (default: http://localhost:1234/v1)
-//	LLM_MODEL     (default: empty — uses whatever LM Studio has loaded)
-//	LLM_API_KEY   (default: empty — for cloud providers)
-//	SENDER_NAME   (default: test_user)
-//	TIMEZONE      (default: Asia/Singapore)
+//	LLM_BASE_URL             (default: http://localhost:1234/v1)
+//	LLM_MODEL                (default: empty — uses whatever LM Studio has loaded)
+//	LLM_API_KEY              (default: empty — for cloud providers)
+//	LLM_REASONING_EFFORT     (default: none; empty omits the parameter)
+//	LLM_MAX_COMPLETION_TOKENS(optional; unset = endpoint default)
+//	SENDER_NAME              (default: test_user)
+//	TIMEZONE                 (default: Asia/Singapore)
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
@@ -44,15 +47,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	baseURL := envOr("LLM_BASE_URL", "http://localhost:1234/v1")
-	model := envOr("LLM_MODEL", "")
-	apiKey := os.Getenv("LLM_API_KEY")
-
-	cfg := pipeline.LLMConfig{
-		BaseURL: baseURL,
-		Model:   model,
-		APIKey:  apiKey,
-		Timeout: 500 * time.Second,
+	// Start from the pipeline defaults so this tool sends the same request shape
+	// production does — same reasoning_effort, same max_completion_tokens. A
+	// debugging tool that omits those would exercise a different code path than
+	// the listener and mislead whoever is using it.
+	cfg := pipeline.DefaultLLMConfig()
+	cfg.BaseURL = envOr("LLM_BASE_URL", cfg.BaseURL)
+	cfg.Model = envOr("LLM_MODEL", cfg.Model)
+	cfg.APIKey = os.Getenv("LLM_API_KEY")
+	cfg.Timeout = 500 * time.Second
+	if effort, ok := os.LookupEnv("LLM_REASONING_EFFORT"); ok {
+		cfg.ReasoningEffort = effort
+	}
+	if mct := os.Getenv("LLM_MAX_COMPLETION_TOKENS"); mct != "" {
+		if v, err := strconv.Atoi(mct); err == nil && v > 0 {
+			cfg.MaxCompletionTokens = v
+		}
 	}
 
 	senderName := envOr("SENDER_NAME", "test_user")

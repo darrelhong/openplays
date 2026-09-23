@@ -64,6 +64,83 @@ func TestToUpsertPlayParams_PreservesDifferentOrganizer(t *testing.T) {
 	}
 }
 
+// Courts is optional: a listing whose court count the model could not read must
+// still be inserted, with courts NULL rather than 0.
+//
+// 0 and null mean different things here — 0 would render as "0 courts" in the
+// UI, which is wrong and worse than saying nothing. This is a real case: a live
+// eval run produced courts=null for one tier while its source line did state a
+// court count for a sibling tier, and the model dropped it.
+func TestParseResponse_NullCourtsStaysNull(t *testing.T) {
+	t.Run("explicit null persists as nil", func(t *testing.T) {
+		json := `[{
+			"listing_type": "play",
+			"host_name": "Alice",
+			"date": "2026-04-03",
+			"start_time": "13:00",
+			"end_time": "15:00",
+			"venue": "Sengkang Sports Hall",
+			"courts": null,
+			"fee_cents": 1300,
+			"currency": "SGD",
+			"contacts": []
+		}]`
+
+		candidates, err := parseResponse(json, "raw block")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if candidates[0].Courts != nil {
+			t.Errorf("candidate courts = %v, want nil", *candidates[0].Courts)
+		}
+
+		params := ToUpsertPlayParams(&candidates[0], MessageInput{
+			SenderName: "Alice",
+			Timezone:   "Asia/Singapore",
+		})
+		if params.Courts != nil {
+			t.Errorf("params.Courts = %v, want nil (NULL in DB, not 0)", *params.Courts)
+		}
+	})
+
+	t.Run("absent courts field persists as nil", func(t *testing.T) {
+		json := `[{
+			"listing_type": "play",
+			"host_name": "Alice",
+			"date": "2026-04-03",
+			"start_time": "13:00",
+			"end_time": "15:00",
+			"venue": "Sengkang Sports Hall",
+			"fee_cents": 1300,
+			"currency": "SGD",
+			"contacts": []
+		}]`
+
+		candidates, err := parseResponse(json, "raw block")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if candidates[0].Courts != nil {
+			t.Errorf("candidate courts = %v, want nil", *candidates[0].Courts)
+		}
+		params := ToUpsertPlayParams(&candidates[0], MessageInput{SenderName: "Alice"})
+		if params.Courts != nil {
+			t.Errorf("params.Courts = %v, want nil", *params.Courts)
+		}
+	})
+
+	t.Run("zero is preserved as zero, not treated as absent", func(t *testing.T) {
+		json := `[{"venue":"A","courts":0}]`
+		candidates, err := parseResponse(json, "raw block")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if candidates[0].Courts == nil || *candidates[0].Courts != 0 {
+			t.Errorf("courts = %v, want 0", candidates[0].Courts)
+		}
+	})
+}
+
 func TestParseResponse_FloatCourts(t *testing.T) {
 	t.Run("array with float courts parses", func(t *testing.T) {
 		json := `[

@@ -24,15 +24,37 @@ type LLMConfig struct {
 	APIKey    string        // optional — required for cloud providers, empty for local
 	Timeout   time.Duration // per-request timeout
 	RateLimit int           // max requests per minute (0 = unlimited)
+
+	// ReasoningEffort is sent as "reasoning_effort" to models that support it
+	// (GPT-5 and newer, o-series). Empty means omit the field entirely, which is
+	// correct for models that reject it — a local LM Studio build, for example.
+	//
+	// Extraction is structured output, not deliberation, so "none" is the right
+	// default: it keeps reasoning_tokens at 0 and avoids paying output rates for
+	// thinking that does not improve the result.
+	ReasoningEffort string
+
+	// MaxCompletionTokens optionally caps generated output. Left at 0 the field
+	// is omitted from the request entirely and the endpoint applies its own
+	// limit, which is the default.
+	//
+	// Note the parameter name: reasoning models reject "max_tokens" and take
+	// "max_completion_tokens" instead, so the latter is used whenever this is set.
+	MaxCompletionTokens int
 }
+
+// DefaultReasoningEffort is applied by DefaultLLMConfig. Named so callers and
+// tests can reference it instead of repeating the literal.
+const DefaultReasoningEffort = "none"
 
 // DefaultLLMConfig returns config for a local LM Studio instance.
 func DefaultLLMConfig() LLMConfig {
 	return LLMConfig{
-		BaseURL:   "http://localhost:1234/v1",
-		Model:     "",
-		Timeout:   500 * time.Second,
-		RateLimit: 0,
+		BaseURL:         "http://localhost:1234/v1",
+		Model:           "",
+		Timeout:         500 * time.Second,
+		RateLimit:       0,
+		ReasoningEffort: DefaultReasoningEffort,
 	}
 }
 
@@ -137,10 +159,21 @@ Each object schema:
 }`
 
 // chatRequest is the OpenAI-compatible chat completion request.
+//
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	Temperature float64       `json:"temperature"`
+	Model    string        `json:"model"`
+	Messages []chatMessage `json:"messages"`
+
+	// Temperature is omitted for reasoning models. They accept the field
+	// (verified against gpt-6-luna, which returns 200) but ignore it, so sending
+	// it only invites confusion about which sampling setting is in force.
+	Temperature *float64 `json:"temperature,omitempty"`
+
+	// Both are omitted when unset, so the endpoint's own defaults apply.
+	// max_tokens is never used: reasoning models reject it in favour of
+	// max_completion_tokens.
+	ReasoningEffort     string `json:"reasoning_effort,omitempty"`
+	MaxCompletionTokens int    `json:"max_completion_tokens,omitempty"`
 }
 
 type chatMessage struct {
@@ -174,14 +207,7 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 
 	userPrompt := fmt.Sprintf("Sender name: %s\nReference date (today): %s\n\nText block:\n%s", senderName, referenceDate, block)
 
-	reqBody := chatRequest{
-		Model: e.config.Model,
-		Messages: []chatMessage{
-			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userPrompt},
-		},
-		Temperature: 0.0,
-	}
+	reqBody := e.buildRequest(userPrompt)
 
 	bodyBytes, err := json.Marshal(reqBody)
 	if err != nil {
@@ -242,6 +268,34 @@ func (e *LLMExtractor) Extract(ctx context.Context, block string, referenceDate 
 	}
 
 	return candidates, nil
+}
+
+// buildRequest assembles the chat completion request from the configured
+// endpoint settings and the prompt for this block.
+//
+// The pointer/omitempty fields exist so an operator can point this at a model
+// that rejects reasoning parameters (or at a local server) and get a request
+// without them, rather than a 400.
+func (e *LLMExtractor) buildRequest(userPrompt string) chatRequest {
+	req := chatRequest{
+		Model: e.config.Model,
+		Messages: []chatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		ReasoningEffort:     e.config.ReasoningEffort,
+		MaxCompletionTokens: e.config.MaxCompletionTokens,
+	}
+
+	// Deterministic extraction. Only sent when no reasoning effort is configured,
+	// because reasoning models ignore temperature and their temperature support
+	// varies by model and endpoint.
+	if e.config.ReasoningEffort == "" {
+		temp := 0.0
+		req.Temperature = &temp
+	}
+
+	return req
 }
 
 // parseResponse handles both array and single-object JSON responses.
