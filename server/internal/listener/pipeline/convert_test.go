@@ -248,3 +248,127 @@ func TestParseResponse_FloatCourts(t *testing.T) {
 		}
 	})
 }
+
+// TestParseResponse_TrailingJunk covers the model emitting a complete array
+// followed by a stray character. json.Unmarshal rejects the whole response
+// ("invalid character '}' after top-level value"), which discarded every
+// listing and burned a retry; these responses contain valid data and are kept.
+func TestParseResponse_TrailingJunk(t *testing.T) {
+	valid := `[{"listing_type":"play","host_name":"Apple21","date":"2026-09-24","venue":"Cheng San CC","fee_cents":1000}]`
+
+	for _, tc := range []struct {
+		name    string
+		content string
+		wantN   int
+	}{
+		{"clean", valid, 1},
+		{"stray closing brace", valid + "}", 1},
+		{"stray brace with space", valid + " }", 1},
+		{"stray brace on new line", valid + "\n}", 1},
+		{"trailing prose", valid + "\nHope that helps!", 1},
+		{"trailing semicolon", valid + ";", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseResponse(tc.content, "raw block")
+			if err != nil {
+				t.Fatalf("parseResponse returned error: %v", err)
+			}
+			if len(got) != tc.wantN {
+				t.Fatalf("got %d listings, want %d", len(got), tc.wantN)
+			}
+			if got[0].HostName == nil || *got[0].HostName != "Apple21" {
+				t.Errorf("host_name = %v, want Apple21", got[0].HostName)
+			}
+			if got[0].RawBlock != "raw block" {
+				t.Errorf("RawBlock = %q, want %q", got[0].RawBlock, "raw block")
+			}
+		})
+	}
+}
+
+// TestParseResponse_TruncationStillRejected is the guard on the above: the
+// loosening must not turn truncated output into a partial success. A half
+// written array has no complete leading value, so it must still error.
+func TestParseResponse_TruncationStillRejected(t *testing.T) {
+	for _, content := range []string{
+		`[{"listing_type":"play","host_name":"Apple21","cur`,
+		`[{"listing_type":"play"},`,
+		`[{"listing_type":"play"}`,
+		``,
+		`not json at all`,
+	} {
+		if _, err := parseResponse(content, "raw block"); err == nil {
+			t.Errorf("parseResponse(%.40q) succeeded, want error", content)
+		}
+	}
+}
+
+// TestParseResponse_RejectsNonArrayNonObject keeps the top-level type guard
+// intact.
+//
+// `null` is deliberately excluded: json.Unmarshal into a slice accepts null
+// and yields an empty slice, so it parsed to zero listings before this change
+// and still does. That is pre-existing behaviour, not something the trailing
+// junk fix altered, and it is recorded here so the next reader does not
+// mistake it for a regression.
+func TestParseResponse_RejectsNonArrayNonObject(t *testing.T) {
+	for _, content := range []string{`"a string"`, `42`, `true`} {
+		if _, err := parseResponse(content, "raw block"); err == nil {
+			t.Errorf("parseResponse(%s) succeeded, want error", content)
+		}
+	}
+
+	// Documented behaviour: null is an empty result, not an error.
+	got, err := parseResponse(`null`, "raw block")
+	if err != nil {
+		t.Errorf("parseResponse(null) error = %v, want nil (pre-existing behaviour)", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("parseResponse(null) returned %d listings, want 0", len(got))
+	}
+}
+
+// TestParseResponse_RejectsNonObjectElements covers elements inside an array.
+//
+// Each element is decoded into model.ParsedPlayCandidate, so an element that
+// is not an object (or null) is a hard error. This matters because the eval
+// transform must fail on exactly the same inputs: if it accepted `[[]]` and
+// scored a listing, a run would look green while the listener rejected the
+// same response and burned a retry. The transform previously did accept these,
+// which is how the divergence was found.
+//
+// Note these all stay errors after the trailing-junk fix: reading the first
+// JSON value does not make malformed elements valid.
+func TestParseResponse_RejectsNonObjectElements(t *testing.T) {
+	for _, content := range []string{
+		`[[]]`,                // element is an array
+		`["a"]`,               // element is a string
+		`[123]`,               // element is a number
+		`[true]`,              // element is a bool
+		`[{"venue":"X"},[]]`,  // valid element followed by an array
+		`[{"venue":"X"},123]`, // valid element followed by a number
+	} {
+		if _, err := parseResponse(content, "raw block"); err == nil {
+			t.Errorf("parseResponse(%s) succeeded, want error", content)
+		}
+	}
+
+	// null elements are NOT rejected: Go decodes null into a zero-value struct.
+	// Verified explicitly so the rule above is not read too broadly.
+	got, err := parseResponse(`[null]`, "raw block")
+	if err != nil {
+		t.Errorf("parseResponse([null]) error = %v, want nil", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("parseResponse([null]) returned %d listings, want 1", len(got))
+	}
+
+	// A valid element followed by null keeps both, matching Go's decode.
+	got, err = parseResponse(`[{"venue":"X"},null]`, "raw block")
+	if err != nil {
+		t.Fatalf("parseResponse([obj,null]) error = %v, want nil", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("parseResponse([obj,null]) returned %d listings, want 2", len(got))
+	}
+}

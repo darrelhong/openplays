@@ -298,26 +298,74 @@ func (e *LLMExtractor) buildRequest(userPrompt string) chatRequest {
 	return req
 }
 
+// jsonValuePrefix returns the leading JSON value in content and any trailing
+// text after it.
+//
+// The decoder stops as soon as the first complete value has been read, so
+// trailing bytes are left over rather than being an error. That is the whole
+// point: models occasionally finish a valid array and then emit a stray "}",
+// which json.Unmarshal rejects outright ("invalid character '}' after
+// top-level value") even though every listing in it is perfectly good.
+//
+// Truncated output is still refused. A half-written array has no complete
+// leading value, so Decode returns an error and nothing is salvaged. The
+// distinction that matters is between "a valid value plus junk" (recoverable)
+// and "not a complete value at all" (not), and this preserves it.
+func jsonValuePrefix(content string) (raw []byte, trailing string, err error) {
+	dec := json.NewDecoder(strings.NewReader(content))
+	var value json.RawMessage
+	if err := dec.Decode(&value); err != nil {
+		return nil, "", err
+	}
+	return value, content[dec.InputOffset():], nil
+}
+
 // parseResponse handles both array and single-object JSON responses.
 func parseResponse(content string, block string) ([]model.ParsedPlayCandidate, error) {
 	content = strings.TrimSpace(content)
 
+	value, trailing, err := jsonValuePrefix(content)
+	if err != nil {
+		return nil, fmt.Errorf("parse LLM JSON output: %w (raw: %.500s)", err, content)
+	}
+
 	// Try array first (most common response format)
 	var candidates []model.ParsedPlayCandidate
-	if err := json.Unmarshal([]byte(content), &candidates); err != nil {
+	if arrErr := json.Unmarshal(value, &candidates); arrErr != nil {
 		// Try single object as fallback
 		var single model.ParsedPlayCandidate
-		if singleErr := json.Unmarshal([]byte(content), &single); singleErr != nil {
+		if singleErr := json.Unmarshal(value, &single); singleErr != nil {
 			// Report the array error since that's the expected format
-			return nil, fmt.Errorf("parse LLM JSON output: %w (raw: %.500s)", err, content)
+			return nil, fmt.Errorf("parse LLM JSON output: %w (raw: %.500s)", arrErr, content)
+		}
+		if rest := strings.TrimSpace(trailing); rest != "" {
+			slog.Warn("ignored trailing text after JSON object", "trailing", truncateForLog(rest))
 		}
 		single.RawBlock = block
 		return []model.ParsedPlayCandidate{single}, nil
 	}
+
+	// A non-empty remainder means the response carried extra bytes after the
+	// array. We keep the listings but record it, so a model that starts doing
+	// this consistently is visible instead of silent.
+	if rest := strings.TrimSpace(trailing); rest != "" {
+		slog.Warn("ignored trailing text after JSON array",
+			"trailing", truncateForLog(rest), "listings", len(candidates))
+	}
+
 	for i := range candidates {
 		candidates[i].RawBlock = block
 	}
 	return candidates, nil
+}
+
+// truncateForLog bounds a string for structured logging.
+func truncateForLog(s string) string {
+	const max = 120
+	if len(s) > max {
+		return s[:max] + "..."
+	}
+	return s
 }
 
 // cleanJSONResponse strips markdown code fences and whitespace that LLMs
