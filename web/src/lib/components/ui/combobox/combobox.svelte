@@ -86,7 +86,7 @@
 		<ComboboxTrigger />
 	</div>
 	<ComboboxContent {...contentProps}>
-		{#each filteredItems as item, i (i + item.value)}
+		{#each filteredItems as item (item.value)}
 			<ComboboxItem value={item.value} label={item.label} disabled={item.disabled} />
 		{:else}
 			<ComboboxEmpty />

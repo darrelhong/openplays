@@ -29,14 +29,13 @@ function handleMockApi(req: IncomingMessage, res: ServerResponse) {
 
 	if (req.method === 'GET' && path === '/api/venues/') {
 		respondJSON(res, {
-			items: [
-				{
-					id: 1,
-					name: 'Mock Venue',
-					latitude: 1.3,
-					longitude: 103.8
-				}
-			]
+			// Indices 1 and 12 used to collide: 1 + '23' === 12 + '3'.
+			items: Array.from({ length: 13 }, (_, index) => ({
+				id: index === 1 ? 23 : index === 12 ? 3 : 100 + index,
+				name: `Mock Venue ${index}`,
+				latitude: 1.3 + index / 1000,
+				longitude: 103.8
+			}))
 		});
 		return;
 	}
@@ -61,6 +60,22 @@ test.afterAll(async () => {
 			else resolve();
 		});
 	});
+});
+
+test('venue dropdown renders distinct IDs without key collisions and leaves filters working', async ({
+	page
+}) => {
+	const errors: string[] = [];
+	page.on('pageerror', (error) => errors.push(error.message));
+	await page.goto('/');
+	await page.getByRole('combobox', { name: 'Sort near venue' }).click();
+	await expect(page.getByRole('option')).toHaveCount(13);
+	await page.getByRole('option', { name: 'Mock Venue 1', exact: true }).click();
+	await expect(page).toHaveURL(/lat=1\.301/);
+	await page.getByRole('button', { name: 'Sport', exact: true }).click();
+	await page.getByRole('option', { name: 'Tennis', exact: true }).click();
+	await expect(page).toHaveURL(/sport=tennis/);
+	expect(errors).toEqual([]);
 });
 
 test('clear filters preserves timezone and removes date bounds', async ({ page }) => {
